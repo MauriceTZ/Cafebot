@@ -42,7 +42,10 @@ de subida de A (1600 con `ENCODER_X2`). Reductora 1:8.
    - Muy distinto de 800 → revisar `PULSOS_POR_REVOLUCION` o el cableado.
    Con las ruedas en el aire, `DONE` siempre muestra la distancia pedida: solo cuenta pulsos, no sabe cuánto avanzó de verdad. La prueba real es la vuelta a mano (o `A 1000` en el piso, con huincha).
 2. `V 100 0` (repetir): las 4 ruedas hacia adelante. Si alguna va al revés, `Mx_INV_MOTOR`.
-3. `W 90`: las ruedas forman un rombo (tangentes a un círculo) y el robot giraría a la **izquierda**.
+3. **Dirección, en este orden** (con las ruedas en el aire):
+   1. `L 90 200`: las 4 ruedas deben quedar **paralelas apuntando a la izquierda**. La que apunte a la derecha → cambiar su signo en `SIGNO_SERVO`. *No* usar `W 90` para esto: `W` depende además de en qué esquina está cada rueda, y un error en las esquinas se puede "compensar" con signos de servo equivocados (el giro funciona pero el cangrejo no).
+   2. Anotar en `ESQUINA_X` / `ESQUINA_Y` dónde está físicamente M1…M4 (delantera/trasera, izquierda/derecha).
+   3. `W 90`: las ruedas forman un **rombo** (cada una perpendicular a la línea hacia el centro) y el robot gira a la **izquierda** (antihorario visto desde arriba). Si quedan en X apuntando al centro → `SIGNO_GIRO -1`.
 4. **Calibrar los servos de dirección (HS-311) en microsegundos** — corrige el desfase del estriado sin desarmar nada:
    - `Y` muestra la tabla actual (µs para -90°, 0°, +90° de M1..M4).
    - Para cada rueda `i` (0 = M1 … 3 = M4): `Y i 1450`, `Y i 1460`… hasta que quede **paralela al chasis** (usar una regla apoyada en el costado). Anotar el valor y fijarlo: `YS i 0 <us>`.

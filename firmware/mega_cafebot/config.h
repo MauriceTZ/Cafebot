@@ -113,15 +113,19 @@ const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 #define SERVO_ASENTAMIENTO_MS 80
 // Modo "cangrejo": las 4 ruedas al mismo ángulo => traslación sin girar.
 // Signo por servo para que +ángulo = rueda girada hacia la IZQUIERDA en las 4.
-// Ajustado 27 oct con W 90 (el robot gira): M1 y M3 quedan invertidos respecto de M2 y M4.
-// Con estos signos, el cangrejo (L 90 200) debería dejar las 4 ruedas PARALELAS apuntando
-// a la izquierda.                                                [CONFIRMAR con L 90 200]
+// PASO 1 - SIGNO_SERVO: dice hacia dónde gira CADA servo. Se ajusta SOLO con "L 90 200":
+// las 4 ruedas deben quedar paralelas apuntando a la IZQUIERDA del robot. Si una apunta
+// a la derecha, cambiar su signo. (W 90 NO sirve para ajustar esto: ver ESQUINA_*.)
 #define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
-const int8_t SIGNO_SERVO[4] = { -1, +1, -1, +1 };
-// Giro en el sitio: ruedas tangentes al círculo (rombo). Con M1=del.der, M2=del.izq,
-// M3=tras.der, M4=tras.izq el patrón FÍSICO es M1(+) M2(-) M3(-) M4(+).
-// Si con W 90 las ruedas apuntan hacia el centro (forma de X) en vez de formar un rombo,
-// poner -1 aquí. (27 oct: con W 90 el robot gira ~90°, patrón correcto.)
+const int8_t SIGNO_SERVO[4] = { -1, +1, -1, +1 };              // [CONFIRMAR con L 90 200]
+
+// PASO 2 - ESQUINA de cada rueda, vista desde arriba con el robot mirando hacia adelante.
+//   ESQUINA_X: +1 = delantera, -1 = trasera.   ESQUINA_Y: +1 = izquierda, -1 = derecha.
+// De esto salen el rombo del giro en el sitio y qué ruedas son del lado derecho/izquierdo.
+// Supuesto de v0 (sin verificar): M1 = del.der, M2 = del.izq, M3 = tras.der, M4 = tras.izq.
+const int8_t ESQUINA_X[4] = { +1, +1, -1, -1 };                // [CONFIRMAR mirando el robot]
+const int8_t ESQUINA_Y[4] = { -1, +1, -1, +1 };                // [CONFIRMAR mirando el robot]
+// Si con W 90 las ruedas quedan apuntando al centro (forma de X) en vez de rombo, -1.
 #define SIGNO_GIRO +1
 // Calibración fina en MICROSEGUNDOS (writeMicroseconds), no en grados enteros:
 //   - El HS-311 acepta ~575-2460 µs; la librería Servo por defecto solo usa 544-2400 µs

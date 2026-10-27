@@ -109,38 +109,40 @@ void lazo_ruedas() {
 }
 
 // ---------------- Cinemática ----------------
-// Convenciones: x adelante, y izquierda, th antihorario. M1,M3 = lado derecho; M2,M4 = izquierdo.
+// Convenciones: x adelante, y izquierda, th antihorario. Qué rueda está en qué esquina: config.h
 void cinematica_inversa(Postura p, float vx, float wz, float v_cangrejo) {
-    float v13 = 0, v24 = 0;
-    if (p == POSTURA_GIRO) {
-        v13 = wz * CINEMATICA_D_GIRO_Z * 0.5f;
-        v24 = -v13;
-    } else if (p == POSTURA_CANGREJO) {
-        v13 = v24 = v_cangrejo;
-    } else {
-        // Recto: diferencial pequeño para mantener el rumbo
-        v13 = vx + wz * CINEMATICA_W * 0.5f;
-        v24 = vx - wz * CINEMATICA_W * 0.5f;
+    for (uint8_t i = 0; i < 4; i++) {
+        float lado = ESQUINA_Y[i];  // +1 izquierda, -1 derecha
+        if (p == POSTURA_GIRO)
+            v_obj[i] = -lado * wz * CINEMATICA_D_GIRO_Z * 0.5f;   // derecha avanza, izquierda retrocede
+        else if (p == POSTURA_CANGREJO)
+            v_obj[i] = v_cangrejo;
+        else
+            v_obj[i] = vx - lado * wz * CINEMATICA_W * 0.5f;      // recto con corrección de rumbo
     }
-    v_obj[0] = v13; v_obj[2] = v13;
-    v_obj[1] = v24; v_obj[3] = v24;
 }
 
 // Odometría con los mm recorridos por cada rueda en este ciclo
 void odometria(const float d[4]) {
-    float d13 = 0.5f * (d[0] + d[2]);
-    float d24 = 0.5f * (d[1] + d[3]);
+    float d_der = 0, d_izq = 0;
+    uint8_t n_der = 0, n_izq = 0;
+    for (uint8_t i = 0; i < 4; i++) {
+        if (ESQUINA_Y[i] < 0) { d_der += d[i]; n_der++; }
+        else { d_izq += d[i]; n_izq++; }
+    }
+    d_der = n_der ? d_der / n_der : 0;
+    d_izq = n_izq ? d_izq / n_izq : 0;
     float dx = 0, dy = 0, dth = 0;
     if (postura == POSTURA_GIRO) {
-        dth = (d13 - d24) / CINEMATICA_D_GIRO_Z;
+        dth = (d_der - d_izq) / CINEMATICA_D_GIRO_Z;
     } else if (postura == POSTURA_CANGREJO) {
         float s = 0.25f * (d[0] + d[1] + d[2] + d[3]);
         float a = radians(ang_cangrejo_actual);
         dx = s * cos(a);
         dy = s * sin(a);
     } else {
-        dx = 0.5f * (d13 + d24);
-        dth = (d13 - d24) / CINEMATICA_W;
+        dx = 0.5f * (d_der + d_izq);
+        dth = (d_der - d_izq) / CINEMATICA_W;
     }
     float th_m = pose.th + 0.5f * dth;
     float c = cos(th_m), s = sin(th_m);

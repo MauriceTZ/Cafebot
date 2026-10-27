@@ -12,7 +12,7 @@ EEPROMMock EEPROM;
 #include "../mega_cafebot/mega_cafebot.ino"
 
 // ---------------- Planta ----------------
-static const float POS[4][2]={{CINEMATICA_L/2,-CINEMATICA_W/2},{CINEMATICA_L/2,CINEMATICA_W/2},{-CINEMATICA_L/2,-CINEMATICA_W/2},{-CINEMATICA_L/2,CINEMATICA_W/2}};
+static const float POS[4][2]={{ESQUINA_X[0]*CINEMATICA_L/2,ESQUINA_Y[0]*CINEMATICA_W/2},{ESQUINA_X[1]*CINEMATICA_L/2,ESQUINA_Y[1]*CINEMATICA_W/2},{ESQUINA_X[2]*CINEMATICA_L/2,ESQUINA_Y[2]*CINEMATICA_W/2},{ESQUINA_X[3]*CINEMATICA_L/2,ESQUINA_Y[3]*CINEMATICA_W/2}};
 static const uint8_t ENC_A[4]={M1_ENC_A,M2_ENC_A,M3_ENC_A,M4_ENC_A}, ENC_B[4]={M1_ENC_B,M2_ENC_B,M3_ENC_B,M4_ENC_B}, ENC_INV[4]={M1_INV_ENC,M2_INV_ENC,M3_INV_ENC,M4_INV_ENC};
 float ganancia[4]={1.05f,0.95f,1.0f,0.92f};  // motores distintos a propósito
 float vrueda[4]={0}, dist_acum[4]={0}; long cuentas_gen[4]={0};

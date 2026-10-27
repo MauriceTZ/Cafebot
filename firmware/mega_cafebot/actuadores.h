@@ -134,12 +134,11 @@ enum Postura : uint8_t { POSTURA_RECTO = 0, POSTURA_GIRO = 1, POSTURA_CANGREJO =
 
 void angulos_postura(Postura p, float ang_cangrejo, float out[4]) {
     if (p == POSTURA_GIRO) {
-        // Patrón FÍSICO (después de SIGNO_SERVO): M1(+), M2(-), M3(-), M4(+) -> ruedas
-        // tangentes al círculo de giro. Nota: con los servos M2/M3 en espejo, el patrón
-        // de v0 (+,-,-,+ en el servo) dejaba las 4 ruedas PARALELAS, no en rombo.
-        float a = SIGNO_GIRO * ANGULO_SERVOS_Z;
-        out[0] = a; out[1] = -a;
-        out[2] = -a; out[3] = a;
+        // Cada rueda perpendicular a la línea que la une con el centro del robot (rombo).
+        // Para una rueda en (x, y): ángulo = -signo(x)·signo(y)·atan(L/W).
+        // Ej.: delantera derecha (+,-) -> +45,8° (apunta a la izquierda).
+        for (uint8_t i = 0; i < 4; i++)
+            out[i] = -SIGNO_GIRO * ESQUINA_X[i] * ESQUINA_Y[i] * ANGULO_SERVOS_Z;
     } else if (p == POSTURA_CANGREJO) {
         float a = constrain(ang_cangrejo, -CANGREJO_MAX_DEG, CANGREJO_MAX_DEG);
         for (uint8_t i = 0; i < 4; i++) out[i] = a;
