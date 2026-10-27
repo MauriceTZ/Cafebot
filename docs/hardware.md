@@ -8,7 +8,7 @@
   + shield 4M&9S          │  CSI: cámara                                (TTL, 1 Mbps)
   ├─ 4 motores + encoder  │  I2C: MPU9250 (usar giroscopio, no magnetómetro)
   ├─ 4 servos dirección   │  GPIO: botón de inicio
-  ├─ 2 servos compuertas  
+  ├─ 2 servos compuertas + 1 inclinación de cámara
   └─ 4 IR de borde
 ```
 
@@ -27,7 +27,7 @@
 | M4 | trasera izq | 2 | A1 | 5 | A4 | A5 | 6 | 89 |
 
 Pines provisorios, **por confirmar**: IR delanteros digitales 22/23, IR traseros
-analógicos A8/A9, compuertas 44/46. Los pines 20/21 (SDA/SCL) también tienen
+analógicos A8/A9, compuertas 44/46, inclinación de cámara 11. Los pines 20/21 (SDA/SCL) también tienen
 interrupción y están libres si no se usa I2C en el Mega.
 
 ## Medidas de la base

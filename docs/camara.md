@@ -1,7 +1,15 @@
 # ¿Dónde va la cámara?
 
-Supuesto: Raspberry Pi Camera Module 3 (imx708). Campo visual de la versión estándar ≈66°×41°
-(H×V); de la **Wide** ≈102°×67°. Confirmar cuál tienen: es la decisión más importante.
+Cámara del equipo: **Raspberry Pi Camera Module 3 estándar** (imx708), campo visual ≈66°×41° (H×V).
+(La versión Wide tiene ≈102°×67°.)
+
+## Decisión (27 oct)
+
+Cámara **fija en el chasis, al lado de la base del brazo, sobre un servo de inclinación**
+(servo auxiliar 2 del Mega, comando `X 2 <ángulo>`):
+- **Mirando ~17° hacia arriba** para fotografiar el árbol completo desde ~65 cm.
+- **Mirando hacia abajo** para las cajas (rojo/azul) y las albercas al navegar.
+El cable no se flexiona (solo gira unos grados) y alcanza con el que tienen.
 
 ## Fija en el chasis, a la altura de la base del brazo (~35 cm) — RECOMENDADO para esta competencia
 

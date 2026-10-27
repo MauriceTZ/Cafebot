@@ -51,7 +51,7 @@ Si no llega otra `V`/`K` en 500 ms, el Mega se detiene y emite `EVT STOP WATCHDO
 | `IN k` | Calibra NEGRO del sensor trasero k (0 = izq, 1 = der) puesto sobre la línea. |
 | `IG` | Guarda la calibración IR en EEPROM. |
 | `IS 0/1` | Seguridad de borde: con 1, al detectar una línea nueva mientras se mueve → `ABORT ... BORDE`. |
-| `X k ang` | Servo auxiliar k (compuertas de los depósitos). |
+| `X k ang` | Servo auxiliar k: 0 = compuerta maduros, 1 = compuerta sobremaduros, 2 = inclinación de la cámara. |
 | `J kp ki kff` | Ganancias del PI de rueda (sin argumentos: muestra las actuales). |
 | `H` / `?` | Ayuda. |
 

@@ -76,9 +76,10 @@
 // ---------------------------------------------------------------------
 // Comando "X k ángulo". La librería Servo del Mega usa el Timer5: los pines 44/45/46
 // pierden su PWM, pero sirven igual como salida de servo.
-#define N_SERVOS_AUX 2
-const uint8_t PIN_SERVO_AUX[N_SERVOS_AUX] = { 44, 46 };  // 0 = maduros (roja), 1 = sobremaduros (azul)
-const uint8_t AUX_INICIAL_DEG[N_SERVOS_AUX] = { 90, 90 };  // compuertas cerradas  [AJUSTAR]
+#define N_SERVOS_AUX 3
+// 0 = compuerta maduros (roja), 1 = compuerta sobremaduros (azul), 2 = inclinación de la cámara
+const uint8_t PIN_SERVO_AUX[N_SERVOS_AUX] = { 44, 46, 11 };
+const uint8_t AUX_INICIAL_DEG[N_SERVOS_AUX] = { 90, 90, 90 };  // compuertas cerradas, cámara horizontal [AJUSTAR]
 
 // ---------------------------------------------------------------------
 // 2. PARÁMETROS CINEMÁTICOS  -- sin cambios respecto a v0

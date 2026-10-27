@@ -29,7 +29,7 @@ void imprimir_ayuda() {
     Serial.println(F("Z              reiniciar encoders (solo detenido)"));
     Serial.println(F("M hz           telemetria T a hz (0 = off)"));
     Serial.println(F("I | IW | IN k | IS 0/1 | IG   IR: estado | blanco | negro k(0=TI,1=TD) | seguridad | guardar"));
-    Serial.println(F("X k ang        servo auxiliar k (compuertas) a ang grados"));
+    Serial.println(F("X k ang        servo aux k (0,1 compuertas, 2 camara) a ang grados"));
     Serial.println(F("Y | Y i us | YS i k us | YG | YD   servos direccion: tabla | pulso crudo | fijar k=-1/0/1 | guardar | defecto"));
     Serial.println(F("J kp ki kff    ganancias del PI de rueda"));
     Serial.println(F("T              ruta cuadrada de prueba 500 mm"));
