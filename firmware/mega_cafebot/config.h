@@ -35,16 +35,16 @@
 #define M3_PWM 9
 #define M3_DIR1 43
 #define M3_DIR2 42
-#define M3_SERVO_PIN 45
-#define M3_SERVO_OFFSET 90
+#define M3_SERVO_PIN 6     // 27 oct: los cables de los servos traseros están cruzados:
+#define M3_SERVO_OFFSET 89 // el pin 6 mueve la rueda trasera DERECHA (M3)
 
 #define M4_ENC_A 2
 #define M4_ENC_B A1
 #define M4_PWM 5
 #define M4_DIR1 A4
 #define M4_DIR2 A5
-#define M4_SERVO_PIN 6
-#define M4_SERVO_OFFSET 89
+#define M4_SERVO_PIN 45    // y el pin 45 la trasera IZQUIERDA (M4)
+#define M4_SERVO_OFFSET 90
 
 // Polaridad (de v0): M2 tiene el motor invertido; encoders M1 y M3 invertidos.
 #define M1_INV_MOTOR false
@@ -118,7 +118,7 @@ const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 // hacia adelante-izquierda. La que quede en la otra diagonal ( \ ) -> cambiar su signo.
 // (A ±90° no se distingue: una rueda a +90 y otra a -90 quedan en la misma línea.)
 #define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
-const int8_t SIGNO_SERVO[4] = { +1, +1, -1, -1 };  // 27 oct: servos traseros montados al revés que los delanteros [CONFIRMAR con L 45 200]
+const int8_t SIGNO_SERVO[4] = { -1, +1, -1, +1 };  // 27 oct: servos del lado derecho montados en espejo [CONFIRMAR con L 45 200]
 
 // PASO 2 - ESQUINA de cada rueda, vista desde arriba con el robot mirando hacia adelante.
 //   ESQUINA_X: +1 = delantera, -1 = trasera.   ESQUINA_Y: +1 = izquierda, -1 = derecha.

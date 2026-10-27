@@ -19,12 +19,12 @@
 
 ## Pines del Mega (`firmware/mega_cafebot/config.h`)
 
-| Rueda | Ubicación (inferida) | Enc A | Enc B | PWM | DIR1 | DIR2 | Servo | Offset |
+| Rueda | Ubicación (verificada) | Enc A | Enc B | PWM | DIR1 | DIR2 | Servo | Offset |
 |---|---|---|---|---|---|---|---|---|
 | M1 | delantera der | 18 | 31 | 12 | 34 | 35 | 13 | 87 |
 | M2 | delantera izq | 19 | 38 | 8 | 37 | 36 | 10 | 87 |
-| M3 | trasera der | 3 | 49 | 9 | 43 | 42 | 45 | 90 |
-| M4 | trasera izq | 2 | A1 | 5 | A4 | A5 | 6 | 89 |
+| M3 | trasera der | 3 | 49 | 9 | 43 | 42 | 6 | 89 |
+| M4 | trasera izq | 2 | A1 | 5 | A4 | A5 | 45 | 90 |
 
 Pines provisorios, **por confirmar**: IR delanteros digitales 22/23, IR traseros
 analógicos A8/A9, compuertas 44/46, inclinación de cámara 11. Los pines 20/21 (SDA/SCL) también tienen
