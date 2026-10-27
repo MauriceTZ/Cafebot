@@ -118,7 +118,7 @@ const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 // hacia adelante-izquierda. La que quede en la otra diagonal ( \ ) -> cambiar su signo.
 // (A ±90° no se distingue: una rueda a +90 y otra a -90 quedan en la misma línea.)
 #define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
-const int8_t SIGNO_SERVO[4] = { -1, -1, -1, -1 };              // [CONFIRMAR con L 45 200]
+const int8_t SIGNO_SERVO[4] = { +1, +1, +1, +1 };  // 27 oct: con -1 en las 4, L 45 iba adelante-DERECHA -> se invierten las 4
 
 // PASO 2 - ESQUINA de cada rueda, vista desde arriba con el robot mirando hacia adelante.
 //   ESQUINA_X: +1 = delantera, -1 = trasera.   ESQUINA_Y: +1 = izquierda, -1 = derecha.
