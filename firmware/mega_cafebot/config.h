@@ -90,7 +90,9 @@ const float dt = 1.0f / TIMER_TRIGGER_FREQUENCY;
 #define PULSOS_POR_REVOLUCION 800.0f   // contando SOLO flancos de subida de A (como v0)
 #define CINEMATICA_W 217.0f              // Ancho entre ruedas (mm)
 #define CINEMATICA_L 223.0f              // Largo entre ejes (mm)
-#define CINEMATICA_DIAMETRO_RUEDA 53.0f  // Diámetro de rueda (mm)
+// Diámetro EFECTIVO (calibrado 27 oct en el piso): A 1000 -> odometría 997 mm, huincha 955 mm
+// => 53 * 955/997 = 50,8 mm. Incluye la compresión del neumático y el error de pulsos/vuelta.
+#define CINEMATICA_DIAMETRO_RUEDA 50.8f  // mm (nominal 53)
 const float CIRCUNFERENCIA_RUEDA = PI * CINEMATICA_DIAMETRO_RUEDA;
 const float CINEMATICA_D_GIRO_Z = sqrt((CINEMATICA_W * CINEMATICA_W) + (CINEMATICA_L * CINEMATICA_L));
 const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
@@ -111,9 +113,14 @@ const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 #define SERVO_ASENTAMIENTO_MS 80
 // Modo "cangrejo": las 4 ruedas al mismo ángulo => traslación sin girar.
 // Signo por servo para que +ángulo = rueda girada hacia la IZQUIERDA en las 4.
-// Con la convención de v0 las 4 comparten signo.               [CONFIRMAR en el aire]
+// Verificado 27 oct con L (cangrejo): M2 y M3 están montados en espejo.
 #define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
 const int8_t SIGNO_SERVO[4] = { -1, +1, -1, +1 };
+// Giro en el sitio: ruedas tangentes al círculo (rombo). Con M1=del.der, M2=del.izq,
+// M3=tras.der, M4=tras.izq el patrón FÍSICO es M1(+) M2(-) M3(-) M4(+).
+// Si con W 90 las ruedas apuntan hacia el centro (forma de X) en vez de formar un rombo,
+// poner -1 aquí.                                                 [CONFIRMAR con W 90]
+#define SIGNO_GIRO +1
 // Calibración fina en MICROSEGUNDOS (writeMicroseconds), no en grados enteros:
 //   - El HS-311 acepta ~575-2460 µs; la librería Servo por defecto solo usa 544-2400 µs
 //     y Servo.write() trabaja en grados enteros (≈10 µs). Con offsets de 87° la rueda
