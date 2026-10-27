@@ -26,7 +26,7 @@ void planta(float h){
     float obj = sg*std::max(0,pwm-15)*2.27f*ganancia[i];
     float tau = freno?0.03f:0.08f;
     vrueda[i]+= (obj-vrueda[i])*h/tau;
-    float phi = radians((servo_cmd[PIN_SERVO[i]]-OFFSET_SERVO[i])*SIGNO_SERVO[i]);
+    float phi = radians(((servo_cmd[PIN_SERVO[i]]-544)/10.311f-OFFSET_SERVO[i])*SIGNO_SERVO[i]);
     vw[i][0]=vrueda[i]*cos(phi); vw[i][1]=vrueda[i]*sin(phi);
     dist_acum[i]+=vrueda[i]*h;
     long objetivo=lround(dist_acum[i]/MM_POR_CUENTA);

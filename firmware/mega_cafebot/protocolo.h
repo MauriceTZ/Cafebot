@@ -30,6 +30,7 @@ void imprimir_ayuda() {
     Serial.println(F("M hz           telemetria T a hz (0 = off)"));
     Serial.println(F("I | IW | IN k | IS 0/1 | IG   IR: estado | blanco | negro k(0=TI,1=TD) | seguridad | guardar"));
     Serial.println(F("X k ang        servo auxiliar k (compuertas) a ang grados"));
+    Serial.println(F("Y | Y i us | YS i k us | YG | YD   servos direccion: tabla | pulso crudo | fijar k=-1/0/1 | guardar | defecto"));
     Serial.println(F("J kp ki kff    ganancias del PI de rueda"));
     Serial.println(F("T              ruta cuadrada de prueba 500 mm"));
 }
@@ -92,6 +93,34 @@ void ejecutar_linea(char* s) {
     char* args = s + (dos_letras ? 2 : 1);
     float v[3];
     uint8_t n = leer_numeros(args, v, 3);
+
+    if (c0 == 'Y') {  // calibración de servos de dirección
+        if (dos_letras && c1 == 'S') {  // YS i k us  (k = -1, 0, 1 -> -90°, 0°, +90°)
+            if (n < 3 || v[0] < 0 || v[0] > 3 || fabs(v[1]) > 1) { Serial.println(F("ERR YS i k us")); return; }
+            uint8_t i = (uint8_t)v[0];
+            int8_t k = (int8_t)v[1];
+            cal_servos.us[i][k + 1] = (int16_t)constrain(v[2], SERVO_US_MIN, SERVO_US_MAX);
+            if (modo == MODO_QUIETO) servos[i].writeMicroseconds(cal_servos.us[i][k + 1]);
+        } else if (dos_letras && c1 == 'G') {
+            cal_servos_guardar();
+            Serial.println(F("OK Y guardado"));
+            return;
+        } else if (dos_letras && c1 == 'D') {  // volver a los valores por defecto
+            cal_servos_defecto();
+        } else if (!dos_letras && n >= 2) {  // Y i us : pulso crudo (solo detenido)
+            if (modo != MODO_QUIETO || v[0] < 0 || v[0] > 3) { Serial.println(F("ERR Y i us (detenido)")); return; }
+            servos[(uint8_t)v[0]].writeMicroseconds(constrain((int)v[1], SERVO_US_MIN, SERVO_US_MAX));
+        }
+        Serial.print(F("Y us[-max,0,+max] max=")); Serial.print((int)SERVO_ANG_CAL_DEG); Serial.print(':');
+        for (uint8_t i = 0; i < 4; i++) {
+            Serial.print(F(" M")); Serial.print(i + 1); Serial.print('=');
+            Serial.print(cal_servos.us[i][0]); Serial.print('/');
+            Serial.print(cal_servos.us[i][1]); Serial.print('/');
+            Serial.print(cal_servos.us[i][2]);
+        }
+        Serial.println();
+        return;
+    }
 
     if (dos_letras && c0 == 'I') {
         switch (c1) {

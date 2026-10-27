@@ -111,8 +111,23 @@ const float MM_POR_CUENTA = CIRCUNFERENCIA_RUEDA / CUENTAS_POR_REV;
 // Modo "cangrejo": las 4 ruedas al mismo ángulo => traslación sin girar.
 // Signo por servo para que +ángulo = rueda girada hacia la IZQUIERDA en las 4.
 // Con la convención de v0 las 4 comparten signo.               [CONFIRMAR en el aire]
-#define CANGREJO_MAX_DEG 90.0f
+#define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
 const int8_t SIGNO_SERVO[4] = { +1, +1, +1, +1 };
+// Calibración fina en MICROSEGUNDOS (writeMicroseconds), no en grados enteros:
+//   - El HS-311 acepta ~575-2460 µs; la librería Servo por defecto solo usa 544-2400 µs
+//     y Servo.write() trabaja en grados enteros (≈10 µs). Con offsets de 87° la rueda
+//     NO podía llegar a -90°: write(-3) se recortaba a 0.
+//   - Cada servo tiene 3 puntos medidos (-90°, 0°, +90°) e interpolación lineal por tramo,
+//     así se corrige el desfase del estriado (spline) y la no-linealidad de cada servo.
+// Valores por defecto = equivalentes a v0 (offset en grados). Calibrar con los comandos
+// Y / YS / YG (docs/hardware.md) y quedan guardados en EEPROM.
+#define SERVO_US_MIN 500
+#define SERVO_US_MAX 2500
+#define SERVO_US_POR_GRADO 10.311f   // (2400-544)/180, el mapeo de Servo.write()
+// Ángulo al que se calibran los puntos extremos de la tabla. Si los servos no llegan
+// a 90° exactos, calibrar las 4 ruedas paralelas a un ángulo común MEDIDO (p. ej. 88)
+// y poner aquí ese valor: la odometría usa el ángulo real.
+#define SERVO_ANG_CAL_DEG 90.0f
 
 // ---------------------------------------------------------------------
 // 4. CONTROL DE VELOCIDAD POR RUEDA (PI + prealimentación)

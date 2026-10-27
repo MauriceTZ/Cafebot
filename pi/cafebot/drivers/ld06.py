@@ -99,11 +99,14 @@ class Scan:
 
 @dataclass
 class ConfigLD06:
-    # Montaje del LiDAR en el robot
-    x_m: float = 0.0                # posición del LiDAR respecto al centro del robot
+    # Montaje del LiDAR en el robot. Plan actual: en el frente de la base (30 x 23 cm),
+    # a ~8 cm del suelo, con ~180° de vista despejada hacia adelante.
+    x_m: float = 0.16               # posición del LiDAR respecto al centro del robot  [MEDIR]
     y_m: float = 0.0
     yaw_deg: float = 0.0            # hacia dónde mira el "0°" del LiDAR (0 = adelante)
     horario: bool = True            # el LD06 entrega ángulos en sentido horario
+    fov_deg: float = 95.0           # se usan solo los puntos a ±fov del frente del SENSOR
+                                    # (detrás está el propio robot)
     # Filtros
     dist_min_m: float = 0.05
     dist_max_m: float = 6.0
@@ -125,8 +128,14 @@ def paquetes_a_scan(paquetes: list[Paquete], cfg: ConfigLD06) -> Scan:
         ok &= ~((ang >= a0) & (ang <= a1))
     ang, dist, inten = ang[ok], dist[ok], inten[ok]
 
+    # Campo de visión útil (en el sistema del sensor, antihorario, -180..180)
+    a_ccw = (-ang if cfg.horario else ang)
+    a_ccw = (a_ccw + 180.0) % 360.0 - 180.0
+    vista = np.abs(a_ccw) <= cfg.fov_deg
+    ang, dist, inten, a_ccw = ang[vista], dist[vista], inten[vista], a_ccw[vista]
+
     # Sensor -> robot
-    a_sensor = np.radians(-ang if cfg.horario else ang) + math.radians(cfg.yaw_deg)
+    a_sensor = np.radians(a_ccw) + math.radians(cfg.yaw_deg)
     x = cfg.x_m + dist * np.cos(a_sensor)
     y = cfg.y_m + dist * np.sin(a_sensor)
     fuera = ~((x > cfg.huella_x_m[0]) & (x < cfg.huella_x_m[1]) &

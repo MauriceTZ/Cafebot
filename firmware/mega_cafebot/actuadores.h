@@ -1,5 +1,6 @@
 #pragma once
 #include <Servo.h>
+#include <EEPROM.h>
 #include "config.h"
 
 // =====================================================================
@@ -52,11 +53,41 @@ uint32_t servo_t0 = 0;
 uint32_t servo_duracion = 0;
 bool servo_en_rampa = false;
 
+// Tabla de calibración: µs para -90°, 0° y +90° de cada rueda.
+struct CalServos {
+    uint16_t magia;
+    int16_t us[4][3];
+};
+const uint16_t MAGIA_SERVOS = 0x5E70;
+const int EEPROM_DIR_SERVOS = 32;  // la calibración IR usa las direcciones 0..~10
+CalServos cal_servos;
+
+void cal_servos_defecto() {
+    cal_servos.magia = MAGIA_SERVOS;
+    for (uint8_t i = 0; i < 4; i++)
+        for (int8_t k = -1; k <= 1; k++)
+            cal_servos.us[i][k + 1] = (int16_t)round(544 + (OFFSET_SERVO[i] + SIGNO_SERVO[i] * SERVO_ANG_CAL_DEG * k) * SERVO_US_POR_GRADO);
+}
+
+void cal_servos_cargar() {
+    CalServos c;
+    EEPROM.get(EEPROM_DIR_SERVOS, c);
+    if (c.magia == MAGIA_SERVOS) cal_servos = c;
+    else cal_servos_defecto();
+}
+
+void cal_servos_guardar() { EEPROM.put(EEPROM_DIR_SERVOS, cal_servos); }
+
+uint16_t angulo_a_us(uint8_t i, float ang) {
+    ang = constrain(ang, -SERVO_ANG_CAL_DEG, SERVO_ANG_CAL_DEG);
+    const int16_t* u = cal_servos.us[i];
+    float f = ang / SERVO_ANG_CAL_DEG;
+    float us = (f >= 0) ? u[1] + (u[2] - u[1]) * f : u[1] + (u[1] - u[0]) * f;
+    return (uint16_t)constrain((int)round(us), SERVO_US_MIN, SERVO_US_MAX);
+}
+
 void servos_escribir(const float ang[4]) {
-    for (uint8_t i = 0; i < 4; i++) {
-        int v = (int)round(OFFSET_SERVO[i] + SIGNO_SERVO[i] * ang[i]);
-        servos[i].write(constrain(v, 0, 180));
-    }
+    for (uint8_t i = 0; i < 4; i++) servos[i].writeMicroseconds(angulo_a_us(i, ang[i]));
 }
 
 // Pide un nuevo juego de ángulos. Devuelve true si ya estaban ahí.
@@ -131,6 +162,7 @@ void actuadores_begin() {
         pinMode(PIN_DIR2[i], OUTPUT);
     }
     motores_parar(PARADA_NEUTRO);
-    for (uint8_t i = 0; i < 4; i++) servos[i].attach(PIN_SERVO[i]);
+    cal_servos_cargar();
+    for (uint8_t i = 0; i < 4; i++) servos[i].attach(PIN_SERVO[i], SERVO_US_MIN, SERVO_US_MAX);
     servos_escribir(servo_actual);
 }

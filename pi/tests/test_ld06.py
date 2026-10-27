@@ -34,7 +34,7 @@ def main():
     def d(a):
         return 1000 if (a < 10 or a > 350) else 0
 
-    cfg = ConfigLD06(huella_x_m=(-0.1, 0.1), huella_y_m=(-0.1, 0.1))
+    cfg = ConfigLD06(x_m=0.0, huella_x_m=(-0.1, 0.1), huella_y_m=(-0.1, 0.1))
     ens = Ensamblador(cfg)
     datos = vuelta(d) + vuelta(d) + vuelta(d)
 
@@ -59,6 +59,12 @@ def main():
     s = ens2.alimentar(vuelta(lambda a: 800 if 85 < a < 95 else 0) * 2)
     x, y = s[-1].xy()
     assert np.all(y < -0.7), y
+    # Montado al frente: un punto detrás del sensor (180°) se descarta; uno a 1 m adelante
+    # queda a 1,16 m del centro del robot
+    cfg3 = ConfigLD06(x_m=0.16)
+    s = Ensamblador(cfg3).alimentar(vuelta(lambda a: 1000 if (a < 5 or a > 355 or 175 < a < 185) else 0) * 2)
+    x, y = s[-1].xy()
+    assert len(x) > 0 and np.all(np.abs(x - 1.16) < 0.02), x
     print("OK: LD06 (CRC, resincronización, vueltas, sistema del robot)")
 
 

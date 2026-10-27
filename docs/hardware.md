@@ -38,12 +38,18 @@ de subida de A (1600 con `ENCODER_X2`). Reductora 1:8.
 1. `E` y girar cada rueda a mano hacia adelante: las 4 cuentas deben **subir**. Si no, cambiar `Mx_INV_ENC`.
 2. `V 100 0` (repetir): las 4 ruedas hacia adelante. Si alguna va al revés, `Mx_INV_MOTOR`.
 3. `W 90`: las ruedas forman un rombo (tangentes a un círculo) y el robot giraría a la **izquierda**.
-4. `L 90 200`: las 4 ruedas apuntan a la izquierda **iguales**. Si alguna apunta a la derecha, invertir su `SIGNO_SERVO`. Si alguna no alcanza 90°, ajustar `CANGREJO_MAX_DEG`.
+4. **Calibrar los servos de dirección (HS-311) en microsegundos** — corrige el desfase del estriado sin desarmar nada:
+   - `Y` muestra la tabla actual (µs para -90°, 0°, +90° de M1..M4).
+   - Para cada rueda `i` (0 = M1 … 3 = M4): `Y i 1450`, `Y i 1460`… hasta que quede **paralela al chasis** (usar una regla apoyada en el costado). Anotar el valor y fijarlo: `YS i 0 <us>`.
+   - Igual para +90° (`YS i 1 <us>`) y -90° (`YS i -1 <us>`), con una escuadra contra el chasis.
+   - Si un servo no llega a 90° exactos, calibrar las 4 a un ángulo menor **común** (p. ej. 88°, medido con transportador) y poner ese valor en `SERVO_ANG_CAL_DEG` (config.h): lo importante es que las 4 queden paralelas; la odometría usa el ángulo real.
+   - `YG` guarda en EEPROM (sobrevive al apagado y a recargar el firmware). `YD` vuelve a los valores por defecto.
+   - Después, `L 90 200`: las 4 ruedas deben apuntar a la izquierda **iguales**.
 5. En el piso: `A 1000` + huincha → diámetro de rueda. `W 360` → `CINEMATICA_D_GIRO_Z`.
 6. `J`: si oscila, bajar `kp`; si no llega a la velocidad, subir `kff` o `PWM_ARRANQUE`.
 
 ## LiDAR
-Para ver **cajas (90 mm) y albercas (90 mm)** tiene que ir a **menos de ~80 mm del suelo**.
+Para ver **cajas (90 mm) y albercas (90 mm)** tiene que ir **por debajo de 90 mm**. Plan: al frente de la base, a ~8 cm, con ~180° de vista (`ConfigLD06.x_m = 0.16`, `fov_deg = 95`). Con solo 1 cm de margen, **montarlo nivelado**: 1° de inclinación hacia arriba sube el haz 5 cm a 3 m y deja de ver las cajas lejanas. Si se puede, 6 cm es más seguro.
 Más arriba solo ve los árboles (y al público). Configurar su posición y orientación en
 `ConfigLD06` (`pi/cafebot/drivers/ld06.py`).
 
