@@ -35,7 +35,12 @@ Ruedas Ø53 mm, trocha 217 mm, entre ejes 223 mm, 800 pulsos/vuelta de rueda en 
 de subida de A (1600 con `ENCODER_X2`). Reductora 1:8.
 
 ## Checklist de puesta en marcha (ruedas en el aire)
-1. `E` y girar cada rueda a mano hacia adelante: las 4 cuentas deben **subir**. Si no, cambiar `Mx_INV_ENC`.
+1. **Encoders.** Escribir `ED` (pone en cero el diagnóstico), girar **cada rueda a mano exactamente 1 vuelta hacia adelante** y escribir `ED` otra vez. Para cada rueda se ve `subida/bajada`:
+   - Ambos ≈ **+800** → cuadratura sana: se puede usar `EM 2` (doble resolución; queda guardado).
+   - Ambos ≈ −800 → encoder invertido: cambiar `Mx_INV_ENC` en config.h.
+   - Signos **opuestos** (p. ej. +800 / −800) → A y B no están desfasados 90° (o hay ruido/rebote en A): quedarse en `EM 1`. En x1 solo cuenta el flanco de subida, igual que v0.
+   - Muy distinto de 800 → revisar `PULSOS_POR_REVOLUCION` o el cableado.
+   Con las ruedas en el aire, `DONE` siempre muestra la distancia pedida: solo cuenta pulsos, no sabe cuánto avanzó de verdad. La prueba real es la vuelta a mano (o `A 1000` en el piso, con huincha).
 2. `V 100 0` (repetir): las 4 ruedas hacia adelante. Si alguna va al revés, `Mx_INV_MOTOR`.
 3. `W 90`: las ruedas forman un rombo (tangentes a un círculo) y el robot giraría a la **izquierda**.
 4. **Calibrar los servos de dirección (HS-311) en microsegundos** — corrige el desfase del estriado sin desarmar nada:

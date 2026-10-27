@@ -95,11 +95,11 @@ const float CIRCUNFERENCIA_RUEDA = PI * CINEMATICA_DIAMETRO_RUEDA;
 const float CINEMATICA_D_GIRO_Z = sqrt((CINEMATICA_W * CINEMATICA_W) + (CINEMATICA_L * CINEMATICA_L));
 const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 
-// Cuadratura x2: se cuentan AMBOS flancos de A (attachInterrupt CHANGE). Duplica la
-// resolución sin usar más pines. Poner 0 para volver al conteo de v0.
-#define ENCODER_X2 1
-const float CUENTAS_POR_REV = PULSOS_POR_REVOLUCION * (ENCODER_X2 ? 2.0f : 1.0f);
-const float MM_POR_CUENTA = CIRCUNFERENCIA_RUEDA / CUENTAS_POR_REV;
+// Decodificación del encoder (se puede cambiar EN VIVO con "EM 1" / "EM 2" y queda en EEPROM):
+//   x1 = solo flanco de subida de A (como v0, 800 cuentas/vuelta de rueda)
+//   x2 = ambos flancos de A (1600 cuentas/vuelta). Solo es válido si A y B están
+//        realmente desfasados 90° (cuadratura). Verificar con "ED" (docs/hardware.md).
+#define ENCODER_X2 0   // x1 por defecto hasta verificar la cuadratura en el robot
 
 // ---------------------------------------------------------------------
 // 3. SERVOS DE DIRECCIÓN

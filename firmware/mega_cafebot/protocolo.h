@@ -25,6 +25,7 @@ void imprimir_ayuda() {
     Serial.println(F("K a v          velocidad cangrejo (grados, mm/s); repetir < 500 ms"));
     Serial.println(F("S              parar y vaciar cola"));
     Serial.println(F("P | E          pose | contadores de encoders"));
+    Serial.println(F("ED | EM 1|2    diagnostico por flanco | decodificacion x1/x2"));
     Serial.println(F("R [x y th]     fijar pose (sin args = 0 0 0)"));
     Serial.println(F("Z              reiniciar encoders (solo detenido)"));
     Serial.println(F("M hz           telemetria T a hz (0 = off)"));
@@ -93,6 +94,30 @@ void ejecutar_linea(char* s) {
     char* args = s + (dos_letras ? 2 : 1);
     float v[3];
     uint8_t n = leer_numeros(args, v, 3);
+
+    if (c0 == 'E' && dos_letras) {
+        if (c1 == 'D') {  // ED : diagnóstico por flanco (y lo pone en cero)
+            int32_t su[4], ba[4];
+            encoders_diag(su, ba, true);
+            Serial.print(F("ENCD subida/bajada:"));
+            for (uint8_t i = 0; i < 4; i++) {
+                Serial.print(F(" M")); Serial.print(i + 1); Serial.print('=');
+                Serial.print(su[i]); Serial.print('/'); Serial.print(ba[i]);
+            }
+            Serial.print(F(" modo=x")); Serial.println(enc_x2 ? 2 : 1);
+            return;
+        }
+        if (c1 == 'M') {  // EM 1|2 : decodificación x1 o x2 (solo detenido, se guarda)
+            if (modo != MODO_QUIETO || n < 1 || (v[0] != 1 && v[0] != 2)) { Serial.println(F("ERR EM 1|2 (detenido)")); return; }
+            noInterrupts();
+            enc_x2 = (v[0] == 2);
+            interrupts();
+            encoders_guardar_modo();
+            encoders_resync();
+            Serial.print(F("OK EM x")); Serial.println(enc_x2 ? 2 : 1);
+            return;
+        }
+    }
 
     if (c0 == 'Y') {  // calibración de servos de dirección
         if (dos_letras && c1 == 'S') {  // YS i k us  (k = -1, 0, 1 -> -90°, 0°, +90°)

@@ -1,4 +1,4 @@
 #pragma once
 #include <cstring>
-struct EEPROMMock{ unsigned char m[4096]={0}; template<class T> void get(int a,T&t){memcpy(&t,m+a,sizeof(T));} template<class T> void put(int a,const T&t){memcpy(m+a,&t,sizeof(T));} };
+struct EEPROMMock{ unsigned char m[4096]={0}; template<class T> void get(int a,T&t){memcpy(&t,m+a,sizeof(T));} template<class T> void put(int a,const T&t){memcpy(m+a,&t,sizeof(T));} unsigned char read(int a){return m[a];} void update(int a,unsigned char v){m[a]=v;} };
 extern EEPROMMock EEPROM;

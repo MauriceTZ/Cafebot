@@ -29,7 +29,7 @@ void planta(float h){
     float phi = radians(((servo_cmd[PIN_SERVO[i]]-544)/10.311f-OFFSET_SERVO[i])*SIGNO_SERVO[i]);
     vw[i][0]=vrueda[i]*cos(phi); vw[i][1]=vrueda[i]*sin(phi);
     dist_acum[i]+=vrueda[i]*h;
-    long objetivo=lround(dist_acum[i]/MM_POR_CUENTA);
+    long objetivo=lround(dist_acum[i]/(CIRCUNFERENCIA_RUEDA/(PULSOS_POR_REVOLUCION*2.0f)));  // cada flanco físico de A
     while(cuentas_gen[i]!=objetivo){
       bool fwd = objetivo>cuentas_gen[i];
       int a=!pin_val[ENC_A[i]]; pin_val[ENC_A[i]]=a;
@@ -100,9 +100,21 @@ int main(int argc,char**argv){
   correr_hasta("@@",0.5);
   printf("%-34s %s  (recorrido desde que ve la linea hasta quedar quieto: %.1f mm)\n","IR: frena al ver borde",br?"OK":"FALLA",X-x0); if(!br) fallos++;
   pin_val[IR_DI_PIN]=0;
+  // Diagnóstico de encoders: en cuadratura sana ambos flancos suman con el mismo signo
+  enviar("S"); correr_hasta("@@",0.3); log_out.clear(); enviar("ED"); correr_hasta("ENCD",0.2);
+  log_out.clear(); enviar("A 300"); correr_hasta("DONE",10); log_out.clear(); enviar("ED"); correr_hasta("ENCD",0.2);
+  { int s1=0,b1=0; sscanf(log_out.c_str()+log_out.find("M1=")+3,"%d/%d",&s1,&b1);
+    bool ok = s1>400 && b1>400 && abs(s1-b1)<20;
+    printf("%-34s %s  (%s)\n","ED: flancos con el mismo signo", ok?"OK":"FALLA", log_out.substr(0,log_out.find('\n')).c_str()); if(!ok) fallos++; }
+  // Cambio a x2 en vivo: la distancia recorrida debe seguir siendo la correcta
+  log_out.clear(); enviar("EM 2"); correr_hasta("OK EM",0.2);
+  { double x0=X, p0=pose.x; log_out.clear(); enviar("A 300"); bool ok=correr_hasta("DONE",10); correr_hasta("@@",0.3);
+    ok = ok && fabs((X-x0)-300)<8 && fabs((pose.x-p0)-300)<8;
+    printf("%-34s %s  (real %.0f mm, odometria %.0f mm)\n","EM 2 + A 300", ok?"OK":"FALLA", X-x0, pose.x-p0); if(!ok) fallos++; }
+  enviar("EM 1"); correr_hasta("OK EM",0.2);
   // Ruta T
   enviar("S"); enviar("R"); X=Y=TH=0; correr_hasta("@@",0.3);
-  prueba("T (cuadrado 500 mm)","T","DONE #11",0,0,0,25,4);
+  prueba("T (cuadrado 500 mm)","T","DONE #13",0,0,0,25,4);
   printf("\n%s (%d fallos)\n", fallos?"HAY FALLOS":"TODO OK", fallos);
   return fallos?1:0;
 }

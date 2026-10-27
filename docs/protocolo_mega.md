@@ -43,6 +43,8 @@ Si no llega otra `V`/`K` en 500 ms, el Mega se detiene y emite `EVT STOP WATCHDO
 | `S` (o `C`) | Para, vacía la cola. `OK S` |
 | `P` | `POSE x y th_mrad modo=.. postura=.. cola=..` |
 | `E` | `ENC m1 m2 m3 m4` (cuentas acumuladas) |
+| `ED` | `ENCD subida/bajada: M1=a/b ...` lo que sumó cada flanco de A desde el último `ED` (y lo pone en cero). |
+| `EM 1\|2` | Decodificación x1 (solo flanco de subida, como v0) o x2 (ambos flancos). Solo detenido; se guarda en EEPROM. Por defecto x1. |
 | `R [x y th]` | Fija la pose (la Pi corrige la odometría con LiDAR/líneas). Sin argumentos = 0 0 0. |
 | `Z` | Reinicia encoders (solo detenido). |
 | `M hz` | Telemetría periódica (1–50 Hz, 0 = apagada). |
