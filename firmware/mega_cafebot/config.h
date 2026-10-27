@@ -122,9 +122,9 @@ const int8_t SIGNO_SERVO[4] = { -1, +1, -1, +1 };              // [CONFIRMAR con
 // PASO 2 - ESQUINA de cada rueda, vista desde arriba con el robot mirando hacia adelante.
 //   ESQUINA_X: +1 = delantera, -1 = trasera.   ESQUINA_Y: +1 = izquierda, -1 = derecha.
 // De esto salen el rombo del giro en el sitio y qué ruedas son del lado derecho/izquierdo.
-// Supuesto de v0 (sin verificar): M1 = del.der, M2 = del.izq, M3 = tras.der, M4 = tras.izq.
-const int8_t ESQUINA_X[4] = { +1, +1, -1, -1 };                // [CONFIRMAR mirando el robot]
-const int8_t ESQUINA_Y[4] = { -1, +1, -1, +1 };                // [CONFIRMAR mirando el robot]
+// Verificado 27 oct en el robot: M1 = del.der, M2 = del.izq, M3 = tras.der, M4 = tras.izq.
+const int8_t ESQUINA_X[4] = { +1, +1, -1, -1 };
+const int8_t ESQUINA_Y[4] = { -1, +1, -1, +1 };
 // Si con W 90 las ruedas quedan apuntando al centro (forma de X) en vez de rombo, -1.
 #define SIGNO_GIRO +1
 // Calibración fina en MICROSEGUNDOS (writeMicroseconds), no en grados enteros:
