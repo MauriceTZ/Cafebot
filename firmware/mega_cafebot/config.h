@@ -19,8 +19,8 @@
 #define M1_PWM 12
 #define M1_DIR1 34
 #define M1_DIR2 35
-#define M1_SERVO_PIN 13
-#define M1_SERVO_OFFSET 87
+#define M1_SERVO_PIN 6      // 27 oct, verificado con Y: el pin 6 mueve la delantera DERECHA
+#define M1_SERVO_OFFSET 89
 
 #define M2_ENC_A 19
 #define M2_ENC_B 38
@@ -35,15 +35,15 @@
 #define M3_PWM 9
 #define M3_DIR1 43
 #define M3_DIR2 42
-#define M3_SERVO_PIN 6     // 27 oct: los cables de los servos traseros están cruzados:
-#define M3_SERVO_OFFSET 89 // el pin 6 mueve la rueda trasera DERECHA (M3)
+#define M3_SERVO_PIN 13     // y el pin 13 la trasera DERECHA (en v0 estaban cruzados)
+#define M3_SERVO_OFFSET 87
 
 #define M4_ENC_A 2
 #define M4_ENC_B A1
 #define M4_PWM 5
 #define M4_DIR1 A4
 #define M4_DIR2 A5
-#define M4_SERVO_PIN 45    // y el pin 45 la trasera IZQUIERDA (M4)
+#define M4_SERVO_PIN 45
 #define M4_SERVO_OFFSET 90
 
 // Polaridad (de v0): M2 tiene el motor invertido; encoders M1 y M3 invertidos.
@@ -114,11 +114,11 @@ const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 // Modo "cangrejo": las 4 ruedas al mismo ángulo => traslación sin girar.
 // Signo por servo para que +ángulo = rueda girada hacia la IZQUIERDA en las 4.
 // PASO 1 - SIGNO_SERVO: dice hacia dónde gira CADA servo. Se ajusta con "L 45 200":
-// vistas desde arriba, las 4 ruedas deben quedar PARALELAS en diagonal ( / / ), rodando
-// hacia adelante-izquierda. La que quede en la otra diagonal ( \ ) -> cambiar su signo.
+// vistas desde arriba (frente arriba), las 4 ruedas deben quedar PARALELAS con la punta
+// delantera hacia la izquierda ( \ \ ). La que quede en la otra diagonal ( / ) -> cambiar su signo.
 // (A ±90° no se distingue: una rueda a +90 y otra a -90 quedan en la misma línea.)
 #define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
-const int8_t SIGNO_SERVO[4] = { -1, +1, -1, +1 };  // 27 oct: servos del lado derecho montados en espejo [CONFIRMAR con L 45 200]
+const int8_t SIGNO_SERVO[4] = { +1, +1, +1, +1 };  // 27 oct: deducido de las pruebas W 90 / L 45 [CONFIRMAR con L 45 200]
 
 // PASO 2 - ESQUINA de cada rueda, vista desde arriba con el robot mirando hacia adelante.
 //   ESQUINA_X: +1 = delantera, -1 = trasera.   ESQUINA_Y: +1 = izquierda, -1 = derecha.
