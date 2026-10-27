@@ -55,6 +55,7 @@ python3 -m tests.test_dxl_falso       # módulo Dynamixel contra un bus falso
 python3 -m tests.test_inicio 100      # localización inicial en 100 rondas simuladas
 python3 -m tools.localizar --sim      # o --puerto /dev/cafebot-lidar
 python3 -m tools.teleop --sim         # o --puerto /dev/cafebot-mega
+python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 cuadrado 500   # recta, giro, cangrejo, ida_vuelta, consola
 python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
 ```
 

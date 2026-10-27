@@ -167,8 +167,8 @@ const int8_t ESQUINA_Y[4] = { -1, +1, -1, +1 };
 #define KP_DISTANCIA 1.5f            // (mm/s)/mm
 #define KP_ANGULO 2.2f               // (rad/s)/rad
 #define KP_RUMBO 2.0f                // corrección de rumbo al avanzar recto
-#define TOLERANCIA_DISTANCIA_MM 5.0f
-#define TOLERANCIA_ANGULO_RAD 0.02f  // ~1,1°
+#define TOLERANCIA_DISTANCIA_MM 2.0f
+#define TOLERANCIA_ANGULO_RAD 0.007f  // ~0,4°
 #define UMBRAL_DESVIO_RUMBO_RAD 0.18f  // si un waypoint se desvía >10°, re-apunta
 #define WATCHDOG_VEL_MS 500          // V/K deben repetirse antes de esto
 #define LARGO_COLA 24
