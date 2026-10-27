@@ -113,13 +113,15 @@ const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 #define SERVO_ASENTAMIENTO_MS 80
 // Modo "cangrejo": las 4 ruedas al mismo ángulo => traslación sin girar.
 // Signo por servo para que +ángulo = rueda girada hacia la IZQUIERDA en las 4.
-// Verificado 27 oct con L (cangrejo): M2 y M3 están montados en espejo.
+// Ajustado 27 oct con W 90 (el robot gira): M1 y M3 quedan invertidos respecto de M2 y M4.
+// Con estos signos, el cangrejo (L 90 200) debería dejar las 4 ruedas PARALELAS apuntando
+// a la izquierda.                                                [CONFIRMAR con L 90 200]
 #define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
 const int8_t SIGNO_SERVO[4] = { -1, +1, -1, +1 };
 // Giro en el sitio: ruedas tangentes al círculo (rombo). Con M1=del.der, M2=del.izq,
 // M3=tras.der, M4=tras.izq el patrón FÍSICO es M1(+) M2(-) M3(-) M4(+).
 // Si con W 90 las ruedas apuntan hacia el centro (forma de X) en vez de formar un rombo,
-// poner -1 aquí.                                                 [CONFIRMAR con W 90]
+// poner -1 aquí. (27 oct: con W 90 el robot gira ~90°, patrón correcto.)
 #define SIGNO_GIRO +1
 // Calibración fina en MICROSEGUNDOS (writeMicroseconds), no en grados enteros:
 //   - El HS-311 acepta ~575-2460 µs; la librería Servo por defecto solo usa 544-2400 µs
