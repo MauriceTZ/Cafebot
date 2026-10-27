@@ -113,7 +113,7 @@ const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 // Signo por servo para que +ángulo = rueda girada hacia la IZQUIERDA en las 4.
 // Con la convención de v0 las 4 comparten signo.               [CONFIRMAR en el aire]
 #define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
-const int8_t SIGNO_SERVO[4] = { +1, +1, +1, +1 };
+const int8_t SIGNO_SERVO[4] = { +1, -1, -1, +1 };
 // Calibración fina en MICROSEGUNDOS (writeMicroseconds), no en grados enteros:
 //   - El HS-311 acepta ~575-2460 µs; la librería Servo por defecto solo usa 544-2400 µs
 //     y Servo.write() trabaja en grados enteros (≈10 µs). Con offsets de 87° la rueda
