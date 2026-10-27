@@ -113,11 +113,12 @@ const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 #define SERVO_ASENTAMIENTO_MS 80
 // Modo "cangrejo": las 4 ruedas al mismo ángulo => traslación sin girar.
 // Signo por servo para que +ángulo = rueda girada hacia la IZQUIERDA en las 4.
-// PASO 1 - SIGNO_SERVO: dice hacia dónde gira CADA servo. Se ajusta SOLO con "L 90 200":
-// las 4 ruedas deben quedar paralelas apuntando a la IZQUIERDA del robot. Si una apunta
-// a la derecha, cambiar su signo. (W 90 NO sirve para ajustar esto: ver ESQUINA_*.)
+// PASO 1 - SIGNO_SERVO: dice hacia dónde gira CADA servo. Se ajusta con "L 45 200":
+// vistas desde arriba, las 4 ruedas deben quedar PARALELAS en diagonal ( / / ), rodando
+// hacia adelante-izquierda. La que quede en la otra diagonal ( \ ) -> cambiar su signo.
+// (A ±90° no se distingue: una rueda a +90 y otra a -90 quedan en la misma línea.)
 #define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
-const int8_t SIGNO_SERVO[4] = { -1, +1, -1, +1 };              // [CONFIRMAR con L 90 200]
+const int8_t SIGNO_SERVO[4] = { -1, +1, -1, +1 };              // [CONFIRMAR con L 45 200]
 
 // PASO 2 - ESQUINA de cada rueda, vista desde arriba con el robot mirando hacia adelante.
 //   ESQUINA_X: +1 = delantera, -1 = trasera.   ESQUINA_Y: +1 = izquierda, -1 = derecha.

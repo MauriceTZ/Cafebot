@@ -43,7 +43,7 @@ de subida de A (1600 con `ENCODER_X2`). Reductora 1:8.
    Con las ruedas en el aire, `DONE` siempre muestra la distancia pedida: solo cuenta pulsos, no sabe cuánto avanzó de verdad. La prueba real es la vuelta a mano (o `A 1000` en el piso, con huincha).
 2. `V 100 0` (repetir): las 4 ruedas hacia adelante. Si alguna va al revés, `Mx_INV_MOTOR`.
 3. **Dirección, en este orden** (con las ruedas en el aire):
-   1. `L 90 200`: las 4 ruedas deben quedar **paralelas apuntando a la izquierda**. La que apunte a la derecha → cambiar su signo en `SIGNO_SERVO`. *No* usar `W 90` para esto: `W` depende además de en qué esquina está cada rueda, y un error en las esquinas se puede "compensar" con signos de servo equivocados (el giro funciona pero el cangrejo no).
+   1. **`L 45 200`** (no `L 90`: a ±90° una rueda girada a la izquierda y una girada a la derecha quedan en la misma línea y no se distinguen a simple vista). Vistas desde arriba, las 4 ruedas deben quedar **paralelas en diagonal, rodando hacia adelante‑izquierda** ( / / ). La que quede en la otra diagonal ( \\ ) → cambiar su signo en `SIGNO_SERVO`. *No* usar `W 90` para esto.
    2. Anotar en `ESQUINA_X` / `ESQUINA_Y` dónde está físicamente M1…M4 (delantera/trasera, izquierda/derecha).
    3. `W 90`: las ruedas forman un **rombo** (cada una perpendicular a la línea hacia el centro) y el robot gira a la **izquierda** (antihorario visto desde arriba). Si quedan en X apuntando al centro → `SIGNO_GIRO -1`.
 4. **Calibrar los servos de dirección (HS-311) en microsegundos** — corrige el desfase del estriado sin desarmar nada:
@@ -52,7 +52,7 @@ de subida de A (1600 con `ENCODER_X2`). Reductora 1:8.
    - Igual para +90° (`YS i 1 <us>`) y -90° (`YS i -1 <us>`), con una escuadra contra el chasis.
    - Si un servo no llega a 90° exactos, calibrar las 4 a un ángulo menor **común** (p. ej. 88°, medido con transportador) y poner ese valor en `SERVO_ANG_CAL_DEG` (config.h): lo importante es que las 4 queden paralelas; la odometría usa el ángulo real.
    - `YG` guarda en EEPROM (sobrevive al apagado y a recargar el firmware). `YD` vuelve a los valores por defecto.
-   - Después, `L 90 200`: las 4 ruedas deben apuntar a la izquierda **iguales**.
+   - Después, `L 90 200`: las 4 ruedas quedan paralelas, rodando hacia la izquierda.
 5. En el piso: `A 1000` + huincha → diámetro de rueda. `W 360` → `CINEMATICA_D_GIRO_Z`.
 6. `J`: si oscila, bajar `kp`; si no llega a la velocidad, subir `kff` o `PWM_ARRANQUE`.
 
