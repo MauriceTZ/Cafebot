@@ -1,0 +1,439 @@
+ 
+ 
+ 
+Reglamento 
+Categoría: LARC Open 
+ 
+ 
+
+ 
+Reglas LARC OPEN 2025          1 
+ 
+24º IEEE Competencia  
+Latinoamericana de Robótica  
+Reglas de la categoría OPEN 2025 
+Versión 2.0 – Enero 2026
+ 
+Robot recolector de Café   
+1. Introducción   
+Los robots cada día se encuentran más cerca del hombre común y desarrollan tareas  en donde 
+prestan ayuda a los miembros de la sociedad, ya sea en el hogar, la  industria, la medicina, la 
+construcción y el trabajo.   
+Para esta ocasión la Competencia Latinoamericana de Robótica propone la construcción  de un 
+robot recolector de café. Latinoamérica es uno de los grandes productores de café a nivel mundial 
+y que hoy en día cientos de personas laboran en el campo realizando trabajos de recolección de 
+granos de café.   
+ 
+Figura 1. Vista pictórica del escenario que representa el cultivo y el beneficiadero. 
+La competencia plantea a los jóvenes latinoamericanos la construcción de un Robot que se 
+encuentre en capacidad de recolectar granos maduros y sobremaduros de una plantación dejando 
+en los árboles los granos verdes. Los granos recolectados deben ser clasificados y posteriormente 
+transportados hacia una zona de almacenamiento que se encuentra en un lugar llamado 
+“beneficiadero” evadiendo los obstáculos del escenario.   
+
+ 
+Reglas LARC OPEN 2025          2 
+2. El objetivo de la competencia   
+La tarea del robot es recolectar los granos de café maduros y sobremaduros dejando  los verde en  
+el árbol, una vez recolectados los granos el robot debe desplazarse al beneficiadero y depositar  los 
+granos maduros en la caja roja y los sobremaduros en la caja azul. El objetivo de la prueba es 
+recolectar la mayor cantidad de granos maduros  y sobremaduros en 8 minutos. 
+El escenario representa parte de un cultivo compuesto por tres árboles en donde se  encuentran los 
+granos de café maduros (Rojos,  naranjas y amarillos), verdes (verdes) y sobremaduros (azules y 
+negros); los granos de café se encuentran representados por pelotas de golf. Además del cultivo se 
+presenta parte del beneficiadero conformado por dos tolvas representadas en dos cajas 
+identificadas por el color rojo y azul, en donde deben ser almacenados los granos de café 
+recolectados por el robot para su posterior proceso de  despulpado y secado.  
+En la zona central del escenario hay dos cajas rectangulares de color azul  que simbolizan las 
+albercas en donde se almacena el agua utilizada para el proceso de  lavado de los granos de café 
+y que a su vez deben ser evadidas por el robot en el  momento de navegar entre el cultivo y el 
+beneficiadero. Estas albercas se pondrán de forma aleatoria.  
+ 
+El robot debe ser capaz de diferenciar el color de cada uno de los granos de café;  tomar solo los 
+granos maduros y sobremaduros y posteriormente depositarlos en las  tolvas que se encuentran en 
+el beneficiadero, clasificándolos como granos maduros y  sobremaduros.   
+3. Especificaciones del escenario  
+ 
+El escenario está construido por una lona  blanca de 3600 mm x 3000 mm. El perímetro exterior y 
+las divisiones del escenario está marcado por una linea de color negro de 19 mm impresas sobre la 
+lona.  
+ 
+Fi
+gura 2. Definición de zonas (vista superior).   
+ 
+El escenario estará sobre una superficie plana, sin embargo, debido al suelo donde se posicione el 
+mismo pueden haber diferencias de ±5mm en el escenario. 
+
+ 
+Reglas LARC OPEN 2025          3 
+ 
+Dentro del escenario se identifican las siguientes zonas:  
+● Zona de cultivo está delimitada por una línea negra de 19 mm. Dicha zona está dividida en 
+tres sectores dentro de los cuales se encuentran tres árboles de café. Cada sector mide 
+internamente aprox 1174,5 mm x 412 mm.   
+● El beneficiadero se encuentra en el extremo opuesto a la zona de cultivo. Se identifica  
+mediante una línea negra de 19 mm. Dicha zona está dividida en cinco sectores dentro de 
+los cuales se deberán encontrar dos tolvas para el almacenamiento de los granos además 
+uno de estos sectores servirá como zona de partida del robot recolector.  Cada sector mide 
+internamente 712 mm x 697 mm. 
+● La zona intermedia e s el área entre la zona de cultivo y el beneficiadero. En la parte central 
+se encuentra la zona de albercas.  El robot debe navegar a través de esta zona evadiendo 
+las dos albercas que se posicionan de forma aleatoria. Cada alberca mide 720 mm x 200 
+mm x 90 mm. 
+En el Apéndice A encontrará las medidas específicas del escenario. 
+4. Elementos del escenario   
+Árboles: en la zona de cultivo habrán tres arboles  (uno en cada zona) de madera pintados 
+uniformemente de color café claro y verde. El árbol se encuentra centrado en los 1174,5 mm y a 
+100 mm de la línea más cercana a la zona central y se encuentra fijado al piso por la parte trasera.  
+En la parte superior de cada árbol se ubican tres filas de  soportes en donde se ubican las pelotas 
+de golf que simbolizan los granos de café. En la fila inferior y superior se ubican 5 granos de café y 
+en la intermedia 6 granos de tal forma que cada árbol contendrá 16 granos que serán repartidos 
+entre  entre verdes, rojos, naranja y azules. Ver apéndice B para ver planos detallados de los 
+árbol
+es. 
+ 
+  Figura 3. Vista frontal, lateral y posición del árbol   
+Granos de café: los granos se encuentran en los soportes de la parte superior de los árboles,  
+son esferas impresas en 3D en material PLA de 42 mm de diámetro y 12± 4 gramos. Las esferas 
+son de diferentes colores y cada una simboliza un grado de desarrollo del  grano de café.  
+ 
+Color  Grado de madurez 
+Rojo, naranja y amarillo  Maduro  
+
+ 
+Reglas LARC OPEN 2025          4 
+Verde  Verde  
+Azul y negro Sobre maduro 
+ Tabla 1. Relación color y grado de madurez de los granos.  
+ 
+       
+Maduro  Maduro  Maduro  Verde  Sobremaduro  Sobremaduro  
+Figura 4. Colores de los granos de café.  
+ 
+Los granos son esferas impresas en 3D al 15% de relleno tipo giroide, el color puede ser directo del 
+PLA o pintado con pintura en spray. 
+Soporte de los granos de café: cada grano de café se encuentra sobre un soporte que posee un 
+hueco de 25mm de diámetro en donde está ubicado el grano. El espesor puede ser de 6 a 10 mm, 
+sin embargo, la altura del grano es la misma. El soporte es de color café y se encuentra incrustado 
+en la parte superior del árbol formando las tres filas de granos. 
+ 
+Figura 5. Soportes de los granos   
+Contenedores para almacenamiento:  e n la Zona del beneficiadero se encuentran dos 
+contenedores en los que el robot  debe depositar los granos de café recolectados, dichos 
+contenedores son de color  rojo y azul tal como se muestra en la figura 2 . Cada contenedor mide 
+en el exterior 450 mm de lado y 90 mm de alto. El contenedor se posiciona en el centro de la zona 
+asignada. 
+
+ 
+Reglas LARC OPEN 2025          5 
+   
+Figura 6. Contenedor para el almacenamiento de los granos. 
+Albercas: en la Zona central se encuentran la zona de albercas, la cual se encuentra dividida en 5 
+zonas, numeradas del 1 al 5.  Se utilizan máximo 2 albercas para una ronda y la posición depende 
+del sorteo, durante una ronda pueden haber 0, 1 ó 2 albercas. Las albercas son contenederores de 
+color azul con medida exterior de 720 mm de largo x 200 mm ancho x 90 mm de alto. Las albercas 
+no se encuentran fijas en el escenario.  
+ 
+Figura 7. Dimensiones de la alberca. 
+5. Las condic
+iones de iluminación   
+El comité local proporcionará iluminación interior uniforme durante todo el día. No obstante, los 
+equipos participantes deben estar preparados para calibrar sus robots basados en las condiciones 
+de iluminación  del lugar donde se realicen las competencias. El comité local realizará las acciones  
+posibles para reducir al máximo los efectos de sombras e iluminación natural, sin embargo, estos 
+factores no pueden ser totalmente eliminados . Por consiguiente es muy  recomendado que los 
+robots participantes sean diseñados para ser inmunes a variaciones de iluminación que se 
+presenten en el lugar. Una vez iniciadas las competencias, los equipos jugarán bajo las condiciones 
+de iluminación existentes sin discusiones o reclamos.  
+6. El robot  
+ 
+El robot debe ser un dispositivo móvil completamente autónomo, es decir, debe ser  capaz de 
+desplazarse a través del escenario y cumplir los objetivos sin intervención  humana, durante las 
+
+ 
+Reglas LARC OPEN 2025          6 
+rondas oficiales no está permitido que el robot se comuni que con dispositivos externos y el robot 
+debe ser capaz de resolver la tarea únicamente con los dispositivos que lleva en su interior. 
+ 
+No tiene restricciones de fabricación en cuanto a materiales, componentes mecánicos,  electrónicos, 
+pudiendo tener una cantidad ilimitada de piezas, sensores, actuadores y  controladores 
+prefabricados o hechos a mano.   
+Las restricciones del robot son:   
+● El robot debe caber en un cubo de 450 mm de lado al iniciar la ronda (incluyendo cables).  
+Una vez presionado el botón de inicio,  el robot  de forma autónoma puede expandirse y 
+sobrepasar las dimensiones iniciales. 
+● No debe comunicarse con dispositivos en el exterior.  
+● No debe deteriorar el escenario.   
+● Debe tener un sólo botón de inicio, que se utilice en todos las rondas de  competencia. De 
+este modo, se asegura que la información utilizada por el  robot sea obtenida por sus propios 
+sensores y no la observada por los  miembros del equipo.   
+● Solo un robot puede estar dentro del escenario. No se permite que un robot  pueda dividirse 
+en dos o más robots durante las rondas.   
+Infringir cualquiera de las anteriores restricciones es condición de descalificación.   
+7. Las reglas de la competencia   
+Una vez iniciado el proceso de competencia, todos los equipos participantes deberán  dejar sus 
+robots en el espacio asignado por la organización, a la vista de todos y sólo  podrán ser apartados 
+de esta delimitación al momento de competir y una vez  finalizada la ronda. Esto asegura que todos 
+los equipos tengan la misma cantidad de  tiempo para ajustar sus robots.   
+Cuando todos los robots se encuentren en el espacio asignado por la organización, se  reunirá a 
+todos los capitanes de los equipos y se dará paso al sorteo (por ronda)  de la ubicación de los 
+contenedores y el punto de partida del robot. Los contenedores  y el punto de inicio del robot se 
+encuentran ubicados en la zona del beneficiadero,  para facilitar el sorteo, el beneficiadero se divide 
+en 5 zonas numeradas del 1 al 5 en  donde dos de ellas serán ocupadas por los contenedores y 
+una por el robot.  Posteriormente se realiza el sorteo de los granos de café que se encuentran en 
+cada  uno de los árboles.  
+Ubicación de los granos de café: Cada árbol tiene tres filas (baja, media, alta) de  granos en donde 
+se ubican tres categorías (verde, maduro y sobremaduro) de granos.  Los granos se pondrán de 
+forma aleatoria en cada una de las filas , cada clase de grano posee un grado de probabilidad,  
+dependiendo de la fila en la que será ubicado  tal como se muestra en la tabla 2. 
+   
+Fila  Granos 
+Verdes  
+Granos 
+Maduros  
+Granos  
+Sobremaduros 
+Alta  1 3 1 
+Media  2 2 2 
+Baja  2 ó 3 1 1 ó 2  
+ Tabla 2. Distribución de granos de café según la fila dentro del árbol.  
+ 
+Reglas LARC OPEN 2025          7 
+ 
+Para facilitar el sorteo de los granos de café, el punto inicial de robot y la posición de los 
+contenedores se realizará mediante un software que realiza cada uno de dichos sorteos respetando 
+los valores de probabilidad  asignados   
+Posteriormente se realiza el sorteo de la  posición de las albercas centrales, dividido en 5 zonas, 
+numeradas del 1 al 5, para este sorteo se utilizará un dado y el número obtenido corresponderá a 
+la posición de la alberca. En caso de que el número sea 6 s e considera que esa alberca no se 
+utilizará en la ronda. Este proceso se realizará para cada alberca, en caso de que en el sorteo de 
+la segunda alberca se obtenga el mismo número que la primera, no se utilizará la segunda alberca 
+y solo será una o ninguna. Esto significa que durante la ronda pueden haber 0, 1 ó 2 albercas. 
+Por último se sortea el orden en que participarán los robots de los equipos que  compiten.  La 
+orientación del robot será de libre por parte del capitán del equipo.   
+Durante el sorteo y durante toda la ronda, ningún miembro de los equipos podrá  modificar de 
+manera alguna su robot. Cambios en el robot y reprogramaciones serán  permitidas únicamente 
+después de terminada la ronda para todos los participantes.  Los jueces  anunciarán, en orden, el 
+nombre del equipo participante y le indicarán la  posición inicial.   
+El robot inicia la prueba en la zona designada del beneficiadero y debe desplazarse  hacia la zona 
+de cosecha para recolectar los granos de café, el tiempo no se detendrá hasta que el equipo 
+concluya su participación o finalicen los 8 minutos. C uando el robot inicia su intento no se podrá 
+tocar, de lo contrario será considerado  como un reinicio. El equipo puede solicitar un reinicio durante 
+la ejecución de la ronda.  Cada robot tendrá un máximo de dos reinicios por ronda. Cuando se 
+reinicia, todos los granos de café se colocan en la posición inicial del intento, pero sin detener el 
+tiempo, si los jueces lo aprueban los participantes del equipo en conjunto con los voluntarios 
+reacomodarán el escenario y granos. Si el robot presenta un problema mecánico evidente y si los 
+jueces lo autorizan, el  equipo participante puede intervenir el robot y se considera reinicio, se 
+reinicia la prueba y la medición del  tiempo no se detendrá. Se considera como problema mecánico 
+evidente, por ejemplo,  el desprendimiento de una pieza, fallas en un motor, problemas con un 
+sensor, batería  sin energía, o cualquier dificultad no asociada a un mal diseño o debido a una mala  
+programación que impida su funcionamiento normal y que pueda ser reparado al  interior del 
+escenario de forma rápida. El capitán del equipo puede finalizar la prueba en cualquier momento.   
+El robot no puede salir del escenario. Se considera que el robot se salió del escenario si alguna de 
+las ruedas/llantas/orugas del  robot entra en contacto con las líneas periféricas negras que delimitan 
+el escenario o las líneas negras que delimitan las albercas que se encuentran en el centro del 
+escenario. Si el robot abandona el escenario, se considera reinicio y se debe reiniciar la prueba.  
+Durante el recorrido del robot no debe mover las albercas que se encuentran en la zona central, las 
+albercas no se encuentran fijas. En caso de que el robot desplace la alberca de su posición inicial 
+se considerará un reinicio. Se considera mover la alberc a si esta se desplaza más de 10 mm en 
+cualquier dirección de la posición inicial.    
+Los granos deben extraerse del árbol uno por uno; sin embargo, pueden almacenarse dentro del 
+robot para su transporte. Únicamente pueden recolectarse granos maduros y sobremaduros; los 
+verdes no deben separarse del árbol. Los granos recolectados no pueden ser olvidados ni colocados 
+en un lugar distinto a los contenedores. Se considerará que un grano está dentro del robot si, al 
+finalizar la prueba y al levantar el robot, el grano permanece dentro de su estructura; si el grano 
+queda en el escenario, se considerará abandonado. La verificación de que el robot extrajo un grano 
+a la vez deberá poder realizarse visualmente por las y los jueces, sin necesidad de revisar videos; 
+ 
+Reglas LARC OPEN 2025          8 
+si esto no puede determinarse con claridad, se considerará que el robot extrajo dos granos 
+simultáneamente. En caso de que un robot extraiga dos o más granos al mismo tiempo, se 
+forzará un reinicio; lo mismo aplicará si el robot, por un choque, derriba dos o más granos. 
+La prueba se puede dar por finalizada de cuatro maneras:   
+● Finaliza el tiempo máximo de la prueba (8 minutos).   
+● Que los competidores decidan dar por finalizada su participación, siendo  responsabilidad 
+de cada equipo la acumulación de puntaje y el tiempo se  detiene.   
+● El robot inicia la prueba y puede tener dos reinicios, al llamar el tercer reinicio se considera 
+el fin de la prueba.   
+● Que el robot coloque todos los granos maduros y sobremaduros en los  contenedores 
+correspondientes.   
+El primer y principal criterio para determinar al ganador es el puntaje más alto. Si  existiera un 
+empate el segundo criterio sería el menor tiempo. En el caso que dos (o  más) equipos llegasen a 
+empatar en ambos criterios, se realizará una prueba extra  entre ellos para desempatarlos.   
+Durante el desarrollo de las rondas finales, en caso de ocurrir un empate en el puntaje,  se hará 
+inmediatamente una prueba extra para definir el 1er, 2do y 3er lugar.   
+Cualquier consideración o excepción quedará a criterio de los jueces y organizadores.   
+8. La forma de evaluación y el puntaje asignado  
+ 
+La forma de puntuación se realizará dependiendo del manejo que se le dé a cada uno de los granos 
+recolectados y se contabilizan al final de la ronda para cada equipo.   
+Puntuación:   
+● Se asignará 3 puntos por cada grano maduro dentro del robot retirado correctamente. 
+● Se asignará 1 punto por cada grano sobremaduro dentro del robot retirado correctamente. 
+● Se asignará 4 puntos extras por cada grano maduro que sea depositado en el  contenedor 
+rojo. (+7 puntos totales por cada grano maduro en el contenedor correcto). 
+● Se asignará 4 puntos extra por cada grano sobremaduro que sea depositado en el  
+contenedor azul.  (+5 puntos totales por cada grano maduro en el contenedor correcto). 
+Penalizaciones:   
+● Se penalizará con 7 puntos por cada grano que sea abandonado u olvidado en  una zona 
+diferente a los contenedores designados para el almacenamiento (excepto en el robot) y no 
+se cuentan los puntos obtenidos por retiro correcto. 
+● Granos verdes en un lugar diferente a la posición inicial del árbol se penaliza con 7 puntos 
+por cada grano. Incluye abandonados, en algún contenedor o dentro del robot al finalizar la 
+prueba. 
+● Depositar granos maduros en el contenedor equivocado se penaliza con 7 puntos por cada 
+grano y no se cuentan los puntos obtenidos por retiro correcto. 
+● Depositar granos sobremaduros en el contenedor equivocado se penaliza con 5 puntos por 
+cada grano y no se cuentan los puntos obtenidos por retiro correcto. 
+● Mover cualquier alberca de su posición inicial forza a un reinicio. El capitán decide si reiniciar 
+el robot en 0 puntos o finalizar la ronda con las condiciones obtenidas al detener el robot 
+(obtiene los puntos acumulados). 
+● Extraer o tirar 2 o más pelotas del árbol al mismo tiempo forza a un reinicio. El capitán decide 
+si reiniciar el robot en 0 puntos o finalizar la ronda con las condiciones obtenidas al detener 
+ 
+Reglas LARC OPEN 2025          9 
+el robot (obtiene los puntos acumulados). 
+● Cada ronda tiene máximo dos reinicios. No se penalizará el reinicio, sin embargo, la 
+puntuación se restablece en 0 y el tiempo no se detiene. 
+ 
+Ejemplo, al finalizar la ronda el equipo obtuvo: 
+ 
+5 granos maduros en el contenedor correcto, 4 granos sobremaduros en el contenedor correcto, 1 
+grano verde en el contenedor incorrecto, 2 granos maduros en contenedor incorrecto, 1 granos 
+sobremaduros en contenedor incorrecto, 1 grano abandonado en el escenario, 3 granos maduros 
+dentro del robot, 3 granos sobremaduros dentro del robot, 0 grano verde en el robot, 1 reinicio 
+ 
+Cantidad Concepto Puntos  Puntos totales 
+5 Granos maduros en el contenedor correcto +7 35 
+4 Granos sobremaduros en el contenedor correcto +5 20 
+3 Granos maduros dentro del robot al finalizar +3 9 
+3 Granos sobremaduros dentro del robot al finalizar +1 3 
+0 Granos verdes dentro del robot o abandonados al finalizar -7 0 
+2 Granos maduros en contenedor incorrecto -7 -14 
+1 Granos sobremaduros en contenedor incorrecto -5 -5 
+1 Granos maduros y sobremaduros abandonados en el escenario -7 -7 
+1 Granos verdes en algún contenedor -7 -7 
+1 Reinicio 0 0 
+Puntos totales 34 
+Tiempo total 4:15 min 
+ Tabla 3. Ejemplo de puntuación de una ronda oficial 
+9. La ejecución de las pruebas y las rondas   
+Antes de comenzar las rondas se les avisará con tiempo a los competidores y se les  dará un tiempo 
+acorde a la cantidad de equipos para que puedan realizar  calibraciones. Si los jueces consideran 
+necesaria hacer una calibración por razones de  luminosidad, se le dará 1 minuto extra a cada 
+ 
+Reglas LARC OPEN 2025          10 
+equipo antes de su ronda.   
+Existen dos tipos de rondas, clasificatorias y finales:   
+Rondas clasificatorias:   
+● Participan todos los equipos inscritos en la categoría.   
+● Consta de cuatro rondas por equipo. Dicho número puede variar a criterio de  los jueces.   
+● El tiempo máximo por equipo para realizar la prueba es de 8 minutos.   
+● Cada equipo puede reiniciar su robot dos veces por ronda. Por cada reinicio los puntos 
+regresarán a 0 y el tiempo no se detendrá. 
+● La suma del puntaje de las 2 mejores rondas,  de las cuatro rondas, se tomará en cuenta 
+para decidir sobre  qué equipos participan en las rondas finales. Clasifican los mejores cinco 
+equipos.   
+● En caso de ocurrir un empate, se decidirá por quien logró el puntaje en menor  tiempo.   
+● Cada equipo tiene máximo 1 minuto para presentarse en la cancha,  transcurrido dicho 
+plazo, el tiempo de competencia comenzará a correr.   
+Rondas finales:   
+Participan los cinco primeros lugares de las rondas clasificatorias. Consta de tres rondas.   
+● El tiempo máximo por equipo para realizar la prueba es de 8 minutos.   
+● Cada equipo puede reiniciar su robot dos veces por ronda. Por cada reinicio  existirá una 
+penalización y el tiempo no se detendrá.   
+● El mejor puntaje de las 3 rondas se tomará en cuenta para determinar los  lugares finales.   
+● Si llegara a ocurrir un empate, se disputará una cuarta ronda entre los equipos  empatados 
+para definir ese lugar.   
+● Cada equipo tiene 1 minuto para presentarse en la cancha, transcurrido dicho plazo, el 
+tiempo de competencia comenzará a correr.   
+Buscando el buen desempeño de los robots y la participación de los equipos la tabla de puntaje se 
+ordena considerando lo siguiente:  
+● Primero se ordenan los puntos obtenidos por los equipos que realizaron la ronda oficial de 
+mayor a menor. Aquí se considera a los equipos que obtuvieron 0 puntos como resultado de 
+la diferencia de puntos positivos y penalizaciones. 
+● Posteriormente se ordenan los equipos que intentaron realizar la prueba y que encendieron 
+su robot, pero no obtuvo ningún desempeño y decidieron finalizar la ronda, por lo cual 
+obtuvieron 0 puntos durante la ronda oficial. (En caso de existir equipos con puntos 
+negativos, los que intentaron se ordenan después de ellos). 
+● Por último, se ordenan los equipos que no participaron en la ronda oficial y no se les asigna 
+puntuación. 
+Solo pueden acceder a las rondas finales los equipos que obtuvieron puntos positivos durante 
+alguna ronda de clasificación. 
+10. Requisitos para participar en la competencia  
+ 
+ 
+La manera de participar en la Competencia Robótica LARC 2026 categoría abierta es formar un 
+grupo de máximo 4 personas, quienes deben ser alumnos de cualquier institución educativa de 
+cualquier país. No está permitido que un estudiante pertenezca a más de un equipo. 
+ 
+ 
+Reglas LARC OPEN 2025          11 
+Será requisito de participación, la entrega de un documento donde se describa el  desarrollo y   
+funcionamiento del robot (TDP) en formato IEEE. Este TDP será utilizado para que los  ganadores 
+de los dos primeros lugares expongan brevemente ante sus compañeros.  La no entrega de este 
+documento impedirá la participación del equipo, ya que es de  suma importancia para el desarrollo 
+y evolución del conocimiento de los participantes.  
+11. El Jurado   
+ 
+El jurado estará compuesto por 1 persona del equipo que organiza la competencia que  sabrá las 
+bases más una persona relacionada con la robótica o área afín. Los nombres  de estas dos personas 
+serán anunciados en los días de la competencia.   
+12. Sobre las situaciones extraordinarias durante las competencias   
+ 
+En caso de una eventual situación extraordinaria con respecto a las reglas o al  puntaje, el jurado y 
+los Organizadores de la Competencia analizarán las condiciones  del caso y decidirán dentro de la 
+mayor imparcialidad posible.  
+ 
+Reglas LARC OPEN 2025          12 
+  
+ 
+Reglas LARC OPEN 2025          13 
+Apéndice A.- Dimensiones del escenario 
+ 
+Las líneas negras son de 19 mm de espesor y se imprimen sobre la lona. 
+ 
+Figura 8. Dimensiones del escenario  
+
+ 
+Reglas LARC OPEN 2025          14 
+ Apéndice B.- Dimensiones del árbol 
+ 
+Figura 9. Dimensiones del árbol 
+*Para facilitar la construcción del árbol, el espesor del soporte puede ser de 6 mm a 10 mm, sin 
+embargo, la cara superior debe estar en la altura correspondiente  
+
+ 
+Reglas LARC OPEN 2025          15 
+ Apéndice C.- Hoja de puntuaciones propuesta 
+ 
+Hoja de puntuación LARC OPEN 
+Ronda _______ 
+ 
+Nombre del Equipo:______________________________________________ 
+ 
+Institución académica:____________________________________________ 
+ 
+ 
+Cantidad Concepto Puntos  Puntos totales 
+ Granos maduros en el contenedor correcto +7  
+ Granos sobremaduros en el contenedor correcto +5  
+ Granos maduros dentro del robot al finalizar +3  
+ Granos sobremaduros dentro del robot al finalizar +1  
+ Granos verdes en algún contenedor -7  
+ Granos maduros en contenedor incorrecto -7  
+ Granos sobremaduros en contenedor incorrecto -5  
+ Granos maduros y sobremaduros abandonados en el escenario -7  
+ Granos verdes dentro del robot o abandonados al finalizar -7  
+ Reinicio 0  
+Puntos totales  
+Tiempo total  
+ 
+ 
+ 
+ 
+Nombre y firma del capitán del equipo: _________________________________ 
+ 
+ 
+ 
+Nombre y firma del juez principal:  _________________________________ 

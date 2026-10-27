@@ -1,0 +1,6 @@
+# En la Raspberry: crear el venv con --system-site-packages para conservar picamera2 y opencv de apt
+#   python3 -m venv --system-site-packages .venv && . .venv/bin/activate && pip install -r requirements.txt
+pyserial>=3.5
+numpy
+pygame          # solo herramientas con ventana (visor_lidar)
+dynamixel-sdk   # brazo

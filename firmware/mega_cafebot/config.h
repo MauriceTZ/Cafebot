@@ -1,0 +1,156 @@
+#pragma once
+// =====================================================================
+//  Cafebot - firmware Arduino Mega 2560 + shield 4Motor&9Servo
+//  config.h : pines, dimensiones y constantes (UN solo lugar para ajustar)
+//
+//  Las secciones 1 y 2 vienen tal cual de Mega_Cafebot v0 (pines y medidas).
+//  Lo marcado con  [CONFIRMAR]  es un supuesto que hay que verificar en el robot.
+// =====================================================================
+#include <Arduino.h>
+
+// ---------------------------------------------------------------------
+// 1. PINOUT (placa Moebius 4Motor & 9Servo)  -- sin cambios respecto a v0
+// ---------------------------------------------------------------------
+// Ubicación inferida de la cinemática de giro de v0 (M1/M4 +ang, M2/M3 -ang):
+//   M1 = delantera derecha   M2 = delantera izquierda
+//   M3 = trasera derecha     M4 = trasera izquierda          [CONFIRMAR]
+#define M1_ENC_A 18
+#define M1_ENC_B 31
+#define M1_PWM 12
+#define M1_DIR1 34
+#define M1_DIR2 35
+#define M1_SERVO_PIN 13
+#define M1_SERVO_OFFSET 87
+
+#define M2_ENC_A 19
+#define M2_ENC_B 38
+#define M2_PWM 8
+#define M2_DIR1 37
+#define M2_DIR2 36
+#define M2_SERVO_PIN 10
+#define M2_SERVO_OFFSET 87
+
+#define M3_ENC_A 3
+#define M3_ENC_B 49
+#define M3_PWM 9
+#define M3_DIR1 43
+#define M3_DIR2 42
+#define M3_SERVO_PIN 45
+#define M3_SERVO_OFFSET 90
+
+#define M4_ENC_A 2
+#define M4_ENC_B A1
+#define M4_PWM 5
+#define M4_DIR1 A4
+#define M4_DIR2 A5
+#define M4_SERVO_PIN 6
+#define M4_SERVO_OFFSET 89
+
+// Polaridad (de v0): M2 tiene el motor invertido; encoders M1 y M3 invertidos.
+#define M1_INV_MOTOR false
+#define M2_INV_MOTOR true
+#define M3_INV_MOTOR false
+#define M4_INV_MOTOR false
+#define M1_INV_ENC 1
+#define M2_INV_ENC 0
+#define M3_INV_ENC 1
+#define M4_INV_ENC 0
+
+// ---------------------------------------------------------------------
+// 1b. SENSORES INFRARROJOS DE BORDE (nuevo)                 [CONFIRMAR pines]
+// ---------------------------------------------------------------------
+// Delanteros: digitales con umbral por trimmer. Traseros: analógicos (umbral por software).
+// No necesitan interrupciones: se leen en el loop a ~1 kHz (a 200 mm/s el robot
+// avanza 0,2 mm entre lecturas; la línea mide 19 mm).
+#define IR_DI_PIN 22   // delantero izquierdo  (digital)  [CONFIRMAR]
+#define IR_DD_PIN 23   // delantero derecho    (digital)  [CONFIRMAR]
+#define IR_TI_PIN A8   // trasero izquierdo    (analógico) [CONFIRMAR]
+#define IR_TD_PIN A9   // trasero derecho      (analógico) [CONFIRMAR]
+// Nivel que entrega el sensor digital al ver NEGRO (la mayoría de módulos TCRT5000
+// dan HIGH sobre negro porque no hay reflexión).                 [CONFIRMAR]
+#define IR_DIGITAL_NEGRO_ES_HIGH 1
+#define IR_PERIODO_US 1000
+
+// ---------------------------------------------------------------------
+// 1c. SERVOS AUXILIARES (compuertas de los depósitos)        [CONFIRMAR pines]
+// ---------------------------------------------------------------------
+// Comando "X k ángulo". La librería Servo del Mega usa el Timer5: los pines 44/45/46
+// pierden su PWM, pero sirven igual como salida de servo.
+#define N_SERVOS_AUX 2
+const uint8_t PIN_SERVO_AUX[N_SERVOS_AUX] = { 44, 46 };  // 0 = maduros (roja), 1 = sobremaduros (azul)
+const uint8_t AUX_INICIAL_DEG[N_SERVOS_AUX] = { 90, 90 };  // compuertas cerradas  [AJUSTAR]
+
+// ---------------------------------------------------------------------
+// 2. PARÁMETROS CINEMÁTICOS  -- sin cambios respecto a v0
+// ---------------------------------------------------------------------
+#define TIMER_TRIGGER_FREQUENCY 60.0f
+const float dt = 1.0f / TIMER_TRIGGER_FREQUENCY;
+
+#define PULSOS_POR_REVOLUCION 800.0f   // contando SOLO flancos de subida de A (como v0)
+#define CINEMATICA_W 217.0f              // Ancho entre ruedas (mm)
+#define CINEMATICA_L 223.0f              // Largo entre ejes (mm)
+#define CINEMATICA_DIAMETRO_RUEDA 53.0f  // Diámetro de rueda (mm)
+const float CIRCUNFERENCIA_RUEDA = PI * CINEMATICA_DIAMETRO_RUEDA;
+const float CINEMATICA_D_GIRO_Z = sqrt((CINEMATICA_W * CINEMATICA_W) + (CINEMATICA_L * CINEMATICA_L));
+const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
+
+// Cuadratura x2: se cuentan AMBOS flancos de A (attachInterrupt CHANGE). Duplica la
+// resolución sin usar más pines. Poner 0 para volver al conteo de v0.
+#define ENCODER_X2 1
+const float CUENTAS_POR_REV = PULSOS_POR_REVOLUCION * (ENCODER_X2 ? 2.0f : 1.0f);
+const float MM_POR_CUENTA = CIRCUNFERENCIA_RUEDA / CUENTAS_POR_REV;
+
+// ---------------------------------------------------------------------
+// 3. SERVOS DE DIRECCIÓN
+// ---------------------------------------------------------------------
+// v0 tardaba 1500 ms + 100 ms por cada cambio de postura. Ahora el tiempo es
+// proporcional al ángulo a recorrer (un servo típico gira 60° en ~0,15 s).
+#define SERVO_MS_POR_GRADO 8.0f        // 45° -> 360 ms           [AJUSTAR]
+#define SERVO_MS_MINIMO 150
+#define SERVO_ASENTAMIENTO_MS 80
+// Modo "cangrejo": las 4 ruedas al mismo ángulo => traslación sin girar.
+// Signo por servo para que +ángulo = rueda girada hacia la IZQUIERDA en las 4.
+// Con la convención de v0 las 4 comparten signo.               [CONFIRMAR en el aire]
+#define CANGREJO_MAX_DEG 90.0f
+const int8_t SIGNO_SERVO[4] = { +1, +1, +1, +1 };
+
+// ---------------------------------------------------------------------
+// 4. CONTROL DE VELOCIDAD POR RUEDA (PI + prealimentación)
+// ---------------------------------------------------------------------
+// pwm = KFF*v_ref + PWM_ARRANQUE*sign(v_ref) + KP*e + KI*integral(e)
+// Unidades: v en mm/s, e en mm/s. Ajustables en vivo con el comando J.
+#define PWM_MAX 255
+#define VEL_KFF 0.44f        // PWM por mm/s (de v0: 255*0.285 PWM por rev/s)
+#define VEL_KP 0.60f
+#define VEL_KI 4.00f
+#define PWM_ARRANQUE 20      // vence la fricción estática       [AJUSTAR]
+#define ACEL_MAX_MM_S2 400.0f  // rampa de la consigna (evita patinar)
+#define FILTRO_VEL_ALFA 0.5f // pasa-bajos de la velocidad medida (0..1)
+
+// ---------------------------------------------------------------------
+// 5. NAVEGACIÓN / PRIMITIVAS
+// ---------------------------------------------------------------------
+#define VELOCIDAD_NAVEGACION 150.0f  // mm/s por defecto
+#define VELOCIDAD_MINIMA 40.0f       // mm/s cerca del objetivo
+#define VELOCIDAD_ANGULAR_MAX 0.8f   // rad/s
+#define VELOCIDAD_ANGULAR_MIN 0.20f  // rad/s
+#define KP_DISTANCIA 1.5f            // (mm/s)/mm
+#define KP_ANGULO 2.2f               // (rad/s)/rad
+#define KP_RUMBO 2.0f                // corrección de rumbo al avanzar recto
+#define TOLERANCIA_DISTANCIA_MM 5.0f
+#define TOLERANCIA_ANGULO_RAD 0.02f  // ~1,1°
+#define UMBRAL_DESVIO_RUMBO_RAD 0.18f  // si un waypoint se desvía >10°, re-apunta
+#define WATCHDOG_VEL_MS 500          // V/K deben repetirse antes de esto
+#define LARGO_COLA 24
+
+// ---------------------------------------------------------------------
+// 6. SERIAL
+// ---------------------------------------------------------------------
+#define SERIAL_BAUD 115200
+#define LARGO_LINEA 72
+
+inline float wrapAngle(float a) {
+    while (a > PI) a -= TWO_PI;
+    while (a < -PI) a += TWO_PI;
+    return a;
+}

@@ -1,0 +1,136 @@
+#pragma once
+#include <Servo.h>
+#include "config.h"
+
+// =====================================================================
+//  Motores (puente H de la shield) y servos de dirección
+// =====================================================================
+
+enum ModoParada { PARADA_NEUTRO, PARADA_FRENO };
+
+static const uint8_t PIN_PWM[4] = { M1_PWM, M2_PWM, M3_PWM, M4_PWM };
+static const uint8_t PIN_DIR1[4] = { M1_DIR1, M2_DIR1, M3_DIR1, M4_DIR1 };
+static const uint8_t PIN_DIR2[4] = { M1_DIR2, M2_DIR2, M3_DIR2, M4_DIR2 };
+static const bool INV_MOTOR[4] = { M1_INV_MOTOR, M2_INV_MOTOR, M3_INV_MOTOR, M4_INV_MOTOR };
+static const uint8_t PIN_SERVO[4] = { M1_SERVO_PIN, M2_SERVO_PIN, M3_SERVO_PIN, M4_SERVO_PIN };
+static const uint8_t OFFSET_SERVO[4] = { M1_SERVO_OFFSET, M2_SERVO_OFFSET, M3_SERVO_OFFSET, M4_SERVO_OFFSET };
+
+Servo servos[4];
+
+void motor_pwm(uint8_t i, int pwm, ModoParada parada = PARADA_NEUTRO) {
+    pwm = constrain(pwm, -PWM_MAX, PWM_MAX);
+    bool inv = INV_MOTOR[i];
+    if (pwm > 0) {
+        digitalWrite(PIN_DIR1[i], inv ? HIGH : LOW);
+        digitalWrite(PIN_DIR2[i], inv ? LOW : HIGH);
+        analogWrite(PIN_PWM[i], pwm);
+    } else if (pwm < 0) {
+        digitalWrite(PIN_DIR1[i], inv ? LOW : HIGH);
+        digitalWrite(PIN_DIR2[i], inv ? HIGH : LOW);
+        analogWrite(PIN_PWM[i], -pwm);
+    } else {
+        uint8_t nivel = (parada == PARADA_FRENO) ? HIGH : LOW;
+        digitalWrite(PIN_DIR1[i], nivel);
+        digitalWrite(PIN_DIR2[i], nivel);
+        analogWrite(PIN_PWM[i], 0);
+    }
+}
+
+void motores_parar(ModoParada parada) {
+    for (uint8_t i = 0; i < 4; i++) motor_pwm(i, 0, parada);
+}
+
+// ---------------------------------------------------------------------
+// Dirección: cada rueda tiene un ángulo (grados, + = rueda apunta a la izquierda).
+// Cambiar de ángulo requiere motores detenidos; la rampa es cosenoidal y su
+// duración proporcional al mayor ángulo a recorrer.
+// ---------------------------------------------------------------------
+float servo_actual[4] = { 0, 0, 0, 0 };
+float servo_inicio[4] = { 0, 0, 0, 0 };
+float servo_destino[4] = { 0, 0, 0, 0 };
+uint32_t servo_t0 = 0;
+uint32_t servo_duracion = 0;
+bool servo_en_rampa = false;
+
+void servos_escribir(const float ang[4]) {
+    for (uint8_t i = 0; i < 4; i++) {
+        int v = (int)round(OFFSET_SERVO[i] + SIGNO_SERVO[i] * ang[i]);
+        servos[i].write(constrain(v, 0, 180));
+    }
+}
+
+// Pide un nuevo juego de ángulos. Devuelve true si ya estaban ahí.
+bool servos_pedir(const float destino[4]) {
+    float max_delta = 0;
+    for (uint8_t i = 0; i < 4; i++) {
+        float d = fabs(destino[i] - servo_destino[i]);
+        if (d > max_delta) max_delta = d;
+    }
+    if (max_delta < 0.5f && !servo_en_rampa) return true;
+    if (max_delta < 0.5f) return false;  // misma meta, rampa en curso
+    for (uint8_t i = 0; i < 4; i++) {
+        servo_inicio[i] = servo_actual[i];
+        servo_destino[i] = destino[i];
+    }
+    float recorrido = 0;
+    for (uint8_t i = 0; i < 4; i++) recorrido = fmaxf(recorrido, fabs(servo_destino[i] - servo_inicio[i]));
+    servo_duracion = (uint32_t)fmaxf(SERVO_MS_MINIMO, recorrido * SERVO_MS_POR_GRADO);
+    servo_t0 = millis();
+    servo_en_rampa = true;
+    return false;
+}
+
+// Avanza la rampa. Devuelve true cuando los servos llegaron y se asentaron.
+bool servos_actualizar() {
+    if (!servo_en_rampa) return true;
+    uint32_t t = millis() - servo_t0;
+    if (t < servo_duracion) {
+        float s = 0.5f * (1.0f - cos(PI * (float)t / (float)servo_duracion));
+        for (uint8_t i = 0; i < 4; i++)
+            servo_actual[i] = servo_inicio[i] + s * (servo_destino[i] - servo_inicio[i]);
+        servos_escribir(servo_actual);
+        return false;
+    }
+    for (uint8_t i = 0; i < 4; i++) servo_actual[i] = servo_destino[i];
+    servos_escribir(servo_actual);
+    if (t < servo_duracion + SERVO_ASENTAMIENTO_MS) return false;
+    servo_en_rampa = false;
+    return true;
+}
+
+// Posturas
+enum Postura : uint8_t { POSTURA_RECTO = 0, POSTURA_GIRO = 1, POSTURA_CANGREJO = 2 };
+
+void angulos_postura(Postura p, float ang_cangrejo, float out[4]) {
+    if (p == POSTURA_GIRO) {
+        // Patrón de v0: M1(+), M2(-), M3(-), M4(+) -> ruedas tangentes al círculo de giro
+        out[0] = ANGULO_SERVOS_Z; out[1] = -ANGULO_SERVOS_Z;
+        out[2] = -ANGULO_SERVOS_Z; out[3] = ANGULO_SERVOS_Z;
+    } else if (p == POSTURA_CANGREJO) {
+        float a = constrain(ang_cangrejo, -CANGREJO_MAX_DEG, CANGREJO_MAX_DEG);
+        for (uint8_t i = 0; i < 4; i++) out[i] = a;
+    } else {
+        for (uint8_t i = 0; i < 4; i++) out[i] = 0;
+    }
+}
+
+Servo servos_aux[N_SERVOS_AUX];
+
+void servo_aux(uint8_t k, int grados) {
+    if (k < N_SERVOS_AUX) servos_aux[k].write(constrain(grados, 0, 180));
+}
+
+void actuadores_begin() {
+    for (uint8_t k = 0; k < N_SERVOS_AUX; k++) {
+        servos_aux[k].attach(PIN_SERVO_AUX[k]);
+        servos_aux[k].write(AUX_INICIAL_DEG[k]);
+    }
+    for (uint8_t i = 0; i < 4; i++) {
+        pinMode(PIN_PWM[i], OUTPUT);
+        pinMode(PIN_DIR1[i], OUTPUT);
+        pinMode(PIN_DIR2[i], OUTPUT);
+    }
+    motores_parar(PARADA_NEUTRO);
+    for (uint8_t i = 0; i < 4; i++) servos[i].attach(PIN_SERVO[i]);
+    servos_escribir(servo_actual);
+}
