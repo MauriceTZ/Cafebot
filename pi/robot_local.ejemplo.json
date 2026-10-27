@@ -1,0 +1,15 @@
+{
+  "geometria": {
+    "lidar_x": 0.16,
+    "lidar_yaw_deg": 0.0,
+    "extras": [[0.10, 0.0, 0.05, 0.06]]
+  },
+  "puertos": {
+    "mega": "/dev/ttyACM0",
+    "lidar": "/dev/ttyUSB0"
+  },
+  "navegacion": {
+    "vel_mm_s": 150.0,
+    "distancia_aprox_m": 0.25
+  }
+}

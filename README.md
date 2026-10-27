@@ -21,6 +21,8 @@ firmware/
 pi/
   cafebot/drivers/   mega.py (enlace serial), ld06.py (LiDAR con CRC, en un hilo)
   cafebot/arm/       cinematica.py (IK de mínimo esfuerzo), dxl.py (bus Dynamixel "cuidadoso")
+  cafebot/navegacion/ SLAM, odometría EKF, landmarks, seguimiento, A*, ejecutor de rutas
+  cafebot/config.py  geometría del robot y puertos (se sobreescribe con pi/robot_local.json)
   cafebot/mundo/     cancha.py (Apéndices A/B), simulador_lidar.py
   cafebot/localizacion/ inicio.py (¿en qué sector partimos? + albercas/cajas)
   tools/             teleop.py (teclado), visor_lidar.py
@@ -54,6 +56,8 @@ python3 -m tests.test_cinematica      # IK de mínimo esfuerzo vs IK antigua
 python3 -m tests.test_dxl_falso       # módulo Dynamixel contra un bus falso
 python3 -m tests.test_inicio 100      # localización inicial en 100 rondas simuladas
 python3 -m tools.localizar --sim      # o --puerto /dev/cafebot-lidar
+python3 -m tools.navegacion --sim     # interfaz de navegación (mapa, rutas A→B); ver docs/navegacion.md
+python3 -m tests.test_navegacion      # navegación completa en simulación
 python3 -m tools.teleop --sim         # o --puerto /dev/cafebot-mega
 python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 cuadrado 500   # recta, giro, cangrejo, ida_vuelta, consola
 python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
@@ -69,4 +73,5 @@ python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
 | Brazo | IK de mínimo esfuerzo y bus Dynamixel con perfiles por tiempo y monitoreo (probados sin hardware). Falta la secuencia de agarre. Ver `docs/brazo.md`. |
 | Visión | Clasificador Lab por soporte en `legacy/vision_pablo`. Falta portarlo. |
 | Localización inicial | Zona de partida + pose + albercas/cajas con una vuelta del LiDAR; 95/100 en simulación (`docs/localizacion.md`). Falta probar con el LD06 real. |
+| Navegación (Pi) | SLAM + EKF con odometría del Mega + landmarks + A* + ejecutor, con interfaz gráfica. En simulación: error de 1–2 cm tras ir a un árbol y volver (odometría sola: 13 cm). Falta probar con el LD06 real (`docs/navegacion.md`). |
 | Misión | Por hacer (N1 del plan). |

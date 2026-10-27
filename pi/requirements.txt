@@ -2,5 +2,7 @@
 #   python3 -m venv --system-site-packages .venv && . .venv/bin/activate && pip install -r requirements.txt
 pyserial>=3.5
 numpy
-pygame          # solo herramientas con ventana (visor_lidar)
+scipy           # navegación (en la Pi: sudo apt install python3-scipy)
+smbus2          # giroscopio MPU9250 (opcional)
+pygame          # interfaz de navegación y visor (en la Pi: sudo apt install python3-pygame)
 dynamixel-sdk   # brazo

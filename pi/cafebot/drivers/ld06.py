@@ -92,6 +92,7 @@ class Scan:
     distancias: np.ndarray          # metros
     intensidades: np.ndarray
     rpm: float = 0.0
+    puntos_propios: int = 0         # puntos descartados por caer sobre el propio robot
 
     def xy(self) -> tuple[np.ndarray, np.ndarray]:
         return self.distancias * np.cos(self.angulos), self.distancias * np.sin(self.angulos)
@@ -115,6 +116,18 @@ class ConfigLD06:
     huella_x_m: tuple[float, float] = (-0.17, 0.17)
     huella_y_m: tuple[float, float] = (-0.14, 0.14)
     sectores_ciegos_deg: list[tuple[float, float]] = field(default_factory=list)
+    # Rectángulos extra a borrar (cx, cy, semiancho_x, semiancho_y) en el sistema del robot:
+    # brazo, ruedas que asoman, mástil, etc.
+    extras: list[tuple[float, float, float, float]] = field(default_factory=list)
+
+
+def mascara_huella(x: np.ndarray, y: np.ndarray, cfg: ConfigLD06) -> np.ndarray:
+    """True para los puntos que caen sobre el propio robot (chasis + extras)."""
+    m = ((x > cfg.huella_x_m[0]) & (x < cfg.huella_x_m[1]) &
+         (y > cfg.huella_y_m[0]) & (y < cfg.huella_y_m[1]))
+    for cx, cy, hx, hy in cfg.extras:
+        m |= (np.abs(x - cx) <= hx) & (np.abs(y - cy) <= hy)
+    return m
 
 
 def paquetes_a_scan(paquetes: list[Paquete], cfg: ConfigLD06) -> Scan:
@@ -138,12 +151,12 @@ def paquetes_a_scan(paquetes: list[Paquete], cfg: ConfigLD06) -> Scan:
     a_sensor = np.radians(a_ccw) + math.radians(cfg.yaw_deg)
     x = cfg.x_m + dist * np.cos(a_sensor)
     y = cfg.y_m + dist * np.sin(a_sensor)
-    fuera = ~((x > cfg.huella_x_m[0]) & (x < cfg.huella_x_m[1]) &
-              (y > cfg.huella_y_m[0]) & (y < cfg.huella_y_m[1]))
-    x, y, inten = x[fuera], y[fuera], inten[fuera]
+    propios = mascara_huella(x, y, cfg)
+    x, y, inten = x[~propios], y[~propios], inten[~propios]
     ang_r = np.arctan2(y, x)
     orden = np.argsort(ang_r)
-    return Scan(time.monotonic(), ang_r[orden], np.hypot(x, y)[orden], inten[orden], rpm)
+    return Scan(time.monotonic(), ang_r[orden], np.hypot(x, y)[orden], inten[orden], rpm,
+                puntos_propios=int(propios.sum()))
 
 
 class Ensamblador:
