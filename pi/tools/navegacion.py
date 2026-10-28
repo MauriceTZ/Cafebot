@@ -14,6 +14,7 @@ Teclado (como el programa antiguo):
     M congelar/reanudar mapa | S guardar | L cargar | R reiniciar | C centrar | O origen
     I ubicar en la cancha (con el robot en su sector de partida) | T trayectoria de odometría
     B recalibrar giroscopio (quieto) | +/- zoom
+    K MISIÓN completa (como el botón de inicio; el robot debe estar en su sector de partida). ESC la detiene
 """
 from __future__ import annotations
 
@@ -98,6 +99,22 @@ def marcador(win, fuente, v, p, txt, color):
     win.blit(fuente.render(txt, True, color), (sx + 13, sy - 22))
 
 
+def crear_mision(cfg, nav, lidar, mega, esc):
+    """Con --sim: brazo, visión y compuertas simulados. Con el robot: sin brazo ni visión todavía
+    (la misión navega, se acerca y mide el árbol, pero no toca granos)."""
+    from cafebot.mision import interfaces as I
+    from cafebot.mision.mision import Mision
+    c = cfg.mision
+    if esc is not None:
+        real = lambda: tuple(lidar.real)
+        brazo = I.BrazoSimulado(esc, real, (c.brazo_x, c.brazo_y, c.brazo_z))
+        vision = I.VisionSimulada(esc)
+        depositos = I.DepositosSimulados(mega, c, brazo, esc, real)
+    else:
+        brazo, vision, depositos = I.BrazoNulo(), I.VisionNula(), I.Depositos(mega, c)
+    return Mision(cfg, nav, lidar, mega, brazo, vision, depositos, I.Boton())
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mega", default=None, help="puerto del Mega (por defecto el de config)")
@@ -110,6 +127,7 @@ def main():
     ap.add_argument("--alto", type=int, default=850)
     ap.add_argument("--ir-a", default=None, metavar="X,Y",
                     help="planificar y ejecutar una ruta a (X,Y) m apenas el mapa lo permita")
+    ap.add_argument("--mision", action="store_true", help="iniciar la misión sola a los 3 s (como la tecla K)")
     ap.add_argument("--captura", default=None, help="(pruebas) guardar una imagen tras N s y salir: archivo.png")
     ap.add_argument("--captura-s", type=float, default=8.0)
     a = ap.parse_args()
@@ -117,6 +135,7 @@ def main():
 
     # ------------------------------------------------------------- hardware
     mega = giroscopio = None
+    esc = None
     inicio_sim = None
     if a.sim:
         from cafebot.drivers.lidar_simulado import LD06Simulado
@@ -124,7 +143,8 @@ def main():
         from tests.sim_serial import SerialSimulado
         mega = Mega("sim")
         mega.conectar(serial_obj=SerialSimulado())
-        esc = cancha.Escenario(a.zona_sim, 1 if a.zona_sim != 1 else 2, 5 if a.zona_sim != 5 else 4, (2, 4))
+        esc = cancha.Escenario(a.zona_sim, 1 if a.zona_sim != 1 else 2, 5 if a.zona_sim != 5 else 4, (2, 4),
+                               cancha.sorteo_granos(np.random.default_rng()))
         inicio_sim = np.array([cancha.ZONA_X_CENTRO, cancha.centros_zonas_beneficiadero()[a.zona_sim - 1], 0.0])
         lidar = LD06Simulado(cfg.geometria.config_ld06(), esc.segmentos(), inicio_sim,
                              lambda: (mega.tele.x / 1000, mega.tele.y / 1000, mega.tele.th))
@@ -162,6 +182,7 @@ def main():
     ver_odom = True
     T_mapa_cancha = None        # pose de la cancha en el marco del mapa (tecla I)
     ult_manual = 0.0
+    mision = None
     pendiente = [np.array([float(v) for v in a.ir_a.split(",")])] if a.ir_a else []
     t0 = time.monotonic()
     corriendo = True
@@ -190,6 +211,8 @@ def main():
             elif ev.type == pg.KEYDOWN:
                 k = ev.key
                 if k == pg.K_ESCAPE:
+                    if mision is not None and mision.activa:
+                        mision.detener()
                     nav.detener()
                     msg = "STOP"
                 elif k in (pg.K_RETURN, pg.K_KP_ENTER):
@@ -246,6 +269,10 @@ def main():
                 elif k == pg.K_b and giroscopio is not None:
                     giroscopio.recalibrar()
                     msg = "Recalibrando giroscopio: NO mover"
+                elif k == pg.K_k and mega is not None and not (mision and mision.activa):
+                    mision = crear_mision(cfg, nav, lidar, mega, esc)
+                    mision.iniciar()
+                    msg = "MISIÓN en marcha (ESC para detenerla)"
                 elif k == pg.K_i:
                     from cafebot.localizacion.inicio import estimar_inicio
                     s = lidar.ultimo_scan()
@@ -263,7 +290,9 @@ def main():
                     v.zoom(1 / 1.2, (v.w // 2, v.h // 2))
 
         # Manejo manual (mantener la tecla): V/K repetidos a 10 Hz
-        if mega is not None and not nav.ejecutor.activo and time.monotonic() - ult_manual > 0.1:
+        if mision is not None and mision.activa:
+            T_mapa_cancha = mision.T_mapa_cancha() if mision.inicio is not None else T_mapa_cancha
+        elif mega is not None and not nav.ejecutor.activo and time.monotonic() - ult_manual > 0.1:
             t = pg.key.get_pressed()
             vel, w = cfg.navegacion.vel_mm_s, 0.6
             orden = None
@@ -284,6 +313,10 @@ def main():
                 ult_manual = time.monotonic()
 
         nav.actualizar()
+        if a.mision and mision is None and mega is not None and nav.ekf.inicializada and time.monotonic() - t0 > 3:
+            mision = crear_mision(cfg, nav, lidar, mega, esc)
+            mision.iniciar()
+            msg = "MISIÓN en marcha (ESC para detenerla)"
         if pendiente and nav.ekf.inicializada and time.monotonic() - t0 > 3:
             if nav.planificar(pendiente[0]) and nav.ejecutar():
                 msg = f"Ruta automática a {pendiente[0]}"
@@ -361,6 +394,8 @@ def main():
             f"LANDMARKS {', '.join(l.nombre for l in conf) or '—'} | elegido: {seleccion or '—'}",
             f"RUTA      {nav.planificador.msg}" + (f" | largo {nav.planificador.largo:.2f} m | restan {rest:.2f} m" if rest else "")
             + f" | ejecutor: {nav.ejecutor.estado}",
+            (f"MISIÓN    {mision.estado} | {mision.tiempo():.0f} s | brazo {mision.brazo.estado()}"
+             if mision is not None else "MISIÓN    K para iniciar (robot en su sector de partida)"),
             f">> {msg}",
             "clic B | shift+clic A | ENTER ejecutar | ESC parar | TAB/G landmark | flechas, Q/E mover | "
             "M congelar | S/L guardar/cargar | I cancha | T odometría | R reset",
@@ -377,6 +412,8 @@ def main():
             pg.image.save(win, a.captura)
             corriendo = False
 
+    if mision is not None:
+        mision.detener()
     nav.detener()
     lidar.detener()
     if mega is not None:

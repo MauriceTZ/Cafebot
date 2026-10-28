@@ -22,6 +22,7 @@ pi/
   cafebot/drivers/   mega.py (enlace serial), ld06.py (LiDAR con CRC, en un hilo)
   cafebot/arm/       cinematica.py (IK de mínimo esfuerzo), dxl.py (bus Dynamixel "cuidadoso")
   cafebot/navegacion/ SLAM, odometría EKF, landmarks, seguimiento, A*, ejecutor de rutas
+  cafebot/mision/     misión de la ronda + interfaces (brazo, visión, compuertas, botón)
   cafebot/config.py  geometría del robot y puertos (se sobreescribe con pi/robot_local.json)
   cafebot/mundo/     cancha.py (Apéndices A/B), simulador_lidar.py
   cafebot/localizacion/ inicio.py (¿en qué sector partimos? + albercas/cajas)
@@ -58,6 +59,7 @@ python3 -m tests.test_inicio 100      # localización inicial en 100 rondas simu
 python3 -m tools.localizar --sim      # o --puerto /dev/cafebot-lidar
 python3 -m tools.navegacion --sim     # interfaz de navegación (mapa, rutas A→B); ver docs/navegacion.md
 python3 -m tests.test_navegacion      # navegación completa en simulación
+python3 -m tools.mision --sim         # una ronda completa simulada, con puntaje; ver docs/mision.md
 python3 -m tools.teleop --sim         # o --puerto /dev/cafebot-mega
 python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 cuadrado 500   # recta, giro, cangrejo, ida_vuelta, consola
 python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
@@ -74,4 +76,4 @@ python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
 | Visión | Clasificador Lab por soporte en `legacy/vision_pablo`. Falta portarlo. |
 | Localización inicial | Zona de partida + pose + albercas/cajas con una vuelta del LiDAR; 95/100 en simulación (`docs/localizacion.md`). Falta probar con el LD06 real. |
 | Navegación (Pi) | SLAM + EKF con odometría del Mega + landmarks + A* + ejecutor, con interfaz gráfica. En simulación: error de 1–2 cm tras ir a un árbol y volver (odometría sola: 13 cm). Falta probar con el LD06 real (`docs/navegacion.md`). |
-| Misión | Por hacer (N1 del plan). |
+| Misión | N1→N2→N3 completa en simulación con brazo y visión simulados (`docs/mision.md`). En el robot corre sin brazo ni visión hasta que existan sus clases reales. |

@@ -150,6 +150,9 @@ class Planificador:
             return False
         self.ruta_cruda = np.array([self._a_mundo(*c) for c in celdas])
         self.ruta = np.array([self._a_mundo(*c) for c in self._acortar(celdas)])
+        if b == self._a_celda(fin_xy):          # destino libre: terminar EN el punto pedido, no en el centro
+            self.ruta[-1] = fin_xy              # de su celda (hasta 5,7 cm de diferencia con celdas de 8 cm)
+            self.ruta_cruda[-1] = fin_xy
         seg = np.linalg.norm(np.diff(self.ruta_cruda, axis=0), axis=1)
         self._acum = np.concatenate(([0.0], np.cumsum(seg)))
         self.largo = float(np.linalg.norm(np.diff(self.ruta, axis=0), axis=1).sum())
