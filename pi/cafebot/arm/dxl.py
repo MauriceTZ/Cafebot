@@ -18,6 +18,12 @@ Qué cambia respecto a legacy/codigo_brazo/main.py y por qué:
     protección (Shutdown: sobrecarga, calor, choque eléctrico) el torque queda en 0 y
     solo vuelve con un REBOOT: este módulo lo detecta y lo hace.
   * Bus Watchdog opcional: si el programa de la Pi se cuelga, el brazo se detiene.
+  * Ceros NORMALIZADOS al conectar: en modo posición extendida, al encender cada servo lee su
+    posición dentro de UNA vuelta (0..4095). Si el cero quedó cerca del borde, mandar el cero
+    "tal cual" haría girar la articulación casi una vuelta entera. Igual que el código antiguo,
+    el cero efectivo se corre en múltiplos de 4096 para quedar a menos de media vuelta.
+  * Perfil por tiempo solo con firmware ≥ 42. Con un firmware anterior, Profile Velocity se
+    interpretaría como VELOCIDAD (1500 → 343 rpm): en ese caso se calcula un perfil por velocidad.
 """
 from __future__ import annotations
 
@@ -26,6 +32,8 @@ import time
 from dataclasses import dataclass
 
 # ---- Tabla de control (manual XL430-W250) ----
+ADDR_MODEL = 0                 # 2 B (XL430-W250 = 1060)
+ADDR_FIRMWARE = 6              # 1 B
 ADDR_RETURN_DELAY = 9          # 1 B, EEPROM, unidad 2 µs
 ADDR_DRIVE_MODE = 10           # 1 B, EEPROM, bit2 = perfil por tiempo
 ADDR_OPERATING_MODE = 11       # 1 B, EEPROM, 3 = posición, 4 = posición extendida
@@ -49,6 +57,9 @@ ADDR_PRESENT_POSITION = 132    # 4 B
 ADDR_PRESENT_VOLTAGE = 144     # 2 B, 0,1 V
 ADDR_PRESENT_TEMP = 146        # 1 B, °C
 
+FIRMWARE_PERFIL_TIEMPO = 42
+UNIDAD_VEL_PASOS_S = 0.229 * 4096 / 60.0      # 1 unidad de Profile Velocity = 0,229 rpm
+UNIDAD_ACC_PASOS_S2 = 214.577 * 4096 / 3600.0  # 1 unidad de Profile Acceleration = 214,577 rev/min²
 HW_ERR_BITS = {0: "voltaje", 2: "sobrecalentamiento", 3: "encoder", 4: "choque eléctrico", 5: "sobrecarga"}
 
 PASOS_POR_REV = 4096
@@ -101,6 +112,30 @@ class BusDXL:
         if not self.port.openPort() or not self.port.setBaudRate(baudios):
             raise IOError(f"No se pudo abrir {puerto}")
         self.servos = {c.id: c for c in BRAZO + [GARRA]}
+        self.centro = {c.id: c.centro_pasos for c in self.servos.values()}   # cero efectivo (normalizado)
+        self.firmware: dict[int, int] = {}
+        self.perfil_tiempo = True
+
+    # -------------------------------------------------------------- inventario
+    def ping(self) -> dict[int, tuple[int, int]]:
+        """{id: (modelo, firmware)} de los servos que responden."""
+        vivos = {}
+        for sid in self.servos:
+            modelo, res, _ = self.pk.ping(self.port, sid)
+            if res == 0:
+                fw = self._r(sid, ADDR_FIRMWARE, 1)
+                vivos[sid] = (modelo, fw)
+                self.firmware[sid] = fw
+        return vivos
+
+    def normalizar_centros(self) -> dict[int, int]:
+        """Corre cada cero en múltiplos de 4096 para que quede a menos de media vuelta de la posición
+        actual (ver arriba). Llamar después de encender, de configurar y de cada reboot."""
+        for sid, c in self.servos.items():
+            pos = self._r(sid, ADDR_PRESENT_POSITION, 4, signo=True)
+            dif = ((pos - c.centro_pasos + 2048) % PASOS_POR_REV) - 2048
+            self.centro[sid] = pos - dif
+        return dict(self.centro)
 
     # -------------------------------------------------------------- bajo nivel
     def _w(self, sid: int, addr: int, n: int, val: int) -> None:
@@ -119,18 +154,31 @@ class BusDXL:
         return val
 
     # -------------------------------------------------------------- configuración
-    def configurar(self) -> None:
-        """Escribe la configuración "cuidadosa". Apaga el torque (EEPROM lo exige)."""
+    def configurar(self) -> list[int]:
+        """Escribe la configuración "cuidadosa". Las celdas EEPROM solo se pueden escribir SIN torque (y se
+        gastan), así que solo se apaga el torque de un servo si algo de su EEPROM hay que cambiarlo (la primera
+        vez). Devuelve los ids a los que se les apagó el torque."""
+        if not self.firmware:
+            self.ping()
+        self.perfil_tiempo = bool(self.firmware) and min(self.firmware.values()) >= FIRMWARE_PERFIL_TIEMPO
+        apagados = []
         for c in self.servos.values():
-            self._w(c.id, ADDR_TORQUE_ENABLE, 1, 0)
-            self._w(c.id, ADDR_RETURN_DELAY, 1, 0)
-            self._w(c.id, ADDR_OPERATING_MODE, 1, 4)        # posición extendida (como legacy)
-            self._w(c.id, ADDR_DRIVE_MODE, 1, 0b100)        # perfil por tiempo
-            self._w(c.id, ADDR_PWM_LIMIT, 2, c.pwm_limit)
-            self._w(c.id, ADDR_SHUTDOWN, 1, 52)             # protecciones de fábrica: NO quitarlas
-            self._w(c.id, ADDR_POS_P, 2, c.p)
+            eeprom = [(ADDR_RETURN_DELAY, 1, 0),
+                      (ADDR_OPERATING_MODE, 1, 4),                  # posición extendida (como legacy)
+                      (ADDR_DRIVE_MODE, 1, 0b100 if self.perfil_tiempo else 0),
+                      (ADDR_PWM_LIMIT, 2, c.pwm_limit),
+                      (ADDR_SHUTDOWN, 1, 52)]                       # protecciones de fábrica: NO quitarlas
+            cambios = [(a, n, v) for a, n, v in eeprom if self._r(c.id, a, n) != v]
+            if cambios:
+                self._w(c.id, ADDR_TORQUE_ENABLE, 1, 0)
+                apagados.append(c.id)
+                for a, n, v in cambios:
+                    self._w(c.id, a, n, v)
+            self._w(c.id, ADDR_POS_P, 2, c.p)                      # RAM: se puede con torque
             self._w(c.id, ADDR_POS_I, 2, c.i)
             self._w(c.id, ADDR_POS_D, 2, c.d)
+        self.normalizar_centros()
+        return apagados
 
     def torque(self, activo: bool, ids=None) -> None:
         for sid in ids or self.servos:
@@ -141,18 +189,40 @@ class BusDXL:
     # -------------------------------------------------------------- movimiento
     def rad_a_pasos(self, sid: int, rad: float) -> int:
         c = self.servos[sid]
-        return int(round(c.centro_pasos + (-1 if c.invertir else 1) * rad * PASOS_POR_REV / (2 * math.pi)))
+        return int(round(self.centro[sid] + (-1 if c.invertir else 1) * rad * PASOS_POR_REV / (2 * math.pi)))
+
+    def pasos_a_rad(self, sid: int, pasos: int) -> float:
+        c = self.servos[sid]
+        return (-1 if c.invertir else 1) * (pasos - self.centro[sid]) * 2 * math.pi / PASOS_POR_REV
+
+    def angulos(self, ids=None) -> dict[int, float]:
+        """Ángulo actual (rad, respecto del cero) de cada articulación."""
+        return {sid: self.pasos_a_rad(sid, self._r(sid, ADDR_PRESENT_POSITION, 4, signo=True))
+                for sid in (ids or self.servos)}
 
     def mover(self, objetivos: dict[int, float], duracion_s: float, acel_frac: float = 0.3) -> None:
         """Mueve varias articulaciones (rad) para que TODAS lleguen en duracion_s,
         con rampas de aceleración/frenado de acel_frac de la duración."""
         t_ms = max(100, int(duracion_s * 1000))
         a_ms = int(t_ms * min(0.5, acel_frac))
-        for sid, rad in objetivos.items():
-            self._w(sid, ADDR_PROFILE_ACC, 4, a_ms)
-            self._w(sid, ADDR_PROFILE_VEL, 4, t_ms)
-        for sid, rad in objetivos.items():
-            self._w(sid, ADDR_GOAL_POSITION, 4, self.rad_a_pasos(sid, rad))
+        metas = {sid: self.rad_a_pasos(sid, rad) for sid, rad in objetivos.items()}
+        for sid, meta in metas.items():
+            if self.perfil_tiempo:
+                self._w(sid, ADDR_PROFILE_ACC, 4, a_ms)
+                self._w(sid, ADDR_PROFILE_VEL, 4, t_ms)
+            else:   # perfil por velocidad: la velocidad que hace falta para llegar en t con rampas
+                d = abs(meta - self._r(sid, ADDR_PRESENT_POSITION, 4, signo=True))
+                f = max(0.1, min(0.5, acel_frac))
+                v = d / (duracion_s * (1 - f)) if duracion_s > 0 else 0
+                self._w(sid, ADDR_PROFILE_VEL, 4, max(1, min(200, math.ceil(v / UNIDAD_VEL_PASOS_S))))
+                self._w(sid, ADDR_PROFILE_ACC, 4, max(1, min(200, math.ceil(v / (f * duracion_s) / UNIDAD_ACC_PASOS_S2))))
+        for sid, meta in metas.items():
+            self._w(sid, ADDR_GOAL_POSITION, 4, meta)
+
+    def error_seguimiento_deg(self, objetivos: dict[int, float]) -> float:
+        """Mayor diferencia (°) entre la meta y la posición alcanzada: si es grande, algo lo bloquea."""
+        act = self.angulos(list(objetivos))
+        return max(abs(math.degrees(objetivos[s] - act[s])) for s in objetivos)
 
     def esperar_quietos(self, timeout_s: float = 5.0) -> bool:
         fin = time.monotonic() + timeout_s
@@ -192,7 +262,7 @@ class BusDXL:
                 reiniciados.append(s.id)
         if reiniciados:
             time.sleep(0.5)
-            self.configurar()
+            self.configurar()          # también re-normaliza los ceros (el reboot reinicia la vuelta)
         return reiniciados
 
     def watchdog(self, ms: int) -> None:

@@ -77,17 +77,23 @@ class ConfigMision:
     max_arboles: int = 1           # nivel 3 usa hasta 3
     recoger: tuple = ("MADURO",)   # nivel 3 agrega "SOBREMADURO"
     confianza_min: float = 0.70    # bajo esto la visión cuenta como NO_SE (no tocar)
-    # Brazo: centro de la base (eje del hombro) en el sistema del robot, desde el SUELO   [MEDIR]
+    # Brazo: eje de giro de la base en el sistema del robot; z = altura de la BASE del brazo sobre
+    # el SUELO (el hombro está 6,7 cm más arriba). Se comprueba con `tools.brazo leer`.        [MEDIR]
     brazo_x: float = 0.10
     brazo_y: float = 0.0
     brazo_z: float = 0.36
     # Árbol: distancias entre el FRENTE del robot y la cara del tablero
-    distancia_foto_m: float = 0.45     # para la foto de los 16 soportes          [AJUSTAR]
-    holgura_agarre_m: float = 0.08     # para recoger (el brazo llega poco a la fila alta)   [AJUSTAR]
+    distancia_foto_m: float = 0.50     # para la foto de los 16 soportes (la cámara se centra en el árbol).
+                                       # Más lejos el robot quedaría encima de una alberca detrás.  [AJUSTAR]
+    desplazamiento_foto_m: float = 0.10  # si algún soporte queda fuera de la foto: cangrejo y otra foto
+    holgura_agarre_m: float = 0.06     # para recoger: con la base del brazo a 36 cm, a 8 cm la fila alta ya no
+                                       # se alcanza (docs/brazo.md). Nada del robot sobre 38 cm en el frente. [AJUSTAR]
     estaciones_y: tuple = (0.24, 0.12, 0.0, -0.12, -0.24)   # posiciones laterales del brazo frente al árbol
     orden_filas: tuple = ("alta", "media", "baja")
     camara_arbol_deg: float = 25.0     # X 2: inclinación de la cámara para la foto del árbol   [AJUSTAR]
     camara_cajas_deg: float = 0.0      # X 2: para ver las cajas                                 [AJUSTAR]
+    # Color de las cajas: la cámara mira adelante, así que antes de entregar se para frente a una caja
+    x_vista_cajas: float = 1.25        # centro del robot, mirando hacia el beneficiadero (θ = 180°)
     # Entrega (de reversa: las compuertas están atrás)
     x_aproximacion_entrega: float = 0.95   # centro del robot antes de retroceder (cancha, m)
     x_entrega: float = 0.77               # centro del robot al abrir: atrás queda ~2 cm de la caja   [AJUSTAR]
@@ -102,11 +108,54 @@ class ConfigMision:
 
 
 @dataclass
+class ConfigBrazo:
+    """Brazo real (cafebot/arm/brazo.py). La posición de su base está en ConfigMision (brazo_x/y/z)."""
+    yaw0_deg: float = 0.0          # ángulo de la base (servo 9) con el brazo apuntando hacia ADELANTE   [MEDIR: leer]
+    yaw_signo: int = 1             # +1 si al girar la base hacia la IZQUIERDA del robot el ángulo AUMENTA [MEDIR: leer]
+    garra_largo_m: float = 0.032   # eje de la muñeca -> centro de los dedos cerrados                    [MEDIR]
+    garra_abierta_deg: float = 0.0
+    garra_cerrada_deg: float = 65.0
+    garra_vacia_deg: float = 58.0  # si al cerrar la garra pasa de este ángulo, no tomó nada               [MEDIR]
+    pitch_preferido_deg: float = 90.0  # garra horizontal; si no alcanza, prueba en [pitch_min, pitch_max]
+    pitch_min_deg: float = 55.0        # 90 = horizontal, menos = garra apuntando hacia arriba
+    pitch_max_deg: float = 100.0
+    aproximacion_m: float = 0.06   # el agarre parte 6 cm antes del grano y entra en línea recta
+    levantar_m: float = 0.03       # sube el grano para sacarlo del hueco del soporte (25 mm)
+    retirar_m: float = 0.08        # y retrocede antes de ir al depósito
+    t_mov_s: float = 1.0           # duración de un movimiento grande
+    t_fino_s: float = 0.4          # duración de cada paso de la aproximación
+    error_max_deg: float = 6.0     # si una articulación queda más lejos de su meta: algo la bloquea, se aborta
+    carga_max_pct: float = 80.0    # ídem con la carga estimada
+    postura_espera: str = "descanso"    # entre un grano y otro: plegado DETRÁS del frente del robot. "trabajo"
+                                        # deja la garra a la altura de la fila media y 1 cm delante: chocaría
+    descanso_sin_torque: bool = False   # True SOLO si el brazo plegado queda APOYADO (si no, se cae)
+    archivo_posturas: str = "brazo_posturas.json"   # en pi/; se crea con `tools.brazo grabar`
+
+
+@dataclass
+class ConfigCamara:
+    """Cámara fija sobre un servo de inclinación (X 2). Se calibra con `tools.camara zonas`: se ajustan estos
+    números hasta que los círculos dibujados caen sobre los granos de una foto tomada a distancia conocida."""
+    x: float = 0.12                 # posición del LENTE en el sistema del robot (m)                 [MEDIR]
+    y: float = -0.06                # al lado de la base del brazo                                   [MEDIR]
+    z: float = 0.35                 # altura del lente sobre el suelo                                [MEDIR]
+    inclinacion_arbol_deg: float = 20.0    # hacia ARRIBA, con X 2 = mision.camara_arbol_deg       [AJUSTAR: zonas]
+    inclinacion_cajas_deg: float = -25.0   # hacia ABAJO, con X 2 = mision.camara_cajas_deg        [AJUSTAR]
+    ancho_px: int = 1536
+    alto_px: int = 864
+    fx_px: float = 1180.0           # 768 / tan(33°): Camera Module 3 estándar a 1536×864             [AJUSTAR: zonas]
+    fotos: int = 3                  # se clasifica con varias fotos: un soporte que cambia entre fotos = NO_SE
+    guardar_fotos: bool = True      # en pi/capturas/, con lo clasificado dibujado (para revisar después)
+
+
+@dataclass
 class Config:
     geometria: GeometriaRobot = field(default_factory=GeometriaRobot)
     puertos: Puertos = field(default_factory=Puertos)
     navegacion: ConfigNavegacion = field(default_factory=ConfigNavegacion)
     mision: ConfigMision = field(default_factory=ConfigMision)
+    brazo: ConfigBrazo = field(default_factory=ConfigBrazo)
+    camara: ConfigCamara = field(default_factory=ConfigCamara)
 
     def a_dict(self) -> dict:
         return asdict(self)
@@ -127,3 +176,12 @@ def cargar(ruta: str | None = None) -> Config:
                     raise KeyError(f"{p}: '{seccion}.{k}' no existe")
                 setattr(obj, k, tuple(v) if isinstance(v, list) else v)
     return cfg
+
+
+def guardar_local(seccion: str, valores: dict, ruta: str | None = None) -> pathlib.Path:
+    """Agrega o cambia claves en pi/robot_local.json (lo usan las herramientas de calibración)."""
+    p = pathlib.Path(ruta) if ruta else pathlib.Path(__file__).resolve().parents[1] / "robot_local.json"
+    datos = json.loads(p.read_text()) if p.exists() else {}
+    datos.setdefault(seccion, {}).update(valores)
+    p.write_text(json.dumps(datos, indent=2, ensure_ascii=False) + "\n")
+    return p

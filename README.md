@@ -20,13 +20,14 @@ firmware/
   test_host/         El MISMO firmware compilado en el PC con una planta simulada
 pi/
   cafebot/drivers/   mega.py (enlace serial), ld06.py (LiDAR con CRC, en un hilo)
-  cafebot/arm/       cinematica.py (IK de mínimo esfuerzo), dxl.py (bus Dynamixel "cuidadoso")
+  cafebot/arm/       brazo.py (brazo real), cinematica.py (IK de mínimo esfuerzo), dxl.py (bus Dynamixel "cuidadoso")
+  cafebot/vision/    vision.py (cámara real para la misión), clasificador.py y camara.py (de Pablo), proyeccion.py
   cafebot/navegacion/ SLAM, odometría EKF, landmarks, seguimiento, A*, ejecutor de rutas
   cafebot/mision/     misión de la ronda + interfaces (brazo, visión, compuertas, botón)
   cafebot/config.py  geometría del robot y puertos (se sobreescribe con pi/robot_local.json)
   cafebot/mundo/     cancha.py (Apéndices A/B), simulador_lidar.py
   cafebot/localizacion/ inicio.py (¿en qué sector partimos? + albercas/cajas)
-  tools/             teleop.py (teclado), visor_lidar.py
+  tools/             prueba_navegacion, teleop, visor_lidar, localizar, navegacion, brazo, camara, mision
   tests/             pruebas sin hardware
   system/            reglas udev (nombres fijos de puertos)
 description/         URDF + mallas del brazo (Fusion 360 → URDF)
@@ -72,8 +73,8 @@ python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
 | Firmware Mega v1 | Probado en el robot (27 oct): encoders x2, diámetro efectivo 52,6 mm (ruedas nuevas, 28 oct), cableado y signos de servos de dirección verificados. Falta: calibración fina de servos, `W 360` en el piso, IR. |
 | Driver Mega (Pi) | Probado contra el firmware simulado. |
 | Driver LD06 | Probado con paquetes sintéticos (CRC, resincronización). Falta probar con el sensor. |
-| Brazo | IK de mínimo esfuerzo y bus Dynamixel con perfiles por tiempo y monitoreo (probados sin hardware). Falta la secuencia de agarre. Ver `docs/brazo.md`. |
-| Visión | Clasificador Lab por soporte en `legacy/vision_pablo`. Falta portarlo. |
+| Brazo | `BrazoXL430`: IK de mínimo esfuerzo en coordenadas del robot, posturas enseñadas a mano, secuencia de agarre vigilada (choques, garra vacía). Herramienta `tools.brazo`. Probado con bus falso; falta calibrar en el robot (`docs/brazo.md`). |
+| Visión | `VisionCamara`: clasificador Lab de Pablo + posición de cada soporte proyectada con la medida del LiDAR + color de caja. Herramienta `tools.camara`. Probado con fotos sintéticas; falta calibrar con la cámara (`docs/camara.md`). |
 | Localización inicial | Zona de partida + pose + albercas/cajas con una vuelta del LiDAR; 95/100 en simulación (`docs/localizacion.md`). Falta probar con el LD06 real. |
 | Navegación (Pi) | SLAM + EKF con odometría del Mega + landmarks + A* + ejecutor, con interfaz gráfica. En simulación: error de 1–2 cm tras ir a un árbol y volver (odometría sola: 13 cm). Falta probar con el LD06 real (`docs/navegacion.md`). |
 | Misión | N1→N2→N3 completa en simulación con brazo y visión simulados (`docs/mision.md`). En el robot corre sin brazo ni visión hasta que existan sus clases reales. |

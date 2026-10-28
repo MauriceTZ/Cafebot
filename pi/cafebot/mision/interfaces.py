@@ -4,7 +4,10 @@ La misión SOLO habla con estas clases. Para conectar el brazo o la visión real
 escribir una clase que herede de `Brazo` o `Vision` e implemente sus métodos; nada más cambia.
 
     Sistema del ROBOT: x adelante, y izquierda, z hacia arriba desde el SUELO (metros).
-    Categorías: "MADURO", "SOBREMADURO", "VERDE", "NO_SE" (no tocar).
+    Categorías: "MADURO", "SOBREMADURO", "VERDE", "VACIO", "NO_SE" (no tocar),
+                "FUERA" (el soporte no cae dentro de la foto: la misión se corre de lado y saca otra).
+
+Implementaciones reales: cafebot/arm/brazo.py (BrazoXL430) y cafebot/vision/vision.py (VisionCamara).
 """
 from __future__ import annotations
 
@@ -21,22 +24,31 @@ from cafebot.mundo import cancha
 @dataclass
 class LecturaSoporte:
     clave: tuple          # (arbol, fila, col): ver cancha.Soporte
-    categoria: str        # MADURO / SOBREMADURO / VERDE / VACIO / NO_SE
+    categoria: str        # MADURO / SOBREMADURO / VERDE / VACIO / NO_SE / FUERA
     confianza: float      # 0..1
 
 
 class Vision:
+    def iniciar(self):
+        """Antes del botón (abrir la cámara, cargar referencias): lo lento, fuera del reloj de la ronda."""
+
     def preparar_arbol(self):
         """Antes de la foto del árbol (p. ej. inclinar la cámara hacia arriba: X 2 <ángulo>)."""
 
-    def clasificar_arbol(self, arbol: int, pose_robot_cancha) -> list[LecturaSoporte]:
-        """Foto del árbol desde ~65 cm y clasificación de sus 16 soportes.
-        pose_robot_cancha: (x, y, θ) del robot en la cancha, para proyectar los soportes en la imagen."""
+    def clasificar_arbol(self, arbol: int, pose_robot_cancha, tablero=None) -> list[LecturaSoporte]:
+        """Foto del árbol (frente del robot a ~50 cm) y clasificación de sus 16 soportes.
+        pose_robot_cancha: (x, y, θ) del robot en la cancha.
+        tablero: (x de la cara, y del centro, ángulo) del pie del árbol en el sistema del robot, medido por el
+        LiDAR (más preciso que la pose para saber dónde cae cada soporte en la imagen). Puede ser None."""
         raise NotImplementedError
 
     def color_cajas(self, zonas_con_caja: list[int], pose_robot_cancha) -> dict[int, str]:
-        """{zona: 'ROJA' | 'AZUL'} para las cajas que vea. Puede devolver {} si no sabe."""
+        """{zona: 'ROJA' | 'AZUL'} para las cajas que vea DESDE LA PARTIDA. Puede devolver {} si no sabe."""
         return {}
+
+    def color_caja(self, zona: int, pose_robot_cancha) -> str | None:
+        """Con el robot mirando hacia la caja de `zona`: 'ROJA', 'AZUL' o None si no está seguro."""
+        return None
 
 
 # ====================================================================== brazo
@@ -77,18 +89,31 @@ class BrazoNulo(Brazo):
 class VisionSimulada(Vision):
     """Usa la verdad del escenario simulado, con errores: a veces NO_SE, rara vez se equivoca."""
 
-    def __init__(self, escenario: cancha.Escenario, rng=None, p_no_se=0.10, p_error=0.02):
+    def __init__(self, escenario: cancha.Escenario, rng=None, p_no_se=0.10, p_error=0.02, cfg_camara=None,
+                 ve_cajas_al_partir=True):
+        """cfg_camara: si se da, los soportes que la cámara real no vería (modelo de proyeccion.py) salen FUERA.
+        ve_cajas_al_partir=False: como la cámara real, que desde la partida no ve las cajas."""
         self.esc = escenario
         self.rng = rng or np.random.default_rng()
         self.p_no_se, self.p_error = p_no_se, p_error
+        self.cfg_camara = cfg_camara
+        self.ve_cajas_al_partir = ve_cajas_al_partir
 
-    def clasificar_arbol(self, arbol, pose_robot_cancha):
+    def clasificar_arbol(self, arbol, pose_robot_cancha, tablero=None):
         time.sleep(0.5)
+        visibles = None
+        if self.cfg_camara is not None:
+            from cafebot.vision.proyeccion import ModeloCamara
+            from cafebot.vision.vision import tablero_desde_pose
+            t = tablero if tablero is not None else tablero_desde_pose(arbol, pose_robot_cancha)
+            visibles = set(ModeloCamara(self.cfg_camara).posiciones_soportes(arbol, t))
         out = []
         for s in cancha.soportes(arbol):
             real = self.esc.granos.get(s.clave, ("VACIO", ""))[0]
             r = self.rng.random()
-            if r < self.p_no_se:
+            if visibles is not None and f"{s.fila}-{s.col + 1}" not in visibles:
+                out.append(LecturaSoporte(s.clave, "FUERA", 0.0))
+            elif r < self.p_no_se:
                 out.append(LecturaSoporte(s.clave, "NO_SE", 0.3))
             elif r < self.p_no_se + self.p_error:
                 otra = self.rng.choice([c for c in (cancha.MADURO, cancha.SOBREMADURO, cancha.VERDE) if c != real])
@@ -98,8 +123,14 @@ class VisionSimulada(Vision):
         return out
 
     def color_cajas(self, zonas_con_caja, pose_robot_cancha):
+        if not self.ve_cajas_al_partir:
+            return {}
         col = {self.esc.zona_caja_roja: "ROJA", self.esc.zona_caja_azul: "AZUL"}
         return {z: col[z] for z in zonas_con_caja if z in col}
+
+    def color_caja(self, zona, pose_robot_cancha):
+        time.sleep(0.3)
+        return {self.esc.zona_caja_roja: "ROJA", self.esc.zona_caja_azul: "AZUL"}.get(zona)
 
 
 class BrazoSimulado(Brazo):
@@ -155,7 +186,7 @@ class BrazoSimulado(Brazo):
 class VisionNula(Vision):
     """Sin visión: todo es NO_SE, así que la misión no toca ningún grano (solo navega y se acerca)."""
 
-    def clasificar_arbol(self, arbol, pose_robot_cancha):
+    def clasificar_arbol(self, arbol, pose_robot_cancha, tablero=None):
         return [LecturaSoporte(s.clave, "NO_SE", 0.0) for s in cancha.soportes(arbol)]
 
 
@@ -166,7 +197,7 @@ class VisionFija(Vision):
     def __init__(self, categoria=cancha.MADURO):
         self.cat = categoria
 
-    def clasificar_arbol(self, arbol, pose_robot_cancha):
+    def clasificar_arbol(self, arbol, pose_robot_cancha, tablero=None):
         return [LecturaSoporte(s.clave, self.cat, 1.0) for s in cancha.soportes(arbol)]
 
 

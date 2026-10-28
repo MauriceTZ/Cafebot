@@ -13,10 +13,12 @@ python3 -m tools.mision --sim --nivel 3 --semilla 7
 python3 -m tools.navegacion --sim                   # con interfaz: tecla K = botón de inicio
 python3 -m tests.test_mision 1 2 3                  # prueba automática (~2 min por cancha)
 
-# En el robot (todavía sin brazo ni visión reales: navega, se acerca y mide el árbol, no toca granos)
-python3 -m tools.mision                             # botón = ENTER
-python3 -m tools.mision --boton gpio                # botón real en cfg.mision.pin_boton
-python3 -m tools.navegacion --mega /dev/ttyACM0 --lidar /dev/ttyUSB0    # y tecla K
+# En el robot
+python3 -m tools.mision                             # solo navegación: va, mira y se acerca; no toca granos (botón = ENTER)
+python3 -m tools.mision --brazo --vision camara     # COMPLETA: brazo XL430 + cámara (calibrarlos antes: docs/brazo.md, docs/camara.md)
+python3 -m tools.mision --brazo --vision fija       # SOLO TALLER: árbol con puros maduros, para probar el brazo sin visión
+python3 -m tools.mision --boton gpio ...            # botón real en cfg.mision.pin_boton
+python3 -m tools.navegacion --mega /dev/ttyACM0 --lidar /dev/ttyUSB0 --brazo --camara    # con interfaz: tecla K
 ```
 
 ## Qué hace
@@ -25,9 +27,9 @@ python3 -m tools.navegacion --mega /dev/ttyACM0 --lidar /dev/ttyUSB0    # y tecl
 |---|---|---|
 | Botón | `Boton.esperar()` (GPIO, ENTER o inmediato). Parte al **soltar**. | todos |
 | Ubicarse | `estimar_inicio` con 3 barridos (sector, x, y, θ, albercas, sectores con caja). El mapa del SLAM tiene origen en la partida, así que con eso se pasa del mapa a la cancha. | N1 |
-| Cajas | Sectores con caja: LiDAR al partir **y** el mapa después (desde la partida una caja puede tapar a la otra). Color: `Vision.color_cajas`; si se sabe el color de una y hay dos, la otra es del otro color. | N2 |
-| Ir al árbol | El más cercano en y (si la partida es dudosa, el que el LiDAR ve; ver abajo). A* hasta quedar con el frente a `distancia_foto_m` del tablero, mirando +x. Si el destino estaba tapado por una alberca, al llegar se replanifica. | N1 |
-| Foto | `X 2 camara_arbol_deg` → `Vision.clasificar_arbol` (16 lecturas). Solo se recogen las categorías de `recoger` con confianza ≥ `confianza_min`. **NO_SE = no tocar.** | N1 |
+| Cajas | Sectores con caja: LiDAR al partir **y** el mapa después (desde la partida una caja puede tapar a la otra). Color: la cámara mira adelante, así que antes de entregar se para frente a una caja (`x_vista_cajas`, mirando al beneficiadero) y `Vision.color_caja` dice ROJA/AZUL; si hay dos cajas, la otra es del otro color. | N2 |
+| Ir al árbol | El más cercano en y (si la partida es dudosa, el que el LiDAR ve; ver abajo). A* hasta quedar con el frente a `distancia_foto_m` (50 cm) del tablero, mirando +x y con la **cámara** centrada en el árbol. Si el destino estaba tapado por una alberca, al llegar se replanifica. | N1 |
+| Foto | `X 2 camara_arbol_deg` → el LiDAR mide el tablero → `Vision.clasificar_arbol` (16 lecturas; dónde cae cada soporte en la imagen sale de esa medida). Soportes FUERA de la foto: cangrejo 10 cm hacia ese lado y otra foto. Solo se recogen las categorías de `recoger` con confianza ≥ `confianza_min`. **NO_SE = no tocar.** | N1 |
 | Acercarse | `A` recto, midiendo la cara del tablero con el LiDAR, hasta `holgura_agarre_m`. | N1 |
 | Recoger | 5 estaciones laterales (`estaciones_y`, con `L` cangrejo); en cada una, los granos más cercanos, fila alta → baja. La posición de cada grano se calcula **desde el tablero medido por el LiDAR** (cara + bordes + ángulo), no desde la pose global: así un error de 2–3 cm de la pose no importa. 2 intentos por grano. | N1 |
 | Entregar | A* hasta `x_aproximacion_entrega` frente a la caja, mirando +x; **reversa** hasta `x_entrega`; `X 0` abre la compuerta de maduros `t_vaciado_s`, la cierra y sale. N3 hace lo mismo con la azul (`X 1`). | N2 |

@@ -179,7 +179,7 @@ class Escenario:
     zona_caja_roja: int
     zona_caja_azul: int
     albercas: tuple[int, ...]   # 0, 1 o 2 posiciones (1..5)
-    granos: dict = field(default_factory=dict)   # {(arbol, fila, col): (categoría, color)}
+    granos: dict = field(default_factory=dict, repr=False)   # {(arbol, fila, col): (categoría, color)}
 
     def segmentos(self) -> np.ndarray:
         seg = [segmentos_estaticos()]

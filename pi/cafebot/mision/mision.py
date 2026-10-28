@@ -52,6 +52,7 @@ class Mision:
         self.eventos = []
         self.dudoso = False
         self.scan_inicio = None
+        self.zonas_caja = set()       # sectores con caja (LiDAR), con o sin color conocido
         self._cancelar = threading.Event()
         self._hilo = None
 
@@ -262,17 +263,25 @@ class Mision:
         return cambio
 
     def _reserva_entrega(self) -> float:
-        """Segundos a guardar para volver y vaciar (aprox.: tramos a la velocidad de crucero + giros)."""
-        if self.c.nivel < 2 or not self.cajas:
+        """Segundos a guardar para volver y vaciar (tramos a la velocidad de crucero + giros + paradas).
+        Si todavía no se sabe el color, se cuenta la caja más lejana y la parada para mirarla."""
+        if self.c.nivel < 2:
             return 0.0
+        zonas = set(self.zonas_caja) | set(self.cajas.values())
+        if not zonas:
+            return 40.0
+        v = self.cfg.navegacion.vel_mm_s / 1000
         p = self.pose_cancha()
         t = 0.0
         for color in ("ROJA", "AZUL"):
-            if color in self.cajas and (color == "ROJA" or self.c.nivel >= 3):
-                yb = cancha.centros_zonas_beneficiadero()[self.cajas[color] - 1]
-                d = abs(p[0] - self.c.x_aproximacion_entrega) + abs(p[1] - yb)
-                t += 1.6 * d / (self.cfg.navegacion.vel_mm_s / 1000) + 20 + self.c.t_vaciado_s
-                p = np.array([self.c.x_aproximacion_entrega, yb, 0.0])
+            if color == "AZUL" and self.c.nivel < 3:
+                break
+            candidatas = [self.cajas[color]] if color in self.cajas else sorted(zonas)
+            ys = [cancha.centros_zonas_beneficiadero()[z - 1] for z in candidatas]
+            yb = max(ys, key=lambda y: abs(y - p[1]))
+            d = abs(p[0] - self.c.x_aproximacion_entrega) + abs(p[1] - yb)
+            t += 1.6 * d / v + 20 + self.c.t_vaciado_s + (0 if color in self.cajas else 15)
+            p = np.array([self.c.x_aproximacion_entrega, yb, 0.0])
         return t
 
     # ------------------------------------------------------------------ árbol
@@ -300,20 +309,35 @@ class Mision:
         yt = cancha.centros_arboles()[arbol - 1]
         medio = self.cfg.geometria.largo / 2
         x_foto = cancha.ARBOL_X_FRENTE - self.c.distancia_foto_m - medio
+        y_foto = yt - self.cfg.camara.y            # la CÁMARA (no el robot) centrada en el árbol
         self.log(f"árbol {arbol}: voy a la posición de la foto")
-        self._ir((x_foto, yt), 0.0, f"ir al árbol {arbol}", max_s=90)
+        self._ir((x_foto, y_foto), 0.0, f"ir al árbol {arbol}", max_s=90)
         if self.dudoso and self._reubicar():
             ys = cancha.centros_arboles()
             arbol = int(np.argmin(np.abs(ys - self.pose_cancha()[1]))) + 1
             yt = ys[arbol - 1]
+            y_foto = yt - self.cfg.camara.y
             self.log(f"en realidad estoy frente al árbol {arbol}")
-            self._ir((x_foto, yt), 0.0, f"ir al árbol {arbol}", max_s=30)
+            self._ir((x_foto, y_foto), 0.0, f"ir al árbol {arbol}", max_s=30)
 
         # Foto y clasificación de los 16 soportes
         self.mega.comando(f"X 2 {self.c.camara_arbol_deg:.0f}")
         self.vision.preparar_arbol()
         time.sleep(0.4)
-        lect = self.vision.clasificar_arbol(arbol, self.pose_cancha())
+        lect = {l.clave: l for l in self._foto_arbol(arbol, yt)}
+        fuera = [k for k, l in lect.items() if l.categoria == "FUERA"]
+        sops = {s.clave: s for s in cancha.soportes(arbol)}
+        for lado in (1, -1):                       # soportes fuera de la foto: correrse de lado y otra foto
+            de_este_lado = [k for k in fuera if (sops[k].y - yt) * lado > 0]
+            if not de_este_lado or self.queda() < self._reserva_entrega() + 40:
+                continue
+            d = self.c.desplazamiento_foto_m
+            self._ok(self.mega.cangrejo(90 * lado, 1000 * d, 120, timeout=15), "cangrejo para la foto")
+            for l in self._foto_arbol(arbol, yt):
+                if l.clave in de_este_lado and l.categoria != "FUERA":
+                    lect[l.clave] = l
+            self._ok(self.mega.cangrejo(-90 * lado, 1000 * d, 120, timeout=15), "volver al centro")
+        lect = list(lect.values())
         for l in lect:
             self.lecturas[l.clave] = l
         objetivo = {l.clave for l in lect if l.categoria in self.c.recoger and l.confianza >= self.c.confianza_min}
@@ -324,16 +348,20 @@ class Mision:
         if not objetivo:
             return arbol
 
-        # Acercarse de frente midiendo el tablero con el LiDAR
+        # Acercarse de frente midiendo el tablero con el LiDAR (y corrigiendo: la fila alta queda al límite
+        # del alcance del brazo, así que 1–2 cm de más la dejan fuera)
         self.brazo.descansar()
-        pc = self.pose_cancha()
-        esperado = relativo(pc, np.array([cancha.ARBOL_X_FRENTE, yt, 0.0]))
-        med = self._medir_tablero(esperado[:2])
-        frente = (med[0] if med else esperado[0]) - medio
-        avance = frente - self.c.holgura_agarre_m
-        self.log(f"árbol {arbol}: tablero a {100 * frente:.1f} cm del frente; avanzo {100 * avance:.1f} cm")
-        if avance > 0.01:
-            self._ok(self.mega.avanzar(1000 * avance, 100, timeout=20), "acercamiento")
+        for paso in range(3):
+            pc = self.pose_cancha()
+            esperado = relativo(pc, np.array([cancha.ARBOL_X_FRENTE, yt, 0.0]))
+            med = self._medir_tablero(esperado[:2])
+            frente = (med[0] if med else esperado[0]) - medio
+            avance = frente - self.c.holgura_agarre_m
+            if paso == 0:
+                self.log(f"árbol {arbol}: tablero a {100 * frente:.1f} cm del frente; avanzo {100 * avance:.1f} cm")
+            if abs(avance) < 0.008 or (paso > 0 and med is None):
+                break
+            self._ok(self.mega.avanzar(1000 * avance, 100 if abs(avance) > 0.05 else 60, timeout=20), "acercamiento")
 
         # Estaciones laterales: a cada soporte le toca la estación más cercana
         sops = {s.clave: s for s in cancha.soportes(arbol)}
@@ -367,6 +395,13 @@ class Mision:
         self._ok(self.mega.avanzar(-250, 150, timeout=15), "retroceso")
         return arbol
 
+    def _foto_arbol(self, arbol, yt):
+        """Clasificar los soportes con el tablero medido por el LiDAR (dice dónde cae cada uno en la foto)."""
+        pc = self.pose_cancha()
+        esperado = relativo(pc, np.array([cancha.ARBOL_X_FRENTE, yt, 0.0]))
+        med = self._medir_tablero(esperado[:2])
+        return self.vision.clasificar_arbol(arbol, pc, tablero=med[:3] if med else None)
+
     def _p_robot(self, sop):
         """Centro del grano en el sistema del robot, usando el tablero medido por el LiDAR (más fino que la pose)."""
         pc = self.pose_cancha()
@@ -398,8 +433,32 @@ class Mision:
         return False
 
     # ------------------------------------------------------------------ entrega
+    def _mirar_cajas(self, color_buscado):
+        """La cámara mira hacia adelante: para saber de qué color es una caja hay que pararse frente a ella.
+        Basta con ver una: la otra es del otro color."""
+        y_robot = self.pose_cancha()[1]
+        ys = cancha.centros_zonas_beneficiadero()
+        for z in sorted((z for z in self.zonas_caja if z not in self.cajas.values()), key=lambda z: abs(ys[z - 1] - y_robot)):
+            if color_buscado in self.cajas or len(self.cajas) == 2 or self.queda() < self._reserva_entrega() + 25:
+                return
+            yb = cancha.centros_zonas_beneficiadero()[z - 1]
+            self.log(f"miro de qué color es la caja del sector {z}")
+            self._ir((self.c.x_vista_cajas, yb), math.pi, f"mirar la caja {z}", max_s=60)
+            self.mega.comando(f"X 2 {self.c.camara_cajas_deg:.0f}")
+            time.sleep(0.5)
+            color = self.vision.color_caja(z, self.pose_cancha())
+            self.log(f"caja del sector {z}: {color or 'no sé'}")
+            if color:
+                self.cajas.setdefault(color, z)
+                resto = [w for w in self.zonas_caja if w not in self.cajas.values()]
+                if len(self.zonas_caja) == 2 and len(self.cajas) == 1 and len(resto) == 1:
+                    self.cajas["AZUL" if color == "ROJA" else "ROJA"] = resto[0]
+
     def _entregar(self):
         self._actualizar_cajas()
+        for color, cat in (("ROJA", cancha.MADURO), ("AZUL", cancha.SOBREMADURO)):
+            if self.recogidos.get(cat, 0) and color not in self.cajas and (color == "ROJA" or self.c.nivel >= 3):
+                self._mirar_cajas(color)
         pendientes = [("ROJA", 0, cancha.MADURO)]
         if self.c.nivel >= 3:
             pendientes.append(("AZUL", 1, cancha.SOBREMADURO))

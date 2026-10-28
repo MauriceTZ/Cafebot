@@ -3,8 +3,9 @@
     python3 -m tools.mision --sim                    # todo simulado: cancha sorteada, brazo y visión simulados
     python3 -m tools.mision --sim --nivel 3 --semilla 7
     python3 -m tools.mision                          # robot real: Mega + LD06, botón = ENTER, sin brazo ni visión
+    python3 -m tools.mision --brazo --vision camara  # robot real COMPLETO (brazo XL430 + cámara)
     python3 -m tools.mision --boton gpio             # botón de inicio real (cfg.mision.pin_boton)
-    python3 -m tools.mision --vision fija            # SOLO TALLER: árbol cargado solo con maduros
+    python3 -m tools.mision --brazo --vision fija    # SOLO TALLER: árbol cargado solo con maduros
 
 Para verlo en el mapa usar la interfaz: python3 -m tools.navegacion --sim  y tecla K.
 """
@@ -20,6 +21,30 @@ from cafebot.mision import interfaces as I
 from cafebot.mision.mision import Mision
 from cafebot.mundo import cancha
 from cafebot.navegacion.sistema import SistemaNavegacion
+
+
+def armar_reales(cfg, usar_brazo: bool, vision: str, mega):
+    """Brazo / visión / compuertas reales según las opciones (lo que no se pide queda nulo)."""
+    if usar_brazo:
+        from cafebot.arm.brazo import BrazoXL430
+        from tools.brazo import buscar_u2d2
+        try:
+            puerto = buscar_u2d2(cfg.puertos.u2d2)
+        except SystemExit as e:
+            print(f"[brazo] {e}")
+            puerto = cfg.puertos.u2d2
+        brazo = BrazoXL430(cfg, puerto)
+    else:
+        brazo = I.BrazoNulo()
+    if vision == "camara":
+        from cafebot.vision.vision import VisionCamara
+        vis = VisionCamara(cfg)
+    elif vision == "fija":
+        print("¡OJO! visión FIJA: toma todo como MADURO. Solo para el taller.")
+        vis = I.VisionFija()
+    else:
+        vis = I.VisionNula()
+    return brazo, vis, I.Depositos(mega, cfg.mision)
 
 
 def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None):
@@ -44,7 +69,8 @@ def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None):
     real = lambda: tuple(lidar.real)
     c = cfg.mision
     brazo = I.BrazoSimulado(esc, real, (c.brazo_x, c.brazo_y, c.brazo_z), t_agarre=t_agarre, rng=rng)
-    vision = I.VisionSimulada(esc, rng)
+    # Como la cámara real: los soportes fuera de la foto salen FUERA y desde la partida no ve las cajas
+    vision = I.VisionSimulada(esc, rng, cfg_camara=cfg.camara, ve_cajas_al_partir=False)
     depositos = I.DepositosSimulados(mega, c, brazo, esc, real)
     return esc, mega, lidar, brazo, vision, depositos
 
@@ -57,7 +83,9 @@ def main():
     ap.add_argument("--t-agarre", type=float, default=4.0, help="(sim) segundos por agarre")
     ap.add_argument("--nivel", type=int, default=None)
     ap.add_argument("--boton", choices=("enter", "gpio", "ya"), default=None)
-    ap.add_argument("--vision", choices=("nula", "fija"), default="nula", help="(real) aún no hay visión real")
+    ap.add_argument("--brazo", action="store_true", help="(real) usar el brazo XL430")
+    ap.add_argument("--vision", choices=("nula", "camara", "fija"), default="nula",
+                    help="(real) camara = la real; nula = no toca granos; fija = todo MADURO (solo taller)")
     ap.add_argument("--imu", action="store_true")
     a = ap.parse_args()
     cfg = cargar()
@@ -80,11 +108,7 @@ def main():
         mega.conectar()
         mega.telemetria(20)
         lidar = LD06(cfg.puertos.lidar, cfg.geometria.config_ld06())
-        brazo = I.BrazoNulo()       # la secuencia de agarre real todavía no existe
-        vision = I.VisionFija() if a.vision == "fija" else I.VisionNula()
-        depositos = I.Depositos(mega, cfg.mision)
-        if a.vision == "fija":
-            print("¡OJO! visión FIJA: toma todo como MADURO. Solo para el taller.")
+        brazo, vision, depositos = armar_reales(cfg, a.brazo, a.vision, mega)
         if a.imu:
             from cafebot.drivers.imu import Giroscopio
             gyro = Giroscopio(cfg.puertos.imu_bus, cfg.puertos.imu_dir)
@@ -92,6 +116,7 @@ def main():
     boton = I.BotonGPIO(cfg.mision.pin_boton) if a.boton == "gpio" else boton()
 
     lidar.iniciar()
+    vision.iniciar()
     nav = SistemaNavegacion(cfg, lidar, mega, gyro)
     m = Mision(cfg, nav, lidar, mega, brazo, vision, depositos, boton)
     # Antes del botón: dejar que el SLAM arranque (el robot quieto)

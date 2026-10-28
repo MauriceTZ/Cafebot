@@ -99,19 +99,20 @@ def marcador(win, fuente, v, p, txt, color):
     win.blit(fuente.render(txt, True, color), (sx + 13, sy - 22))
 
 
-def crear_mision(cfg, nav, lidar, mega, esc):
-    """Con --sim: brazo, visión y compuertas simulados. Con el robot: sin brazo ni visión todavía
-    (la misión navega, se acerca y mide el árbol, pero no toca granos)."""
+def crear_mision(cfg, nav, lidar, mega, esc, usar_brazo=False, usar_camara=False):
+    """Con --sim: brazo, visión y compuertas simulados. Con el robot: los reales que se pidan con --brazo /
+    --camara; sin ellos la misión navega, se acerca y mide el árbol, pero no toca granos."""
     from cafebot.mision import interfaces as I
     from cafebot.mision.mision import Mision
+    from tools.mision import armar_reales
     c = cfg.mision
     if esc is not None:
         real = lambda: tuple(lidar.real)
         brazo = I.BrazoSimulado(esc, real, (c.brazo_x, c.brazo_y, c.brazo_z))
-        vision = I.VisionSimulada(esc)
+        vision = I.VisionSimulada(esc, cfg_camara=cfg.camara, ve_cajas_al_partir=False)
         depositos = I.DepositosSimulados(mega, c, brazo, esc, real)
     else:
-        brazo, vision, depositos = I.BrazoNulo(), I.VisionNula(), I.Depositos(mega, c)
+        brazo, vision, depositos = armar_reales(cfg, usar_brazo, "camara" if usar_camara else "nula", mega)
     return Mision(cfg, nav, lidar, mega, brazo, vision, depositos, I.Boton())
 
 
@@ -128,6 +129,8 @@ def main():
     ap.add_argument("--ir-a", default=None, metavar="X,Y",
                     help="planificar y ejecutar una ruta a (X,Y) m apenas el mapa lo permita")
     ap.add_argument("--mision", action="store_true", help="iniciar la misión sola a los 3 s (como la tecla K)")
+    ap.add_argument("--brazo", action="store_true", help="(robot) la misión usa el brazo XL430 real")
+    ap.add_argument("--camara", action="store_true", help="(robot) la misión usa la cámara real")
     ap.add_argument("--captura", default=None, help="(pruebas) guardar una imagen tras N s y salir: archivo.png")
     ap.add_argument("--captura-s", type=float, default=8.0)
     a = ap.parse_args()
@@ -270,7 +273,7 @@ def main():
                     giroscopio.recalibrar()
                     msg = "Recalibrando giroscopio: NO mover"
                 elif k == pg.K_k and mega is not None and not (mision and mision.activa):
-                    mision = crear_mision(cfg, nav, lidar, mega, esc)
+                    mision = crear_mision(cfg, nav, lidar, mega, esc, a.brazo, a.camara)
                     mision.iniciar()
                     msg = "MISIÓN en marcha (ESC para detenerla)"
                 elif k == pg.K_i:
@@ -314,7 +317,7 @@ def main():
 
         nav.actualizar()
         if a.mision and mision is None and mega is not None and nav.ekf.inicializada and time.monotonic() - t0 > 3:
-            mision = crear_mision(cfg, nav, lidar, mega, esc)
+            mision = crear_mision(cfg, nav, lidar, mega, esc, a.brazo, a.camara)
             mision.iniciar()
             msg = "MISIÓN en marcha (ESC para detenerla)"
         if pendiente and nav.ekf.inicializada and time.monotonic() - t0 > 3:

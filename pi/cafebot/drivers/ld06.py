@@ -109,7 +109,7 @@ class ConfigLD06:
     fov_deg: float = 95.0           # se usan solo los puntos a ±fov del frente del SENSOR
                                     # (detrás está el propio robot)
     # Filtros
-    dist_min_m: float = 0.05
+    dist_min_m: float = 0.03       # el LD06 mide desde 2 cm; frente al árbol para agarrar queda a ~5 cm
     dist_max_m: float = 6.0
     intensidad_min: int = 10
     # Huella del robot (rectángulo centrado en el robot) para borrar el propio chasis/brazo

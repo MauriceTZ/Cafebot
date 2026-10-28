@@ -1,5 +1,33 @@
 # Brazo: alcance, esfuerzo y cuidado de los servos
 
+## Probar el brazo en el robot (`python3 -m tools.brazo`, en `pi/`)
+
+Código: `pi/cafebot/arm/brazo.py` (clase `BrazoXL430`, la que usa la misión), `dxl.py` (bus), `cinematica.py` (IK).
+Sin hardware: `python3 -m tests.test_brazo_falso`. Ajustes en `pi/robot_local.json` (secciones `"brazo"` y
+`"mision"`, ver `ConfigBrazo` en `pi/cafebot/config.py`). Las posturas grabadas quedan en `pi/brazo_posturas.json`:
+**subirlo al repo** para que todos usen las mismas.
+
+| Paso | Comando | Qué mirar / anotar |
+|---|---|---|
+| 1 | `salud` | Responden los 6 servos (IDs 9, 8, 11, 7, 5 y 4), °C, V, errores. Firmware **≥ 42** (si no, usa perfil por velocidad y conviene actualizar con Dynamixel Wizard). |
+| 2 | `leer` (SIN torque: **sujetar el brazo**) | a) Brazo apuntando derecho hacia adelante → "Dirección" ≈ 0°. Si no, poner ese ángulo de la base en `brazo.yaw0_deg`. b) Girarlo hacia la IZQUIERDA del robot: la dirección debe subir; si baja → `brazo.yaw_signo: -1`. c) Brazo recto vertical → hombro, codos y muñeca ≈ 0°; si no, algún servo se desmontó (avisar). d) Poner el centro de los dedos en un punto medido con regla → comparar con "Garra en el ROBOT" y corregir `mision.brazo_x/y/z`. |
+| 3 | `leer` + tecla **G** | Grabar `descanso` (plegado **detrás** del frente del robot, idealmente apoyado), `deposito_maduro` y `deposito_sobremaduro` (garra sobre cada tolva). `trabajo` viene del código antiguo. |
+| 4 | `garra cerrar` (vacía y con un grano entre los dedos) | El ángulo con grano debe quedar claramente bajo el ángulo sin grano: poner `brazo.garra_vacia_deg` entre los dos. |
+| 5 | `ir descanso`, `ir deposito_maduro` | Que lleguen sin golpes. Para soltar el torque: `apagar`. |
+| 6 | `punto 0.20 0 0.45` | Medir con regla dónde quedó la garra (error < 1 cm). |
+| 7 | `teleop` | W/S x, A/D y, R/F z, T/G inclinación, O/P garra, K agarrar aquí. Para encontrar a mano dónde está un grano de prueba. |
+| 8 | `agarrar X Y Z --sin-deposito`, luego sin `--sin-deposito` | Secuencia completa con un grano en un soporte de prueba a altura real (baja 0,407 / media 0,557 / alta 0,707 m del suelo). |
+
+**Secuencia de agarre** (`recoger`): abrir → 6 cm antes del grano en la dirección del brazo → entrar en 2 pasos →
+cerrar → si la garra cerró del todo, no había grano (abre y retrocede) → subir (3 cm; en la fila alta lo que alcance,
+mínimo 1 cm) → retroceder 8 cm → postura de depósito → abrir → `descanso`. Si una articulación queda a más de
+6° de su meta o la carga pasa de 80 %, algo chocó: abre, retrocede y la misión sigue con el siguiente grano.
+
+**Alcance con la base a 36 cm** (calculado, `pi/tests/test_brazo_falso.py`): baja y media siempre; la **alta solo
+de frente** (lateral 0, que es justo donde la misión pone el brazo para esa fila) con el frente del robot a ≤ 8 cm
+del tablero, o con ±6 cm de lateral a ≤ 6 cm. Con la base a 38 cm alcanza todo hasta 10 cm. La misión usa
+`mision.holgura_agarre_m = 0.06` y corrige el acercamiento con el LiDAR hasta ±1 cm; si la fila alta sale "fuera de alcance", revisar `brazo_x/z` o bajar a 0.05.
+
 Datos: tramos 107 + 107 + 67 mm + muñeca→agarre 32 mm (`legacy/codigo_brazo/main.py`),
 hombro 67 mm sobre la base del brazo, base del brazo a 36 cm del suelo.
 Servos XL430‑W250‑T según el [manual de ROBOTIS](https://docs.robotis.com/docs/dxl/model_reference/x_series/xl_series/xl430-w250/):

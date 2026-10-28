@@ -15,7 +15,7 @@ class BusFalso:
             return 0, 0
 
         def r(port, sid, addr):
-            defaults = {146: 41, 144: 118, 126: 65436, 70: 0, 122: 0, 132: 2048}
+            defaults = {146: 41, 144: 118, 126: 65436, 70: 0, 122: 0, 132: 2048, 6: 45}
             return self.mem.get((sid, addr), defaults.get(addr, 0)), 0, 0
         return w, r
 
@@ -39,6 +39,7 @@ class PacketHandler:
             setattr(self, f"read{n}ByteTxRx", r)
         self.reboots = []
     def getTxRxResult(self, r): return str(r)
+    def ping(self, port, sid): return 1060, 0, 0
     def reboot(self, port, sid): self.reboots.append(sid); bus.mem[(sid, 70)] = 0
 
 
@@ -48,9 +49,11 @@ sys.modules["dynamixel_sdk"] = sdk
 from cafebot.arm import dxl  # noqa: E402
 
 b = dxl.BusDXL("falso")
-b.configurar()
+assert b.configurar()                       # la primera vez cambia EEPROM: apaga el torque
+bus.mem[(8, dxl.ADDR_TORQUE_ENABLE)] = 1
+assert b.configurar() == [] and bus.mem[(8, dxl.ADDR_TORQUE_ENABLE)] == 1   # después NO lo apaga (el brazo no se cae)
 assert bus.mem[(4, dxl.ADDR_PWM_LIMIT)] == 300 and bus.mem[(8, dxl.ADDR_POS_I)] == 0
-assert bus.mem[(8, dxl.ADDR_DRIVE_MODE)] == 0b100 and bus.mem[(8, dxl.ADDR_RETURN_DELAY)] == 0
+assert bus.mem[(8, dxl.ADDR_DRIVE_MODE)] == 0b100 and bus.mem.get((8, dxl.ADDR_RETURN_DELAY), 0) == 0
 b.torque(True)
 b.mover({8: 0.5, 11: -0.3}, 1.5)
 assert bus.mem[(8, dxl.ADDR_PROFILE_VEL)] == 1500 and bus.mem[(8, dxl.ADDR_PROFILE_ACC)] == 450
@@ -61,4 +64,15 @@ bus.mem[(8, dxl.ADDR_HW_ERROR)] = 1 << 5
 ok, motivo = b.puede_trabajar()
 assert not ok and "sobrecarga" in motivo, motivo
 assert b.recuperar_errores() == [8] and b.puede_trabajar()[0]
+# Firmware viejo: perfil por velocidad (nunca Profile Velocity = duración en ms)
+b.firmware = {k: 41 for k in b.firmware}
+b.configurar()
+assert not b.perfil_tiempo and bus.mem[(8, dxl.ADDR_DRIVE_MODE)] == 0
+b.mover({8: 1.0}, 1.0)
+assert 1 <= bus.mem[(8, dxl.ADDR_PROFILE_VEL)] <= 200, bus.mem[(8, dxl.ADDR_PROFILE_VEL)]
+# Cero normalizado: el hombro (cero 1042) encendido leyendo 1042 + 4096 - 10 -> cero efectivo 5128
+bus.mem[(8, dxl.ADDR_PRESENT_POSITION)] = 1042 + 4096 - 10
+b.normalizar_centros()
+assert b.centro[8] == 1042 + 4096, b.centro[8]
+assert abs(b.angulos([8])[8] - (-1) * (-10) * 2 * 3.141592653589793 / 4096) < 1e-9
 print("OK: dxl contra bus falso")

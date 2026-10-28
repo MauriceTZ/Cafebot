@@ -1,5 +1,35 @@
 # ¿Dónde va la cámara?
 
+## Probar la cámara en el robot (`python3 -m tools.camara`, en `pi/`)
+
+Código: `pi/cafebot/vision/` — `camara.py` y `clasificador.py` (de Pablo, portados), `proyeccion.py` (dónde cae cada
+soporte en la imagen según la geometría) y `vision.py` (clase `VisionCamara`, la que usa la misión).
+Sin cámara: `python3 -m tests.test_vision_sintetica`.
+
+**Cómo encuentra los soportes:** ya no hay que marcar 16 posiciones a mano. Con la posición de la cámara en el robot
+(`camara.x/y/z`), su inclinación y su distancia focal (`fx_px`) se proyecta cada soporte del Apéndice B sobre la
+imagen, usando el tablero que mide el LiDAR. Así, si el robot queda 3–4 cm corrido, los círculos lo siguen. (En la
+prueba sintética, sin esa corrección y con 4 cm de error, los 16 soportes salen VACIO: no se toca nada, pero se
+pierden los puntos.)
+
+| Paso | Comando | Qué hacer |
+|---|---|---|
+| 1 | `exposicion --dist 0.5` | Fija exposición y balance de blancos con la luz del lugar (repetir en la cancha). |
+| 2 | `foto --frente 0.50` | Robot mirando un árbol de prueba, **cámara justo frente al centro del árbol**, frente del robot a 50 cm del tablero (medido). Cámara inclinada como en la misión (`--mega /dev/ttyACM0` lo hace con `X 2`). |
+| 3 | `zonas --imagen capturas/<foto>.jpg --ajustar` | Ventana: I/K inclinación, W/S altura, +/- fx, J/L lateral, hasta que los círculos caigan sobre los granos. **G** guarda en `robot_local.json`. |
+| 4 | `referencias --imagen <foto> --clase ROJO --pos alta-2 media-4` | Enseñar colores, con varias fotos y TODAS las clases: ROJO NARANJO AMARILLO VERDE AZUL NEGRO VACIO (`--pos todas` si todo el árbol es de un color). |
+| 5 | `revisar` | Pares de clases de distinta categoría a menos de 20 → se pueden confundir: agregar muestras o subir la luz. |
+| 6 | `clasificar --frente 0.50` | Foto nueva → los 16 resultados y la imagen marcada en `pi/capturas/`. |
+| 7 | `caja --dist 0.6` | Caja roja o azul delante, cámara hacia abajo → debe decir su color. |
+
+**Distancia de la foto: 50 cm** entre el frente del robot y el tablero (no 65): más lejos el robot quedaría encima de
+una alberca que esté detrás del árbol. A 50 cm, con la cámara centrada e inclinada 20°, entran los 16 soportes
+(en la simulación con el modelo de cámara). Si alguno queda fuera, la misión se corre 10 cm de lado y saca otra foto.
+
+**Color de las cajas:** la cámara mira hacia adelante y desde la partida no ve las cajas. Antes de entregar, la misión
+se para mirando hacia una caja (x = 1,25 m, θ = 180°), baja la cámara y cuenta píxeles rojos/azules donde debería estar
+la caja. Con ver una basta: la otra es del otro color.
+
 Cámara del equipo: **Raspberry Pi Camera Module 3 estándar** (imx708), campo visual ≈66°×41° (H×V).
 (La versión Wide tiene ≈102°×67°.)
 

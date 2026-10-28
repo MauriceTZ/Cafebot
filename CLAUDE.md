@@ -29,7 +29,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - **Mega = reflejos** (`firmware/mega_cafebot`): PI por rueda, primitivas `A` (avanzar), `W` (girar),
   `L` (cangrejo: las 4 ruedas al mismo ángulo), `G` (waypoint), watchdog, freno por borde.
   Protocolo de texto: `docs/protocolo_mega.md`.
-- **Pi = decisiones** (`pi/cafebot`): drivers (`mega.py`, `ld06.py`, `imu.py`), brazo (`arm/`), mapa de la
+- **Pi = decisiones** (`pi/cafebot`): drivers (`mega.py`, `ld06.py`, `imu.py`), brazo (`arm/`: `BrazoXL430`),
+  visión (`vision/`: `VisionCamara`, clasificador Lab de Pablo + proyección de los soportes), mapa de la
   cancha y simulador (`mundo/`), localización inicial con LiDAR (`localizacion/`),
   navegación modular (`navegacion/`: SLAM, EKF, landmarks, seguimiento, A*, ejecutor; ver `docs/navegacion.md`),
   misión de la ronda (`mision/`: N1→N2→N3; brazo, visión, compuertas y botón detrás de interfaces; ver `docs/mision.md`).
@@ -42,7 +43,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Probar sin hardware antes de pedir pruebas en el robot:
   - `firmware/test_host/correr.sh`: el firmware real compilado en el PC con una planta simulada.
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
-    test_dxl_falso, test_inicio, test_landmarks, test_navegacion, test_mision).
+    test_dxl_falso, test_brazo_falso, test_vision_sintetica, test_inicio, test_landmarks, test_navegacion, test_mision).
+  - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
+    `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md), `tools.mision` (todo junto).
 - Lo que no se ha medido en el robot se marca `[CONFIRMAR]` / `[MEDIR]` / `[AJUSTAR]` en el código.
 - Commits pequeños y descriptivos en español. Cuando el equipo prueba algo en el robot, anotar el
   resultado (fecha + qué se midió) en el comentario de la constante que se ajustó.
@@ -54,6 +57,10 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Hecho: navegación modular en la Pi con interfaz (`python3 -m tools.navegacion --sim`).
 - Hecho (simulación): misión N1/N2/N3 (`python3 -m tools.mision --sim`, tecla K en la interfaz) con brazo y visión
   simulados; semilla 1 = 35 puntos en 102 s.
-- Por hacer en software: clase `Brazo` real (secuencia de agarre XL430), clase `Vision` real (portar
-  `legacy/vision_pablo/clasificador.py`), IR en la navegación, servicio systemd + botón GPIO.
+- 28 oct: ruedas nuevas → diámetro 52,6 mm; el motor M4 quedó invertido (`M4_INV_MOTOR true`). Desvío de ~6 cm
+  a la izquierda en 1 m, por revisar de nuevo (un intento de corrección por rueda se revirtió).
+- Hecho (sin hardware, probado con bus falso y fotos sintéticas): brazo real (`tools.brazo`) y cámara real
+  (`tools.camara`), conectados a la misión (`tools.mision --brazo --vision camara`).
+- Por hacer en el robot: calibrar brazo (yaw0, base, posturas de depósito, umbral de garra) y cámara (inclinación,
+  fx, referencias de color); IR en la navegación; servicio systemd + botón GPIO.
 - Por medir para la misión: base del brazo, grano delante del tablero, compuertas, GPIO del botón (`docs/mision.md`).
