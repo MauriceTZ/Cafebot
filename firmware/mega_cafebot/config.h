@@ -50,7 +50,7 @@
 #define M1_INV_MOTOR false
 #define M2_INV_MOTOR true
 #define M3_INV_MOTOR false
-#define M4_INV_MOTOR false
+#define M4_INV_MOTOR true   // 28 oct: tras cambiar las ruedas, V 80 0 dio ENC M4 = -2424 (motor al revés)
 #define M1_INV_ENC 1
 #define M2_INV_ENC 0
 #define M3_INV_ENC 1
