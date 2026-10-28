@@ -90,9 +90,11 @@ const float dt = 1.0f / TIMER_TRIGGER_FREQUENCY;
 #define PULSOS_POR_REVOLUCION 800.0f   // contando SOLO flancos de subida de A (como v0)
 #define CINEMATICA_W 217.0f              // Ancho entre ruedas (mm)
 #define CINEMATICA_L 223.0f              // Largo entre ejes (mm)
-// Diámetro EFECTIVO (calibrado 27 oct en el piso): A 1000 -> odometría 997 mm, huincha 955 mm
-// => 53 * 955/997 = 50,8 mm. Incluye la compresión del neumático y el error de pulsos/vuelta.
-#define CINEMATICA_DIAMETRO_RUEDA 50.8f  // mm (nominal 53)
+// Diámetro EFECTIVO, calibrado en el piso (incluye la compresión del neumático y el error de pulsos/vuelta):
+//   27 oct: A 1000 -> odometría 997 mm, huincha 955 mm => 53 * 955/997 = 50,8 mm.
+//   28 oct, ruedas cambiadas: A 1000 (odometría ~1000 mm) -> traseras 1022 mm (izq) y 1050 mm (der),
+//           promedio 1036 mm => 50,8 * 1,036 = 52,6 mm. La diferencia izq/der está por revisar (docs/hardware.md).
+#define CINEMATICA_DIAMETRO_RUEDA 52.6f  // mm
 const float CIRCUNFERENCIA_RUEDA = PI * CINEMATICA_DIAMETRO_RUEDA;
 const float CINEMATICA_D_GIRO_Z = sqrt((CINEMATICA_W * CINEMATICA_W) + (CINEMATICA_L * CINEMATICA_L));
 const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;

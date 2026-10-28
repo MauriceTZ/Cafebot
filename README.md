@@ -69,7 +69,7 @@ python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
 
 | Módulo | Estado |
 |---|---|
-| Firmware Mega v1 | Probado en el robot (27 oct): encoders x2, diámetro efectivo 50,8 mm, cableado y signos de servos de dirección verificados. Falta: calibración fina de servos, `W 360` en el piso, IR. |
+| Firmware Mega v1 | Probado en el robot (27 oct): encoders x2, diámetro efectivo 52,6 mm (ruedas nuevas, 28 oct), cableado y signos de servos de dirección verificados. Falta: calibración fina de servos, `W 360` en el piso, IR. |
 | Driver Mega (Pi) | Probado contra el firmware simulado. |
 | Driver LD06 | Probado con paquetes sintéticos (CRC, resincronización). Falta probar con el sensor. |
 | Brazo | IK de mínimo esfuerzo y bus Dynamixel con perfiles por tiempo y monitoreo (probados sin hardware). Falta la secuencia de agarre. Ver `docs/brazo.md`. |

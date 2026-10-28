@@ -14,7 +14,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Se puede reprogramar entre rondas. Clasifican las 2 mejores de 4 rondas.
 
 ## Hardware (verificado en el robot el 27 oct salvo que diga lo contrario)
-- Base 30 × 23 cm, 4 ruedas Ø53 mm (diámetro efectivo calibrado 50,8 mm) con motor + encoder
+- Base 30 × 23 cm, 4 ruedas Ø53 mm (diámetro efectivo calibrado 52,6 mm el 28 oct, ruedas nuevas) con motor + encoder
   (800 pulsos/vuelta en x1; se usa **x2**, verificado con `ED`) y servo de dirección HS-311 cada una.
 - Ruedas: M1 delantera der, M2 delantera izq, M3 trasera der, M4 trasera izq.
   Servos de dirección: pin 6 = M1, 10 = M2, 13 = M3, 45 = M4, los 4 con `SIGNO_SERVO = +1`.
