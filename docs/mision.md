@@ -18,7 +18,7 @@ python3 -m tools.mision                             # solo navegación: va, mira
 python3 -m tools.mision --brazo --vision camara     # COMPLETA: brazo XL430 + cámara (calibrarlos antes: docs/brazo.md, docs/camara.md)
 python3 -m tools.mision --brazo --vision fija       # SOLO TALLER: árbol con puros maduros, para probar el brazo sin visión
 python3 -m tools.mision --boton gpio ...            # botón real en cfg.mision.pin_boton
-python3 -m tools.navegacion --mega /dev/ttyACM0 --lidar /dev/ttyUSB0 --brazo --camara    # con interfaz: tecla K
+python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0 --brazo --camara    # con interfaz: tecla K
 ```
 
 ## Qué hace

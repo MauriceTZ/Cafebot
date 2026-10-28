@@ -5,7 +5,7 @@ Sistema del robot: origen en el centro de la base, x hacia ADELANTE, y hacia la 
 
 Para cambiar algo sin tocar el código: crear pi/robot_local.json con las claves a cambiar, p. ej.
     {"geometria": {"lidar_x": 0.17, "extras": [[0.12, 0.0, 0.05, 0.05]]},
-     "puertos": {"mega": "/dev/ttyACM0", "lidar": "/dev/ttyUSB0"}}
+     "puertos": {"mega": "/dev/ttyUSB1", "lidar": "/dev/ttyUSB0"}}
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ class GeometriaRobot:
 
 @dataclass
 class Puertos:
-    mega: str = "/dev/cafebot-mega"     # sin reglas udev: /dev/ttyACM0
+    mega: str = "/dev/cafebot-mega"     # sin reglas udev: /dev/ttyUSB1 (nuestro Mega es un clon con CH340)
     lidar: str = "/dev/cafebot-lidar"   # sin reglas udev: /dev/ttyUSB0
     u2d2: str = "/dev/cafebot-u2d2"
     imu_bus: int = 1

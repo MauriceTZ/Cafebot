@@ -1,7 +1,7 @@
 """Interfaz de navegación: mapa del SLAM, trayectorias, landmarks y rutas A→B (pygame).
 
 En la Raspberry (escritorio por VNC):
-    python3 -m tools.navegacion --mega /dev/ttyACM0 --lidar /dev/ttyUSB0
+    python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0
     python3 -m tools.navegacion --lidar /dev/ttyUSB0 --sin-mega      # solo mapear (empujando el robot)
     python3 -m tools.navegacion --sim                                 # todo simulado, sin robot
     agregar --imu para usar el giroscopio MPU9250

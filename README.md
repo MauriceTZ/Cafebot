@@ -62,7 +62,7 @@ python3 -m tools.navegacion --sim     # interfaz de navegación (mapa, rutas A�
 python3 -m tests.test_navegacion      # navegación completa en simulación
 python3 -m tools.mision --sim         # una ronda completa simulada, con puntaje; ver docs/mision.md
 python3 -m tools.teleop --sim         # o --puerto /dev/cafebot-mega
-python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 cuadrado 500   # recta, giro, cangrejo, ida_vuelta, consola
+python3 -m tools.prueba_navegacion --puerto /dev/ttyUSB1 cuadrado 500   # recta, giro, cangrejo, ida_vuelta, consola
 python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
 ```
 

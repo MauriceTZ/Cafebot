@@ -8,7 +8,7 @@ Reescritura modular de `legacy/integracion_juan_v1/Raspberry_LD06_SLAM/ld06_slam
 ```bash
 cd ~/Cafebot/pi && source .venv/bin/activate
 sudo apt install python3-scipy python3-pygame python3-smbus2     # una vez
-python3 -m tools.navegacion --mega /dev/ttyACM0 --lidar /dev/ttyUSB0          # robot completo
+python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0          # robot completo
 python3 -m tools.navegacion --lidar /dev/ttyUSB0 --sin-mega                   # solo mapear (empujando)
 python3 -m tools.navegacion --sim                                             # todo simulado
 # agregar --imu para usar el giroscopio MPU9250

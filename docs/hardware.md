@@ -17,6 +17,16 @@
 | Mega | reflejos | PI por rueda, dirección, odometría, primitivas, freno por borde, watchdog. |
 | Pi 5 | decisiones | Localización con mapa conocido, visión, brazo, misión, reloj de 8 min. |
 
+## Puertos USB en la Raspberry (vistos el 28 oct con `ls -l /dev/serial/by-id/`)
+
+| Dispositivo | Chip USB | Sin reglas udev | Con `pi/system/99-cafebot.rules` |
+|---|---|---|---|
+| Arduino Mega (clon) | CH340 (`1a86`) | `/dev/ttyUSB1` | `/dev/cafebot-mega` |
+| LD06 | CP2102 (`10c4`) | `/dev/ttyUSB0` | `/dev/cafebot-lidar` |
+| U2D2 (brazo) | FTDI (`0403`) | otro `/dev/ttyUSB*` | `/dev/cafebot-u2d2` |
+
+Los números `ttyUSB` dependen del orden en que se conectan: con las reglas instaladas no importa.
+
 ## Pines del Mega (`firmware/mega_cafebot/config.h`)
 
 | Rueda | Ubicación (verificada) | Enc A | Enc B | PWM | DIR1 | DIR2 | Servo | Offset |

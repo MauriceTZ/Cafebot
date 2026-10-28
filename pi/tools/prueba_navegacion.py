@@ -1,11 +1,11 @@
 """Pruebas de navegación desde la terminal de la Raspberry (Mega conectado por USB).
 
-    python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 recta 1000
-    python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 giro 360
-    python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 cangrejo 90 300
-    python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 cuadrado 500
-    python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 ida_vuelta 1000
-    python3 -m tools.prueba_navegacion --puerto /dev/ttyACM0 consola      # escribir comandos del Mega
+    python3 -m tools.prueba_navegacion --puerto /dev/ttyUSB1 recta 1000
+    python3 -m tools.prueba_navegacion --puerto /dev/ttyUSB1 giro 360
+    python3 -m tools.prueba_navegacion --puerto /dev/ttyUSB1 cangrejo 90 300
+    python3 -m tools.prueba_navegacion --puerto /dev/ttyUSB1 cuadrado 500
+    python3 -m tools.prueba_navegacion --puerto /dev/ttyUSB1 ida_vuelta 1000
+    python3 -m tools.prueba_navegacion --puerto /dev/ttyUSB1 consola      # escribir comandos del Mega
     (agregar --sim para probar contra el firmware simulado, sin robot)
 
 Cada prueba muestra lo que el robot CREE que hizo (odometría). Compáralo con lo que
@@ -52,7 +52,7 @@ def consola(mega):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--puerto", default="/dev/ttyACM0")
+    ap.add_argument("--puerto", default="/dev/cafebot-mega")
     ap.add_argument("--sim", action="store_true", help="firmware simulado (sin robot)")
     ap.add_argument("--vel", type=float, default=0, help="velocidad mm/s (0 = la del firmware)")
     ap.add_argument("prueba", choices=["recta", "giro", "cangrejo", "cuadrado", "ida_vuelta", "consola"])

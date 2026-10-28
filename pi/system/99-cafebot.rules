@@ -1,10 +1,10 @@
 # Nombres fijos para los 3 dispositivos USB-serial del robot.
-# Sin esto, Mega / LD06 / U2D2 se reparten ttyUSB0/ttyACM0 al azar en cada arranque
+# Sin esto, Mega / LD06 / U2D2 se reparten ttyUSB0/ttyUSB1/... según el orden en que se conectan en cada arranque
 # (hoy el brazo y el LiDAR usan los dos /dev/ttyUSB0 en el código antiguo).
 #
 # Instalar:  sudo cp 99-cafebot.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger
 # Verificar los IDs de TU hardware antes (pueden variar con clones):
-#   udevadm info -a -n /dev/ttyACM0 | grep -E "idVendor|idProduct|serial" | head
+#   udevadm info -a -n /dev/ttyUSB1 | grep -E "idVendor|idProduct|serial" | head
 #
 # Arduino Mega original (ATmega16U2) o clon con CH340 -> /dev/cafebot-mega
 SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0042", SYMLINK+="cafebot-mega"

@@ -23,6 +23,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   Cámara Pi Module 3 **estándar** fija a ~35 cm sobre un servo de inclinación (`X 2 <ángulo>`).
 - Brazo 5 GDL + garra con Dynamixel XL430 (U2D2), base a 36 cm del suelo. El hombro se
   sobrecarga si el brazo queda estirado en horizontal (ver `docs/brazo.md`).
+- Puertos en la Pi (28 oct): Mega = clon con CH340 (1a86) → `/dev/ttyUSB1`; LD06 (CP2102) → `/dev/ttyUSB0`;
+  U2D2 (FTDI) → otro ttyUSB. Con `pi/system/99-cafebot.rules`: `/dev/cafebot-mega`, `-lidar`, `-u2d2`.
 - Pendiente de confirmar: pines de los IR (22/23 digitales, A8/A9 analógicos), compuertas (44/46).
 
 ## Arquitectura

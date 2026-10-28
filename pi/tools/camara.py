@@ -15,7 +15,7 @@ del árbol, como lo deja la misión; si no, decir --lateral):
     python3 -m tools.camara clasificar --frente 0.50         # 6. foto nueva + los 16 resultados (y la imagen marcada)
     python3 -m tools.camara caja --dist 0.6                  # color de una caja puesta delante (cámara hacia abajo)
 
-Agregar --mega /dev/ttyACM0 para que la herramienta incline la cámara (X 2) como en la misión.
+Agregar --mega /dev/ttyUSB1 para que la herramienta incline la cámara (X 2) como en la misión.
 Las fotos quedan en pi/capturas/ con un .json al lado (frente, lateral) para no repetir esos datos.
 Nombres de soportes: alta-1..5, media-1..6, baja-1..5, numerados de IZQUIERDA a derecha en la imagen.
 """

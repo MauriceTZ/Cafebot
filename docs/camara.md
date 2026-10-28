@@ -15,7 +15,7 @@ pierden los puntos.)
 | Paso | Comando | Qué hacer |
 |---|---|---|
 | 1 | `exposicion --dist 0.5` | Fija exposición y balance de blancos con la luz del lugar (repetir en la cancha). |
-| 2 | `foto --frente 0.50` | Robot mirando un árbol de prueba, **cámara justo frente al centro del árbol**, frente del robot a 50 cm del tablero (medido). Cámara inclinada como en la misión (`--mega /dev/ttyACM0` lo hace con `X 2`). |
+| 2 | `foto --frente 0.50` | Robot mirando un árbol de prueba, **cámara justo frente al centro del árbol**, frente del robot a 50 cm del tablero (medido). Cámara inclinada como en la misión (`--mega /dev/ttyUSB1` lo hace con `X 2`). |
 | 3 | `zonas --imagen capturas/<foto>.jpg --ajustar` | Ventana: I/K inclinación, W/S altura, +/- fx, J/L lateral, hasta que los círculos caigan sobre los granos. **G** guarda en `robot_local.json`. |
 | 4 | `referencias --imagen <foto> --clase ROJO --pos alta-2 media-4` | Enseñar colores, con varias fotos y TODAS las clases: ROJO NARANJO AMARILLO VERDE AZUL NEGRO VACIO (`--pos todas` si todo el árbol es de un color). |
 | 5 | `revisar` | Pares de clases de distinta categoría a menos de 20 → se pueden confundir: agregar muestras o subir la luz. |
