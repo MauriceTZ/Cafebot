@@ -96,6 +96,11 @@ const float dt = 1.0f / TIMER_TRIGGER_FREQUENCY;
 //           promedio 1036 mm => 50,8 * 1,036 = 52,6 mm. La diferencia izq/der está por revisar (docs/hardware.md).
 #define CINEMATICA_DIAMETRO_RUEDA 52.6f  // mm
 const float CIRCUNFERENCIA_RUEDA = PI * CINEMATICA_DIAMETRO_RUEDA;
+// Corrección POR RUEDA (multiplica el diámetro de arriba). Orden M1 del-der, M2 del-izq, M3 tras-der, M4 tras-izq.
+// 28 oct: A 1000 recorrió 1022 mm atrás-izq y 1050 mm atrás-der (promedio 1036) y se desvió ~6 cm a la
+// izquierda => der 1050/1036 = 1,0135, izq 1022/1036 = 0,9865. Las delanteras se asumen iguales a las de
+// su lado [CONFIRMAR]. Se cambian EN VIVO con "EK i factor" (queda en EEPROM, que manda sobre estos valores).
+const float ESCALA_RUEDA_DEF[4] = { 1.0135f, 0.9865f, 1.0135f, 0.9865f };
 const float CINEMATICA_D_GIRO_Z = sqrt((CINEMATICA_W * CINEMATICA_W) + (CINEMATICA_L * CINEMATICA_L));
 const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 

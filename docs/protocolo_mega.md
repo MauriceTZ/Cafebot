@@ -44,6 +44,7 @@ Si no llega otra `V`/`K` en 500 ms, el Mega se detiene y emite `EVT STOP WATCHDO
 | `P` | `POSE x y th_mrad modo=.. postura=.. cola=..` |
 | `E` | `ENC m1 m2 m3 m4` (cuentas acumuladas) |
 | `ED` | `ENCD subida/bajada: M1=a/b ...` lo que sumó cada flanco de A desde el último `ED` (y lo pone en cero). |
+| `EK [i f]` | Escala de la rueda i (1 = M1 … 4 = M4), multiplica el diámetro. Sin argumentos la muestra; `EK 0` vuelve a `ESCALA_RUEDA_DEF` de `config.h`. Se guarda en EEPROM. |
 | `EM 1\|2` | Decodificación x1 (solo flanco de subida, como v0) o x2 (ambos flancos). Solo detenido; se guarda en EEPROM. Por defecto x1. |
 | `R [x y th]` | Fija la pose (la Pi corrige la odometría con LiDAR/líneas). Sin argumentos = 0 0 0. |
 | `Z` | Reinicia encoders (solo detenido). |
