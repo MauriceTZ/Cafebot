@@ -26,7 +26,6 @@ void imprimir_ayuda() {
     Serial.println(F("S              parar y vaciar cola"));
     Serial.println(F("P | E          pose | contadores de encoders"));
     Serial.println(F("ED | EM 1|2    diagnostico por flanco | decodificacion x1/x2"));
-    Serial.println(F("EK [i f] | EK 0 escala por rueda (1..4) | volver a config.h"));
     Serial.println(F("R [x y th]     fijar pose (sin args = 0 0 0)"));
     Serial.println(F("Z              reiniciar encoders (solo detenido)"));
     Serial.println(F("M hz           telemetria T a hz (0 = off)"));
@@ -116,20 +115,6 @@ void ejecutar_linea(char* s) {
             encoders_guardar_modo();
             encoders_resync();
             Serial.print(F("OK EM x")); Serial.println(enc_x2 ? 2 : 1);
-            return;
-        }
-        if (c1 == 'K') {  // EK [i factor] : escala de la rueda i (1..4), se guarda; sin args, la muestra
-            if (n >= 2) {
-                if (v[0] < 1 || v[0] > 4 || v[1] < 0.8f || v[1] > 1.2f) { Serial.println(F("ERR EK i(1..4) factor(0.8..1.2)")); return; }
-                escala_rueda[(uint8_t)v[0] - 1] = v[1];
-                escalas_guardar();
-            } else if (n == 1 && v[0] == 0) {  // EK 0 : volver a los valores de config.h
-                for (uint8_t i = 0; i < 4; i++) escala_rueda[i] = ESCALA_RUEDA_DEF[i];
-                EEPROM.update(EEPROM_DIR_ESCALA, 0);
-            }
-            Serial.print(F("EK"));
-            for (uint8_t i = 0; i < 4; i++) { Serial.print(' '); Serial.print(escala_rueda[i], 4); }
-            Serial.println();
             return;
         }
     }

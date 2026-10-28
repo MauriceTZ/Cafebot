@@ -29,7 +29,7 @@ void planta(float h){
     float phi = radians(((servo_cmd[PIN_SERVO[i]]-544)/10.311f-OFFSET_SERVO[i])*SIGNO_SERVO[i]);
     vw[i][0]=vrueda[i]*cos(phi); vw[i][1]=vrueda[i]*sin(phi);
     dist_acum[i]+=vrueda[i]*h;
-    long objetivo=lround(dist_acum[i]/(ESCALA_RUEDA_DEF[i]*CIRCUNFERENCIA_RUEDA/(PULSOS_POR_REVOLUCION*2.0f)));  // cada flanco físico de A
+    long objetivo=lround(dist_acum[i]/(CIRCUNFERENCIA_RUEDA/(PULSOS_POR_REVOLUCION*2.0f)));  // cada flanco físico de A
     while(cuentas_gen[i]!=objetivo){
       bool fwd = objetivo>cuentas_gen[i];
       int a=!pin_val[ENC_A[i]]; pin_val[ENC_A[i]]=a;

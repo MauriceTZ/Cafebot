@@ -12,10 +12,8 @@ volatile int32_t enc_diag_sube[4] = { 0, 0, 0, 0 };
 volatile int32_t enc_diag_baja[4] = { 0, 0, 0, 0 };
 volatile bool enc_x2 = ENCODER_X2;
 
-float escala_rueda[4] = { ESCALA_RUEDA_DEF[0], ESCALA_RUEDA_DEF[1], ESCALA_RUEDA_DEF[2], ESCALA_RUEDA_DEF[3] };
-
-float mm_por_cuenta(uint8_t i) {
-    return escala_rueda[i] * CIRCUNFERENCIA_RUEDA / (PULSOS_POR_REVOLUCION * (enc_x2 ? 2.0f : 1.0f));
+float mm_por_cuenta() {
+    return CIRCUNFERENCIA_RUEDA / (PULSOS_POR_REVOLUCION * (enc_x2 ? 2.0f : 1.0f));
 }
 
 // Siempre se engancha en CHANGE; en modo x1 los flancos de bajada solo van al diagnóstico.
@@ -44,23 +42,6 @@ void encoders_cargar_modo() {
     if (m == MAGIA_ENC && (v == 1 || v == 2)) enc_x2 = (v == 2);
 }
 
-// Escala por rueda en EEPROM: magia + 4 floats (dirección 72..88)
-const int EEPROM_DIR_ESCALA = 72;
-const uint8_t MAGIA_ESCALA = 0xE5;
-
-void escalas_cargar() {
-    if (EEPROM.read(EEPROM_DIR_ESCALA) != MAGIA_ESCALA) return;
-    float e[4];
-    EEPROM.get(EEPROM_DIR_ESCALA + 1, e);
-    for (uint8_t i = 0; i < 4; i++)
-        if (e[i] > 0.8f && e[i] < 1.2f) escala_rueda[i] = e[i];
-}
-
-void escalas_guardar() {
-    EEPROM.update(EEPROM_DIR_ESCALA, MAGIA_ESCALA);
-    EEPROM.put(EEPROM_DIR_ESCALA + 1, escala_rueda);
-}
-
 void encoders_guardar_modo() {
     EEPROM.update(EEPROM_DIR_ENC, MAGIA_ENC);
     EEPROM.update(EEPROM_DIR_ENC + 1, enc_x2 ? 2 : 1);
@@ -78,7 +59,6 @@ void encoders_diag(int32_t sube[4], int32_t baja[4], bool reset) {
 
 void encoders_begin() {
     encoders_cargar_modo();
-    escalas_cargar();
     pinMode(M1_ENC_A, INPUT_PULLUP); pinMode(M1_ENC_B, INPUT_PULLUP);
     pinMode(M2_ENC_A, INPUT_PULLUP); pinMode(M2_ENC_B, INPUT_PULLUP);
     pinMode(M3_ENC_A, INPUT_PULLUP); pinMode(M3_ENC_B, INPUT_PULLUP);

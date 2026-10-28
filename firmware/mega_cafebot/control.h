@@ -273,7 +273,7 @@ void control_tick() {
     for (uint8_t i = 0; i < 4; i++) {
         int32_t delta = enc[i] - enc_previo[i];
         enc_previo[i] = enc[i];
-        d[i] = delta * mm_por_cuenta(i);
+        d[i] = delta * mm_por_cuenta();
     }
 
     // 2. Mientras los servos pivotan, las ruedas giran solas: se descartan esas cuentas
