@@ -22,13 +22,17 @@ class GeometriaRobot:
     largo: float = 0.30            # base, a lo largo de x
     ancho: float = 0.23            # base, a lo largo de y
     margen: float = 0.03           # holgura del filtro de huella (cables, ruedas, vibración)
-    lidar_x: float = 0.16          # LD06 en el frente de la base, a ~8 cm del suelo   [MEDIR]
+    lidar_x: float = 0.16          # LD06 al frente, por FUERA de la base, centrado      [MEDIR]
+    lidar_z: float = 0.005         # 29 oct: a ~5 mm del suelo (solo informativo)        [MEDIR]
     lidar_y: float = 0.0
     lidar_yaw_deg: float = 0.0     # hacia dónde mira el 0° del LD06 (0 = adelante)    [MEDIR]
     lidar_fov_deg: float = 95.0    # vista útil ±fov respecto del frente del LD06
     # Rectángulos extra que el LiDAR ve del propio robot (cx, cy, semiancho_x, semiancho_y):
     # p. ej. el brazo plegado o una rueda que asoma. Se dibujan en azul en la interfaz.
     extras: list = field(default_factory=list)
+    # El LiDAR ve su propia base: se borra un CUADRADO de este lado DETRÁS del LiDAR, centrado en él (el robot
+    # no puede medir más de 450 mm por lado según el reglamento). 0 = solo la huella de la base (+ margen).
+    lidar_caja_m: float = 0.45
 
     @property
     def radio(self) -> float:
@@ -36,8 +40,15 @@ class GeometriaRobot:
         return math.hypot(self.largo / 2, self.ancho / 2)
 
     def huella(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        """Rectángulo (sistema del robot) donde todo lo que ve el LiDAR es el propio robot: la base + margen y,
+        si lidar_caja_m > 0, el cuadrado de 45 cm detrás del LiDAR (lo que el robot puede llegar a medir)."""
         hx, hy = self.largo / 2 + self.margen, self.ancho / 2 + self.margen
-        return (-hx, hx), (-hy, hy)
+        x0, x1, y0, y1 = -hx, hx, -hy, hy
+        if self.lidar_caja_m > 0:
+            # adelante, solo hasta 1 cm delante del LiDAR (no el margen de la base: el LiDAR va por fuera de ella)
+            x0, x1 = min(x0, self.lidar_x - self.lidar_caja_m), max(self.largo / 2, self.lidar_x + 0.01)
+            y0, y1 = min(y0, self.lidar_y - self.lidar_caja_m / 2), max(y1, self.lidar_y + self.lidar_caja_m / 2)
+        return (x0, x1), (y0, y1)
 
     def config_ld06(self) -> ConfigLD06:
         hx, hy = self.huella()

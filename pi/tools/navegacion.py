@@ -17,6 +17,9 @@ Teclado (como el programa antiguo):
     mapa (verde = asociado a una línea conocida de la cancha, naranjo = sin asociar). Calibrarlos: tools.ir
     B recalibrar giroscopio (quieto) | +/- zoom
     K MISIÓN completa (como el botón de inicio; el robot debe estar en su sector de partida). ESC la detiene
+    F RECORRER EL BORDE: con el robot en una esquina (borde detrás y a la derecha), da la vuelta al rectángulo
+      tocando los bordes con los IR y vuelve a la esquina (docs/navegacion.md). ESC lo detiene
+    --taller 2.4x1.8 (con --sim): pista de taller simulada (solo la huincha del borde, sala con paredes)
 """
 from __future__ import annotations
 
@@ -34,6 +37,7 @@ from cafebot.navegacion.geometria import componer, envolver, rectangulo, relativ
 from cafebot.navegacion.sistema import SistemaNavegacion
 
 FONDO, LIBRE, TENTATIVO, ESTATICO = (12, 14, 20), (22, 30, 44), (55, 62, 85), (70, 150, 220)
+COLOR_BORDE = [(255, 90, 90), (90, 200, 255), (255, 210, 60), (200, 120, 255), (160, 160, 160)]
 COLOR_CLASE = {"ARBOL": (90, 255, 120), "CAJA": (255, 120, 90), "ALBERCA": (90, 160, 255), "OBSTACULO": (255, 170, 60)}
 
 
@@ -117,6 +121,41 @@ def texto_ir(nav, mask, cfg) -> str:
     return t
 
 
+def iniciar_recorrido(cfg, nav, mega, vel):
+    from cafebot.navegacion.bordes import RecorridoBorde
+    rb = RecorridoBorde(mega, cfg, pose_mapa_fn=nav.pose, log=print, vel=vel)
+    rb.iniciar()
+    return rb
+
+
+def dibujar_recorrido(win, fuente, v, rb):
+    """Toques de los IR en el mapa (un color por lado), rectas de cada lado, esquinas del robot y, al terminar, el
+    rectángulo medido con la pose fusionada (verde) y con la odometría sola (amarillo, alineado en la partida)."""
+    from cafebot.navegacion.bordes import rectangulo_desde_toques
+    toques = list(rb.toques)
+    r = rectangulo_desde_toques(toques, "mapa")
+    for k, (c, u) in (r["rectas"] if r else {}).items():
+        pts = np.array([t.mapa for t in toques if t.borde == k and t.mapa is not None])
+        s = (pts - c) @ u
+        linea(win, v, [c + (s.min() - 0.15) * u, c + (s.max() + 0.15) * u], COLOR_BORDE[k], 1)
+    for t in toques:
+        if t.mapa is not None:
+            col = COLOR_BORDE[t.borde if t.borde is not None else 4]
+            sx, sy = v.a_pantalla(t.mapa)
+            pg.draw.circle(win, col, (sx, sy), 5)
+            pg.draw.circle(win, (0, 0, 0), (sx, sy), 5, 1)
+    if r and r.get("esquinas") is not None:
+        linea(win, v, r["esquinas"], (0, 255, 140), 2, True)
+        odo = rb.rectangulo_mega_en_mapa()
+        if odo is not None:
+            linea(win, v, odo, (230, 180, 40), 2, True)
+    for e in rb.esquinas:
+        if e["mapa"] is not None:
+            sx, sy = v.a_pantalla(e["mapa"][:2])
+            pg.draw.circle(win, (255, 255, 255), (sx, sy), 7, 2)
+            win.blit(fuente.render(str(e["k"]), True, (255, 255, 255)), (sx + 9, sy - 8))
+
+
 def crear_mision(cfg, nav, lidar, mega, esc, usar_brazo=False, usar_camara=False):
     """Con --sim: brazo, visión y compuertas simulados. Con el robot: los reales que se pidan con --brazo /
     --camara; sin ellos la misión navega, se acerca y mide el árbol, pero no toca granos."""
@@ -149,6 +188,10 @@ def main():
     ap.add_argument("--mision", action="store_true", help="iniciar la misión sola a los 3 s (como la tecla K)")
     ap.add_argument("--brazo", action="store_true", help="(robot) la misión usa el brazo XL430 real")
     ap.add_argument("--camara", action="store_true", help="(robot) la misión usa la cámara real")
+    ap.add_argument("--taller", default=None, metavar="LARGOxANCHO",
+                    help="(con --sim) pista de taller: rectángulo de huincha de LARGO × ANCHO m, robot en una esquina")
+    ap.add_argument("--borde", action="store_true", help="recorrer el borde solo a los 3 s (como la tecla F)")
+    ap.add_argument("--vel-borde", type=float, default=120.0, help="mm/s de los tramos del recorrido del borde")
     ap.add_argument("--captura", default=None, help="(pruebas) guardar una imagen tras N s y salir: archivo.png")
     ap.add_argument("--captura-s", type=float, default=8.0)
     a = ap.parse_args()
@@ -164,13 +207,19 @@ def main():
         from tests.sim_serial import SerialSimulado
         mega = Mega("sim")
         mega.conectar(serial_obj=SerialSimulado())
-        esc = cancha.Escenario(a.zona_sim, 1 if a.zona_sim != 1 else 2, 5 if a.zona_sim != 5 else 4, (2, 4),
-                               cancha.sorteo_granos(np.random.default_rng()))
-        inicio_sim = np.array([cancha.ZONA_X_CENTRO, cancha.centros_zonas_beneficiadero()[a.zona_sim - 1], 0.0])
-        lidar = LD06Simulado(cfg.geometria.config_ld06(), esc.segmentos(), inicio_sim,
+        if a.taller:
+            from cafebot.mundo import taller
+            largo, ancho = (float(x) for x in a.taller.lower().split("x"))
+            segs, lineas_sim, inicio_sim = taller.segmentos(largo, ancho), taller.lineas(largo, ancho), taller.inicio()
+        else:
+            esc = cancha.Escenario(a.zona_sim, 1 if a.zona_sim != 1 else 2, 5 if a.zona_sim != 5 else 4, (2, 4),
+                                   cancha.sorteo_granos(np.random.default_rng()))
+            inicio_sim = np.array([cancha.ZONA_X_CENTRO, cancha.centros_zonas_beneficiadero()[a.zona_sim - 1], 0.0])
+            segs, lineas_sim = esc.segmentos(), cancha.lineas_cancha()
+        lidar = LD06Simulado(cfg.geometria.config_ld06(), segs, inicio_sim,
                              lambda: (mega.tele.x / 1000, mega.tele.y / 1000, mega.tele.th))
         from cafebot.drivers.ir_simulado import IRSimulado, pose_mega_extrapolada
-        ir_sim = IRSimulado(mega, cfg.ir.posiciones, cancha.lineas_cancha(),
+        ir_sim = IRSimulado(mega, cfg.ir.posiciones, lineas_sim,
                             lambda: lidar.pose_real_ahora(pose_mega_extrapolada(mega))).iniciar()
     else:
         from cafebot.drivers.ld06 import LD06
@@ -210,6 +259,7 @@ def main():
     T_mapa_cancha = None        # pose de la cancha en el marco del mapa (tecla I)
     ult_manual = 0.0
     mision = None
+    recorrido = None            # RecorridoBorde (tecla F)
     pendiente = [np.array([float(v) for v in a.ir_a.split(",")])] if a.ir_a else []
     t0 = time.monotonic()
     corriendo = True
@@ -240,6 +290,8 @@ def main():
                 if k == pg.K_ESCAPE:
                     if mision is not None and mision.activa:
                         mision.detener()
+                    if recorrido is not None and recorrido.activo:
+                        recorrido.detener()
                     nav.detener()
                     msg = "STOP"
                 elif k in (pg.K_RETURN, pg.K_KP_ENTER):
@@ -296,6 +348,13 @@ def main():
                 elif k == pg.K_b and giroscopio is not None:
                     giroscopio.recalibrar()
                     msg = "Recalibrando giroscopio: NO mover"
+                elif k == pg.K_f and mega is not None:
+                    if recorrido is not None and recorrido.activo:
+                        recorrido.detener()
+                        msg = "Recorrido del borde DETENIDO"
+                    elif not (mision and mision.activa):
+                        recorrido = iniciar_recorrido(cfg, nav, mega, a.vel_borde)
+                        msg = "Recorriendo el borde (ESC o F para detener)"
                 elif k == pg.K_k and mega is not None and not (mision and mision.activa):
                     mision = crear_mision(cfg, nav, lidar, mega, esc, a.brazo, a.camara)
                     mision.iniciar()
@@ -320,7 +379,8 @@ def main():
         # Manejo manual (mantener la tecla): V/K repetidos a 10 Hz
         if mision is not None and mision.activa:
             T_mapa_cancha = mision.T_mapa_cancha() if mision.inicio is not None else T_mapa_cancha
-        elif mega is not None and not nav.ejecutor.activo and time.monotonic() - ult_manual > 0.1:
+        elif (mega is not None and not nav.ejecutor.activo and not (recorrido and recorrido.activo)
+              and time.monotonic() - ult_manual > 0.1):
             t = pg.key.get_pressed()
             vel, w = cfg.navegacion.vel_mm_s, 0.6
             orden = None
@@ -345,6 +405,9 @@ def main():
             mision = crear_mision(cfg, nav, lidar, mega, esc, a.brazo, a.camara)
             mision.iniciar()
             msg = "MISIÓN en marcha (ESC para detenerla)"
+        if a.borde and recorrido is None and mega is not None and nav.ekf.inicializada and time.monotonic() - t0 > 3:
+            recorrido = iniciar_recorrido(cfg, nav, mega, a.vel_borde)
+            msg = "Recorriendo el borde (ESC o F para detener)"
         if pendiente and nav.ekf.inicializada and time.monotonic() - t0 > 3:
             if nav.planificar(pendiente[0]) and nav.ejecutar():
                 msg = f"Ruta automática a {pendiente[0]}"
@@ -389,6 +452,8 @@ def main():
             col = (90, 230, 120) if c.linea else (255, 150, 40)
             pg.draw.line(win, col, v.a_pantalla(c.p_entra), v.a_pantalla(c.p_sale), 3)
             pg.draw.circle(win, col, v.a_pantalla(c.centro), 3)
+        if recorrido is not None:
+            dibujar_recorrido(win, fuente, v, recorrido)
         if ver_odom:
             linea(win, v, list(nav.ekf.tray_odom), (230, 180, 40), 1)       # solo odometría
         linea(win, v, list(nav.ekf.tray_ekf) or list(nav.slam.trayectoria), (0, 220, 130), 2)   # fusionada
@@ -431,6 +496,9 @@ def main():
             + (f" | signo {'verificado' if nav.ekf.gyro_verificado else 'por verificar (gira el robot)'}" if giroscopio else ""),
             f"LANDMARKS {', '.join(l.nombre for l in conf) or '—'} | elegido: {seleccion or '—'}",
             texto_ir(nav, mask_ir, cfg),
+            (f"BORDE     {recorrido.estado.split(' | ')[0]}" if recorrido is not None
+             else "BORDE     F para recorrer el borde (robot en una esquina: borde detrás y a la derecha)"),
+            *([f"MEDIDO    {recorrido.resumen()}"] if recorrido is not None and recorrido.resultado else []),
             f"RUTA      {nav.planificador.msg}" + (f" | largo {nav.planificador.largo:.2f} m | restan {rest:.2f} m" if rest else "")
             + f" | ejecutor: {nav.ejecutor.estado}",
             (f"MISIÓN    {mision.estado} | {mision.tiempo():.0f} s | brazo {mision.brazo.estado()}"
@@ -453,6 +521,9 @@ def main():
 
     if mision is not None:
         mision.detener()
+    if recorrido is not None and recorrido.activo:
+        recorrido.detener()
+        recorrido.esperar(3)
     if ir_sim is not None:
         ir_sim.detener()
     nav.detener()

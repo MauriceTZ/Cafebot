@@ -108,6 +108,7 @@ class Mega:
         self.tele = Telemetria()
         self.eventos: "queue.Queue[Evento]" = queue.Queue(maxsize=200)
         self.ir_eventos: "queue.Queue[EventoIR]" = queue.Queue(maxsize=500)   # los consume la navegación
+        self._ir_suscriptores: list = []                # colas extra (suscribir_ir): cada una recibe TODOS los eventos
         self.ir_crudo: tuple | None = None              # (valores, mascara, t) de la última línea IRV
         self.ir_historia: deque = deque(maxlen=3000)    # para graficar / calibrar
         self._ir_mascara = 0
@@ -207,9 +208,10 @@ class Mega:
                 return
             self._ir_mascara = m
             ev = EventoIR(m, sub, baj, x / 1000.0, y / 1000.0, th / 1000.0, ahora)
-            if self.ir_eventos.full():
-                self.ir_eventos.get_nowait()          # nadie los consume: descartar los más viejos
-            self.ir_eventos.put(ev)
+            for cola in [self.ir_eventos] + self._ir_suscriptores:
+                if cola.full():
+                    cola.get_nowait()                 # nadie los consume: descartar los más viejos
+                cola.put(ev)
             return
         if cab == "EVT":
             if self.eventos.full():
@@ -298,6 +300,17 @@ class Mega:
         return self.comando(f"IS {1 if activa else 0}" + ("" if mascara is None else f" {mascara}"))
 
     # ------------------------------------------------------------------ sensores de línea (QTR-1A)
+    def suscribir_ir(self) -> "queue.Queue[EventoIR]":
+        """Cola propia con todos los eventos IR (para que dos consumidores no se los repartan: p. ej. la
+        navegación, que dibuja los cruces, y una rutina que busca los bordes)."""
+        cola: "queue.Queue[EventoIR]" = queue.Queue(maxsize=500)
+        self._ir_suscriptores.append(cola)
+        return cola
+
+    def desuscribir_ir(self, cola) -> None:
+        if cola in self._ir_suscriptores:
+            self._ir_suscriptores.remove(cola)
+
     def ir_estado(self) -> EstadoIR:
         return EstadoIR.desde(self.comando("I"))
 

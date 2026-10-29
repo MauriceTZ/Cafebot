@@ -30,11 +30,45 @@ python3 -m tools.navegacion --sim                                             # 
 **Qué mirar para calibrar:**
 - **Línea verde** = trayectoria fusionada. **Amarilla** = la que daría la odometría sola. Si se separan
   mucho en una recta, revisar el diámetro de rueda; si se separan en los giros, `CINEMATICA_D_GIRO_Z`.
-- **Rectángulo azul** = huella del robot: los puntos del LiDAR que caen dentro se descartan. Debe envolver
-  el chasis. Si el LiDAR ve partes del robot fuera de él (brazo, ruedas), agregar rectángulos en
-  `geometria.extras` (ver `pi/robot_local.ejemplo.json`). El HUD muestra cuántos puntos propios se filtran.
+- **Rectángulo azul** = lo que el LiDAR considera el propio robot: los puntos que caen dentro se descartan.
+  Desde el 29 oct es un **cuadrado de 45 cm detrás del LiDAR** (al frente, por fuera de la base y centrado: el
+  robot no puede medir más de 450 mm por lado), `geometria.lidar_caja_m = 0.45` (0 = solo la base + margen).
+  Si el LiDAR ve partes del robot fuera de él, agregar rectángulos en `geometria.extras`
+  (ver `pi/robot_local.ejemplo.json`). El HUD muestra cuántos puntos propios se filtran por vuelta.
 - **Punto blanco** = posición configurada del LiDAR (`lidar_x`). Si el mapa se "dobla" al girar en el sitio,
   la posición o la orientación (`lidar_yaw_deg`) del LiDAR están mal medidas.
+
+## Recorrer el borde de la cancha (tecla **F**)
+
+Prueba de navegación con el LiDAR y los sensores de línea juntos (`pi/cafebot/navegacion/bordes.py`):
+
+1. Poner el robot en una **esquina**, dentro de la cancha, con un borde **detrás** y otro a la **derecha**
+   (a unos 10–20 cm de cada uno; puede estar un poco torcido).
+2. `python3 -m tools.navegacion` (con el Mega y el LiDAR) y tecla **F** (o `--borde` para que parta solo a los 3 s).
+   **ESC** o **F** lo detienen. `--vel-borde 100` cambia la velocidad de los tramos (120 mm/s por defecto).
+3. El robot:
+   - toca el borde de atrás (TI/TD) y se endereza con él; toca el derecho (DD/TD) y se separa 10 cm;
+   - avanza con el freno en DI/DD; cada 80 cm se acerca en cangrejo al borde derecho, lo toca, corrige el rumbo y
+     se separa (así no se va desviando);
+   - al tocar el borde de adelante se endereza con él, vuelve a tocar el derecho y gira 90° a la izquierda;
+   - después de 4 tramos está otra vez en la esquina de partida, mirando igual.
+
+En pantalla: los **toques** de los sensores (un color por lado) y la recta ajustada a cada lado; las esquinas
+(0–4) donde quedó el robot; al terminar, el **rectángulo medido** con la pose fusionada LiDAR + odometría
+(**verde**) y con la odometría sola (**amarillo**, alineado en la partida). La línea **MEDIDO** dice el tamaño de
+la cancha, sus ángulos y el **error de cierre**: la esquina final ES la de partida (la ubican los bordes), así que
+lo que se haya corrido cada estimación es su error. En simulación (pista de 1,5 × 1,1 m): rectángulo con ±1 cm,
+cierre LiDAR + odometría 0,5 cm, odometría sola 8 cm.
+
+Sin robot: `python3 -m tools.navegacion --sim --taller 2.4x1.8 --borde` (pista de taller: solo la huincha del
+borde, dentro de una sala con paredes y muebles) y `python3 -m tests.test_borde`.
+
+Ojo:
+- Los sensores van junto a las ruedas: al tocar un borde la **rueda está sobre la línea** (en la cancha es falta).
+  Es una prueba de taller. En la cancha del torneo las líneas interiores (beneficiadero, cultivo) también frenan.
+- Necesita los servos de dirección funcionando (cangrejo) y los umbrales IR calibrados (`tools.ir borde`).
+- El LiDAR a ~5 mm del suelo: si el piso no es plano puede verlo (puntos sueltos cerca del robot que aparecen
+  y desaparecen). El recorrido no depende del LiDAR (lo guían los bordes); el LiDAR da el mapa y la pose fusionada.
 
 ## Módulos (`pi/cafebot/navegacion/`)
 

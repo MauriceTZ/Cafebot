@@ -181,7 +181,7 @@ def prueba_bordes(cfg):
     try:
         res = buscar_bordes(mega, cfg, vel=80, max_mm=1000, log=lambda t: None)
         assert "error" not in res, res
-        assert res["atras_inicial"]["primero"] == 2, res          # TI: el robot está girado a la izquierda
+        assert res["atras_inicial"].primero == 2, res          # TI: el robot está girado a la izquierda
         assert abs(res["torcido_inicial_deg"] + 5) < 1.0, res     # y lo endereza girando −5°
         assert abs(res["torcido_atras_deg"]) < 1.0 and abs(res["torcido_derecha_deg"]) < 1.0, res
         x, y, th = mega.pose()

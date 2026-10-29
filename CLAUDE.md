@@ -19,7 +19,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Ruedas: M1 delantera der, M2 delantera izq, M3 trasera der, M4 trasera izq.
   Servos de dirección: pin 6 = M1, 10 = M2, 13 = M3, 45 = M4, los 4 con `SIGNO_SERVO = +1`.
 - Arduino Mega + shield 4Motor&9Servo: control de ruedas, dirección, odometría, sensores de línea.
-- Raspberry Pi 5: decisiones. LD06 adelante a ~8 cm del suelo (180° de vista).
+- Raspberry Pi 5: decisiones. LD06 al frente, por fuera de la base y centrado, a ~5 mm del suelo (29 oct); se
+  descarta lo que ve en el cuadrado de 45 cm detrás de él (`geometria.lidar_caja_m`).
   Cámara Pi Module 3 **estándar** fija a ~35 cm sobre un servo de inclinación (`X 2 <ángulo>`).
 - Brazo 5 GDL + garra con Dynamixel XL430 (U2D2), base a 36 cm del suelo. El hombro se
   sobrecarga si el brazo queda estirado en horizontal (ver `docs/brazo.md`). Ids, ceros, sentidos, límites y
@@ -50,7 +51,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - `firmware/test_host/correr.sh`: el firmware real compilado en el PC con una planta simulada.
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
     test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
-    test_navegacion, test_mision, test_ir).
+    test_navegacion, test_mision, test_ir, test_borde).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.mision` (todo junto).
@@ -76,6 +77,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - 29 oct: calibración del brazo sin cámara (`tools.brazo`: escanear, identificar, cero, verificar, limites,
   articulacion, garra calibrar, fila) con un perfil por brazo. Probado con bus falso (`tests.test_calibracion_brazo`).
   Arreglado: el retiro del agarre quedaba detrás del eje de la base y la hacía girar 180° (ahora `brazo.r_min_m`).
+- 29 oct: recorrido del borde (`tools.navegacion`, tecla F; `navegacion/bordes.py`): desde una esquina da la vuelta
+  al rectángulo tocando los bordes con los IR y vuelve; mide la cancha y el error de cierre de odometría y LiDAR.
+  Simulado con `--sim --taller 2.4x1.8` y `tests.test_borde`.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (inclinación, fx, referencias de color); recorrido inicial con las líneas; servicio systemd + botón GPIO.
