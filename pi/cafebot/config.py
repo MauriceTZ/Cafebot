@@ -74,8 +74,11 @@ class ConfigIR:
     """Sensores de línea: 4 × QTR-1A en A8..A11 del Mega. Orden fijo DI, DD, TI, TD (= bits 0..3).
     Calibración y prueba: `python3 -m tools.ir` (docs/ir.md)."""
     nombres: tuple = ("DI", "DD", "TI", "TD")
-    # Posición de cada sensor en el sistema del robot (x adelante, y izquierda), en metros.     [MEDIR]
-    posiciones: tuple = ((0.13, 0.09), (0.13, -0.09), (-0.13, 0.09), (-0.13, -0.09))
+    # Punto del piso que mira cada sensor, en el sistema del robot (x adelante, y izquierda), en metros.
+    # 29 oct: van en las 4 esquinas, a 45°, junto a cada rueda -> se toma el centro de cada rueda
+    # (firmware: CINEMATICA_L = 223 mm entre ejes, CINEMATICA_W = 217 mm entre ruedas). Si el punto que mira
+    # el sensor queda corrido de la rueda, medirlo y ponerlo en robot_local.json.            [MEDIR]
+    posiciones: tuple = ((0.1115, 0.1085), (0.1115, -0.1085), (-0.1115, 0.1085), (-0.1115, -0.1085))
     # ---- UMBRALES ------------------------------------------------------------------------------
     # Cuentas del ADC del Mega (0..1023). NEGRO si la lectura pasa umbral + histéresis/2.
     # None = usar los guardados en la EEPROM del Mega. Con valores, tools.navegacion / tools.mision se

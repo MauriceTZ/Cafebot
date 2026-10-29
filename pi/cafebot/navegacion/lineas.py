@@ -13,6 +13,8 @@ línea y la pose de SU odometría en ese momento. Aquí:
      constante = algo mal medido (posición del sensor, de la cancha, odometría).
   4. Opcional (`ConfigIR.corregir_pose`): el cruce asociado corrige el EKF solo en la dirección
      perpendicular a la línea (lo único que un cruce mide de verdad).
+  5. Los sensores van junto a las ruedas: si uno ENTRA a una línea del perímetro, esa rueda está pisándola
+     (el reglamento obliga a reiniciar). Se registra como alerta para corregir la ruta.
 """
 from __future__ import annotations
 
@@ -50,6 +52,7 @@ class DetectorLineas:
         self.lineas = cancha.lineas_cancha()
         self.cancha_en_mapa = None             # pose de la cancha en el marco del mapa
         self.descartados = 0
+        self.alertas: deque = deque(maxlen=50)  # (t, sensor, línea): una rueda entró al perímetro
 
     def fijar_cancha(self, T_mapa_cancha):
         self.cancha_en_mapa = None if T_mapa_cancha is None else np.asarray(T_mapa_cancha, float)
@@ -66,6 +69,8 @@ class DetectorLineas:
             bit = 1 << k
             if ev.subida & bit:
                 self._entradas[k] = (mega_ev, ev.recibido)
+                self._revisar_perimetro(k, transformar(self._sensor_desde(k, mega_ahora, mega_ev)[None, :], pose_mapa)[0],
+                                        ev.recibido)
             if ev.bajada & bit and k in self._entradas:
                 mega_e, t_e = self._entradas.pop(k)
                 # el sensor al entrar y al salir, en el sistema del robot AHORA
@@ -87,6 +92,15 @@ class DetectorLineas:
         """Posición del sensor k en el sistema del robot AHORA, cuando el robot estaba en mega_ev."""
         d = relativo(mega_ahora, mega_ev)
         return transformar(self.sensores[k][None, :], d)[0]
+
+    def _revisar_perimetro(self, k, p_mapa, t):
+        if self.cancha_en_mapa is None:
+            return
+        p = transformar(p_mapa[None, :], invertir(self.cancha_en_mapa))[0]
+        for nombre, r in self.lineas:
+            if nombre.startswith("perimetro") and r.contiene(np.array(p[0]), np.array(p[1]), 0.01):
+                self.alertas.append((t, k, nombre))
+                return
 
     # ------------------------------------------------------------------ líneas conocidas
     def _asociar(self, c: CruceIR):
@@ -129,4 +143,5 @@ class DetectorLineas:
         return {"cruces": len(self.cruces), "asociados": len(asoc),
                 "residuo_medio": float(res.mean()) if len(res) else None,
                 "residuo_std": float(res.std()) if len(res) > 1 else None,
-                "corregidos": sum(c.corregido for c in self.cruces), "descartados": self.descartados}
+                "corregidos": sum(c.corregido for c in self.cruces), "descartados": self.descartados,
+                "perimetro": len(self.alertas)}

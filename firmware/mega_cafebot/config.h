@@ -67,7 +67,8 @@
 // Se lee un sensor por milisegundo (cada uno a 250 Hz): a 200 mm/s son 0,8 mm entre lecturas
 // y la línea mide 19 mm.
 #define IR_N 4
-// Orden fijo = bits del "mask": 0 DI delantero izq, 1 DD delantero der, 2 TI trasero izq, 3 TD trasero der
+// Orden fijo = bits del "mask": 0 DI delantero izq, 1 DD delantero der, 2 TI trasero izq, 3 TD trasero der.
+// Montados en las 4 esquinas, a 45°, junto a cada rueda (DI junto a M2, DD a M1, TI a M4, TD a M3).
 const uint8_t IR_PINES[IR_N] = { A8, A9, A10, A11 };   // [CONFIRMAR]
 #define IR_NEGRO_ES_ALTO 1        // QTR-1A: 1. Para un sensor que dé valores invertidos, 0
 

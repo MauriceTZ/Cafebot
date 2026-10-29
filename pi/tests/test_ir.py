@@ -59,6 +59,11 @@ def prueba_detector(cfg):
     print(f"  EKF 2 cm adelantado -> tras la línea: error x {1000 * (ekf.x[0] - ahora[0]):+.1f} mm, "
           f"y {1000 * (ekf.x[1] - ahora[1]):+.1f} mm")
     assert abs(ekf.x[0] - ahora[0]) < 0.006 and abs(ekf.x[1] - ahora[1]) < 0.002
+    # Una rueda que entra al perímetro (x = 0..0,019) queda como alerta
+    det.procesar(EventoIR(4, 4, 0, 0.012 - cfg.ir.posiciones[2][0], 1.8, 0.0, 1.5),
+                 np.array([0.012 - cfg.ir.posiciones[2][0], 1.8, 0.0]), np.array([0.012 - cfg.ir.posiciones[2][0], 1.8, 0.0]))
+    assert len(det.alertas) == 1 and det.alertas[0][2] == "perimetro x=0", det.alertas
+    print(f"  alerta: {cfg.ir.nombres[det.alertas[0][1]]} entró a '{det.alertas[0][2]}'")
     # Un cruce lejos de toda línea conocida no se asocia
     det.procesar(EventoIR(1, 1, 0, 1.2, 1.8, 0.0, 2.0), ahora, ahora)
     c2, _ = det.procesar(EventoIR(0, 0, 1, 1.219, 1.8, 0.0, 2.1), ahora, ahora)[0]

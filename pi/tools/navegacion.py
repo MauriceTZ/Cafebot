@@ -110,7 +110,11 @@ def texto_ir(nav, mask, cfg) -> str:
     t += f", asociados {e['asociados']}"
     if e["residuo_medio"] is not None:
         t += f" | residuo {100 * e['residuo_medio']:+.1f} cm" + (f" ± {100 * e['residuo_std']:.1f}" if e["residuo_std"] else "")
-    return t + f" | corrige pose: {'sí (' + str(e['corregidos']) + ')' if cfg.ir.corregir_pose else 'no'}"
+    t += f" | corrige pose: {'sí (' + str(e['corregidos']) + ')' if cfg.ir.corregir_pose else 'no'}"
+    if e["perimetro"]:
+        _, k, nombre = nav.lineas.alertas[-1]
+        t += f" | ¡RUEDA SOBRE EL PERÍMETRO! x{e['perimetro']} (última: {cfg.ir.nombres[k]}, {nombre})"
+    return t
 
 
 def crear_mision(cfg, nav, lidar, mega, esc, usar_brazo=False, usar_camara=False):

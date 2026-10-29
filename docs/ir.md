@@ -9,12 +9,12 @@ su pose y calibrar el recorrido.
 El conector **Analog IO** del shield tiene una columna por entrada analógica, con 3 pines: **S** (señal),
 **V** (5 V) y **G** (GND). Las 16 entradas A0–A15 están en 4 grupos de 4 (J2, J12, J15 y J23 en el esquemático).
 
-| Sensor | Ubicación en el robot | Pin del Mega | QTR-1A → shield |
+| Sensor | Ubicación en el robot (esquina, junto a la rueda) | Pin del Mega | QTR-1A → shield |
 |---|---|---|---|
-| DI (bit 0) | delantero izquierdo | **A8** | OUT → S, VIN → V, GND → G |
-| DD (bit 1) | delantero derecho | **A9** | ídem |
-| TI (bit 2) | trasero izquierdo | **A10** | ídem |
-| TD (bit 3) | trasero derecho | **A11** | ídem |
+| DI (bit 0) | delantero izquierdo, junto a M2 | **A8** | OUT → S, VIN → V, GND → G |
+| DD (bit 1) | delantero derecho, junto a M1 | **A9** | ídem |
+| TI (bit 2) | trasero izquierdo, junto a M4 | **A10** | ídem |
+| TD (bit 3) | trasero derecho, junto a M3 | **A11** | ídem |
 
 A8–A11 forman el grupo J15 completo, que está libre. **No usar A1, A4 ni A5**: el shield los conecta al motor M4
 (A1 = encoder B, A4/A5 = dirección del TB6612). Si se conectan en otros pines, cambiar `IR_PINES` en
@@ -26,10 +26,18 @@ A8–A11 forman el grupo J15 completo, que está libre. **No usar A1, A4 ni A5**
   contraste cae mucho: en la calibración se ve como un "contraste" bajo.
 - El QTR-1A da **más voltaje con menos reflexión**: sobre la lona blanca lee bajo (~50–250) y sobre la línea
   negra, alto (~700–1000).
-- Medir dónde quedó cada sensor respecto del centro del robot (x hacia adelante, y hacia la izquierda) y anotarlo
-  en `pi/robot_local.json`:
-  `{"ir": {"posiciones": [[0.13, 0.09], [0.13, -0.09], [-0.13, 0.09], [-0.13, -0.09]]}}` **[MEDIR]**.
-  La navegación usa esas posiciones para ubicar cada cruce en el mapa.
+- **Posición (29 oct):** en las 4 esquinas, a 45°, junto a cada rueda. La navegación toma como punto de cada
+  sensor el **centro de su rueda**: x = ±111,5 mm (mitad de los 223 mm entre ejes) e y = ±108,5 mm (mitad de los
+  217 mm entre ruedas). La orientación del sensor no importa, solo el punto del piso que mira. Si ese punto queda
+  corrido de la rueda (por ejemplo, unos cm hacia afuera en la diagonal), medirlo y anotarlo en `pi/robot_local.json`:
+  `{"ir": {"posiciones": [[0.1115, 0.1085], [0.1115, -0.1085], [-0.1115, 0.1085], [-0.1115, -0.1085]]}}`
+  (orden DI, DD, TI, TD, en metros) **[MEDIR]**.
+- **Junto a las ruedas sirven para saber si una rueda pisa una línea.** Pisar el perímetro o las líneas de las
+  albercas obliga a reiniciar. Pero un sensor justo en la rueda ve la línea cuando la rueda ya está encima, así que
+  el freno (`IS 1`) no alcanza a evitar el toque. Para que el freno sirva de protección, el punto que mira el sensor
+  debe quedar al menos ~1–2 cm **por fuera** de la rueda en la dirección de avance: a 150 mm/s el robot frena en
+  ~5 mm y la detección tarda ~2 mm. Si no, esa protección tiene que venir de la navegación (pose + líneas
+  conocidas + márgenes).
 
 ## Umbrales: dónde se manejan
 
@@ -85,6 +93,9 @@ robot: `python3 -m tools.ir --sim prueba`.
   cree la navegación que estaba el sensor.
 - En la interfaz, los cuadros en las esquinas del robot son los sensores (negro = ve línea). Los cruces se dibujan
   en el mapa: verde = asociado, naranjo = sin asociar. La línea **LÍNEAS** del panel muestra el residuo medio.
+- Como los sensores van junto a las ruedas, si uno **entra al perímetro** esa rueda lo está pisando (falta que obliga
+  a reiniciar). Queda registrado como alerta y el panel muestra **¡RUEDA SOBRE EL PERÍMETRO!**: la ruta pasa
+  demasiado cerca del borde y hay que corregirla.
 - `ir.corregir_pose = true` (en `robot_local.json`) usa cada cruce asociado para corregir el EKF, solo en la
   dirección perpendicular a la línea. Viene **apagado**: se activa después de validar los residuos en la cancha.
 - Freno inmediato (`IS 1 [máscara]`): el robot sí cruza líneas internas (bordes del beneficiadero y del cultivo),

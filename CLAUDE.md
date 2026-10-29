@@ -26,8 +26,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Puertos en la Pi (28 oct): Mega = clon con CH340 (1a86) → `/dev/ttyUSB1`; LD06 (CP2102) → `/dev/ttyUSB0`;
   U2D2 (FTDI) → otro ttyUSB. Con `pi/system/99-cafebot.rules`: `/dev/cafebot-mega`, `-lidar`, `-u2d2`.
 - Sensores de línea: 4 × QTR-1A analógicos en A8–A11 (DI, DD, TI, TD), conector Analog IO del shield; A1/A4/A5
-  son del motor M4. Calibración y umbrales: `docs/ir.md` (`python3 -m tools.ir`).
-- Pendiente de confirmar: compuertas (44/46), posición de los sensores de línea en el robot.
+  son del motor M4. Montados en las 4 esquinas, a 45°, junto a cada rueda (posición = centro de la rueda,
+  ±111,5 / ±108,5 mm). Calibración y umbrales: `docs/ir.md` (`python3 -m tools.ir`).
+- Pendiente de confirmar: compuertas (44/46).
 
 ## Arquitectura
 - **Mega = reflejos** (`firmware/mega_cafebot`): PI por rueda, primitivas `A` (avanzar), `W` (girar),
@@ -69,7 +70,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   (`tools.camara`), conectados a la misión (`tools.mision --brazo --vision camara`).
 - 29 oct: sensores de línea QTR-1A integrados (firmware con umbrales/calibración/auto, `tools.ir`, cruces en la
   navegación asociados a la cancha; corrección del EKF lista pero apagada). Probado en simulación.
-- Por hacer en el robot: calibrar los IR (`tools.ir`) y medir su posición; calibrar brazo (yaw0, base, posturas
+- Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar brazo (yaw0, base, posturas
   de depósito, umbral de garra) y cámara (inclinación, fx, referencias de color); recorrido inicial con las
   líneas; servicio systemd + botón GPIO.
 - Por medir para la misión: base del brazo, grano delante del tablero, compuertas, GPIO del botón (`docs/mision.md`).
