@@ -1,8 +1,10 @@
 """Brazo real (cafebot/arm/brazo.py) contra un bus Dynamixel falso: coordenadas del robot, posturas,
 secuencia de agarre con y sin grano. Sin hardware.   python3 -m tests.test_brazo_falso
+(La calibración —perfiles, cero, sentidos, límites, ids— se prueba en tests.test_calibracion_brazo.)
 """
 import json
 import math
+import pathlib
 import tempfile
 
 import numpy as np
@@ -20,18 +22,14 @@ from cafebot.mundo import cancha  # noqa: E402
 def main():
     cfg = cargar()
     cfg.brazo.t_mov_s = cfg.brazo.t_fino_s = 0.01          # sin esperas en la prueba
-    tmp = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
-    tmp.write("{}")
-    tmp.close()
-    mod_brazo.RAIZ_PI = mod_brazo.pathlib.Path(tmp.name).parent
-    cfg.brazo.archivo_posturas = mod_brazo.pathlib.Path(tmp.name).name
+    mod_brazo.RAIZ_PI = pathlib.Path(tempfile.mkdtemp())   # el perfil se escribe en una carpeta temporal
     b = BrazoXL430(cfg, "falso", log=lambda t: None)
     b.conectar()
 
     # 1) Las posturas del código antiguo se leen bien: al encender (bus en "trabajo") el ángulo coincide
     ang = b.bus.angulos()
-    for s, v in b.posturas["trabajo"].items():
-        assert abs(math.degrees(ang[int(s)]) - v) < 0.1, (s, v)
+    for n, v in b.posturas["trabajo"].items():
+        assert abs(math.degrees(ang[b.id[n]]) - v) < 0.1, (n, v)
     p, pitch = b.directa_robot(ang)
     print(f"Postura 'trabajo': garra en x={p[0]:.3f} y={p[1]:+.3f} z={p[2]:.3f}, inclinación {pitch:.0f}°")
 
@@ -42,7 +40,7 @@ def main():
         r, _ = b.directa_robot(s[0])
         assert np.linalg.norm(r - q) < 1e-6, (q, r)
 
-    # 3) Alcance frente al árbol con la holgura de la misión (frente del robot a 8 cm del tablero)
+    # 3) Alcance frente al árbol con la holgura de la misión (frente del robot a 6 cm del tablero)
     x_cara = cfg.geometria.largo / 2 + cfg.mision.holgura_agarre_m
     for fila in cancha.FILAS:
         for dy in (0.0, 0.06):
@@ -50,11 +48,19 @@ def main():
             plan = b.plan_agarre(q)
             print(f"  fila {fila:5s} lateral {100*dy:3.0f} cm: "
                   + (f"alcanzable, inclinación {b.directa_robot(plan[2][1])[1]:.0f}°" if plan else "FUERA DE ALCANCE"))
+            if dy == 0.0:
+                assert plan is not None, f"la fila {fila} debe alcanzarse de frente"
+            if plan:
+                # Ningún paso pasa por detrás del eje de la base (la base giraría 180° con el grano en la garra)
+                yaw = [math.degrees(ang[b.id["base"]]) for _, ang, _ in plan]
+                assert max(abs(y - yaw[2]) for y in yaw) < 25, (fila, dy, yaw)
+                r = [b.a_plano(b.directa_robot(ang)[0])[1] for _, ang, _ in plan]
+                assert min(r) >= cfg.brazo.r_min_m - 1e-6, (fila, dy, r)
 
-    # 4) Grabar posturas de depósito y agarrar
+    # 4) Grabar posturas de depósito (quedan en el perfil) y agarrar
     bus.mem[(9, 132)] = 3088 + 2048                     # base girada 180° (como si mirara la tolva)
     b.grabar_postura("deposito_maduro")
-    assert "deposito_maduro" in json.load(open(tmp.name))
+    assert "deposito_maduro" in json.loads(b.perfil.ruta.read_text())["posturas"]
     b.bus.torque(True)
     objetivo = [x_cara - cancha.GRANO_DELANTE_M, 0.0, cancha.ALTURA_SOPORTE["media"] + cancha.CENTRO_SOBRE_SOPORTE]
     bus.grano = False
@@ -65,13 +71,17 @@ def main():
     assert b.depositos[cancha.MADURO] == 1
     # quedó en la postura de espera (descanso)
     ang = b.bus.angulos()
-    assert all(abs(math.degrees(ang[int(s)]) - v) < 0.1 for s, v in b.posturas[cfg.brazo.postura_espera].items())
-    # 5) Un choque (la articulación no llega) aborta sin contar el grano
+    assert all(abs(math.degrees(ang[b.id[n]]) - v) < 0.1 for n, v in b.posturas[cfg.brazo.postura_espera].items())
+    # sin postura de depósito para sobremaduros: no agarra (el grano se caería)
+    assert not b.recoger(objetivo, cancha.SOBREMADURO) and "deposito_sobremaduro" in b.ultimo_motivo
+    # 5) Un choque (el hombro no llega) aborta sin contar el grano
+    hombro = b.id["hombro"]
     real_mover = b.bus.mover
-    b.bus.mover = lambda obj, t, acel_frac=0.3: real_mover({k: (v + 0.3 if k == 8 else v) for k, v in obj.items()}, t)
+    b.bus.mover = lambda obj, t, acel_frac=0.3: real_mover({k: (v + 0.3 if k == hombro else v) for k, v in obj.items()}, t)
     assert not b.recoger(objetivo, cancha.MADURO)
     print("  choque simulado:", b.ultimo_motivo)
     b.bus.mover = real_mover
+    assert b.depositos[cancha.MADURO] == 1
     print("Estado:", b.estado())
     print("OK: brazo contra bus falso")
 

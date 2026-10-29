@@ -34,6 +34,8 @@ from dataclasses import dataclass
 # ---- Tabla de control (manual XL430-W250) ----
 ADDR_MODEL = 0                 # 2 B (XL430-W250 = 1060)
 ADDR_FIRMWARE = 6              # 1 B
+ADDR_ID = 7                    # 1 B, EEPROM, fábrica 1
+ADDR_BAUD = 8                  # 1 B, EEPROM, fábrica 1 (57 600)
 ADDR_RETURN_DELAY = 9          # 1 B, EEPROM, unidad 2 µs
 ADDR_DRIVE_MODE = 10           # 1 B, EEPROM, bit2 = perfil por tiempo
 ADDR_OPERATING_MODE = 11       # 1 B, EEPROM, 3 = posición, 4 = posición extendida
@@ -61,6 +63,10 @@ FIRMWARE_PERFIL_TIEMPO = 42
 UNIDAD_VEL_PASOS_S = 0.229 * 4096 / 60.0      # 1 unidad de Profile Velocity = 0,229 rpm
 UNIDAD_ACC_PASOS_S2 = 214.577 * 4096 / 3600.0  # 1 unidad de Profile Acceleration = 214,577 rev/min²
 HW_ERR_BITS = {0: "voltaje", 2: "sobrecalentamiento", 3: "encoder", 4: "choque eléctrico", 5: "sobrecarga"}
+BAUD_VALOR = {9_600: 0, 57_600: 1, 115_200: 2, 1_000_000: 3, 2_000_000: 4, 3_000_000: 5, 4_000_000: 6,
+              4_500_000: 7}                    # valor de Baud Rate (8) según el manual
+MODELOS = {1060: "XL430-W250", 1090: "2XL430-W250", 1070: "XC430-W150", 1080: "XC430-W240",
+           1190: "XL330-M077", 1200: "XL330-M288", 1020: "XM430-W350", 1030: "XM430-W210"}
 
 PASOS_POR_REV = 4096
 TEMP_AVISO_C = 60       # avisar y preferir descanso
@@ -103,15 +109,80 @@ class Salud:
         return [n for b, n in HW_ERR_BITS.items() if self.error & (1 << b)]
 
 
+def escanear(puerto: str, baudios=(1_000_000, 57_600, 115_200, 2_000_000)) -> dict:
+    """¿Qué servos hay en el bus y a qué velocidad? {baudios: {id: (modelo, firmware)}}.
+    Los XL430 salen de fábrica a 57 600; el código antiguo los dejó a 1 000 000."""
+    from dynamixel_sdk import PacketHandler, PortHandler
+    port, pk = PortHandler(puerto), PacketHandler(2.0)
+    if not port.openPort():
+        raise IOError(f"No se pudo abrir {puerto}")
+    out = {}
+    try:
+        for b in baudios:
+            if not port.setBaudRate(b):
+                continue
+            datos, res = pk.broadcastPing(port)
+            if res == 0 and datos:
+                out[b] = {sid: (int(v[0]), int(v[1])) for sid, v in datos.items()}
+    finally:
+        port.closePort()
+    return out
+
+
+def cambiar_id(puerto: str, viejo: int, nuevo: int, baudios_actual: int = 57_600,
+               baudios_nuevo: int = 1_000_000) -> None:
+    """Deja un servo NUEVO (de fábrica: id 1 a 57 600) con el id y la velocidad del brazo. Escribe su EEPROM.
+    Si otro servo del bus tiene el mismo id viejo a esa velocidad (todos los de fábrica son id 1), conectar SOLO
+    el servo nuevo. No se hace si el id nuevo ya está ocupado (dos servos con el mismo id no se pueden separar
+    sin desconectarlos)."""
+    from dynamixel_sdk import PacketHandler, PortHandler
+    if not 0 <= nuevo <= 252 or baudios_nuevo not in BAUD_VALOR:
+        raise ValueError(f"id 0..252 y baudios en {sorted(BAUD_VALOR)}")
+    port, pk = PortHandler(puerto), PacketHandler(2.0)
+    if not port.openPort():
+        raise IOError(f"No se pudo abrir {puerto}")
+
+    def responde(sid, baudios):
+        port.setBaudRate(baudios)
+        return pk.ping(port, sid)[1] == 0
+
+    def w(sid, addr, val):
+        res, _ = pk.write1ByteTxRx(port, sid, addr, val)
+        if res != 0:
+            raise IOError(f"DXL {sid}: escritura {addr} falló ({pk.getTxRxResult(res)})")
+
+    try:
+        if nuevo != viejo or baudios_nuevo != baudios_actual:
+            if responde(nuevo, baudios_nuevo):
+                raise IOError(f"ya hay un servo con id {nuevo} a {baudios_nuevo} baudios")
+        if not responde(viejo, baudios_actual):
+            raise IOError(f"el id {viejo} no responde a {baudios_actual} baudios (python3 -m tools.brazo escanear)")
+        w(viejo, ADDR_TORQUE_ENABLE, 0)          # la EEPROM solo se escribe sin torque
+        if nuevo != viejo:
+            w(viejo, ADDR_ID, nuevo)
+        if baudios_nuevo != baudios_actual:
+            try:                                 # responde a la velocidad VIEJA y recién ahí cambia
+                w(nuevo, ADDR_BAUD, BAUD_VALOR[baudios_nuevo])
+            except IOError:
+                pass                             # se verifica abajo
+            time.sleep(0.05)
+        if not responde(nuevo, baudios_nuevo):
+            raise IOError(f"no responde como id {nuevo} a {baudios_nuevo} baudios (python3 -m tools.brazo escanear)")
+    finally:
+        port.closePort()
+
+
 class BusDXL:
-    def __init__(self, puerto: str = "/dev/cafebot-u2d2", baudios: int = 1_000_000):
+    def __init__(self, puerto: str = "/dev/cafebot-u2d2", baudios: int = 1_000_000, servos=None):
+        """servos: lista de ConfigServo (ids, ceros y sentidos de ESTE brazo; ver arm/brazo.py, perfiles).
+        Sin ella se usan los del código antiguo (BRAZO + GARRA)."""
         from dynamixel_sdk import PacketHandler, PortHandler
 
         self.port = PortHandler(puerto)
         self.pk = PacketHandler(2.0)
         if not self.port.openPort() or not self.port.setBaudRate(baudios):
             raise IOError(f"No se pudo abrir {puerto}")
-        self.servos = {c.id: c for c in BRAZO + [GARRA]}
+        self.servos = {c.id: c for c in (servos or BRAZO + [GARRA])}
         self.centro = {c.id: c.centro_pasos for c in self.servos.values()}   # cero efectivo (normalizado)
         self.firmware: dict[int, int] = {}
         self.perfil_tiempo = True
@@ -195,10 +266,16 @@ class BusDXL:
         c = self.servos[sid]
         return (-1 if c.invertir else 1) * (pasos - self.centro[sid]) * 2 * math.pi / PASOS_POR_REV
 
+    def pasos(self, ids=None) -> dict[int, int]:
+        """Posición actual en pasos del encoder (sin cero ni sentido): lo que se graba como cero."""
+        return {sid: self._r(sid, ADDR_PRESENT_POSITION, 4, signo=True) for sid in (ids or self.servos)}
+
     def angulos(self, ids=None) -> dict[int, float]:
         """Ángulo actual (rad, respecto del cero) de cada articulación."""
-        return {sid: self.pasos_a_rad(sid, self._r(sid, ADDR_PRESENT_POSITION, 4, signo=True))
-                for sid in (ids or self.servos)}
+        return {sid: self.pasos_a_rad(sid, p) for sid, p in self.pasos(ids).items()}
+
+    def led(self, sid: int, encendido: bool) -> None:
+        self._w(sid, ADDR_LED, 1, 1 if encendido else 0)
 
     def mover(self, objetivos: dict[int, float], duracion_s: float, acel_frac: float = 0.3) -> None:
         """Mueve varias articulaciones (rad) para que TODAS lleguen en duracion_s,

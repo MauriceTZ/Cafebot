@@ -74,7 +74,7 @@ python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
 | Sensores de línea | 4 × QTR-1A en A8–A11: umbrales por sensor con histéresis, calibración manual y automática, cruces ubicados en el mapa y asociados a la cancha. Herramienta `tools.ir`. Probado en simulación; falta calibrar en el robot (`docs/ir.md`). |
 | Driver Mega (Pi) | Probado contra el firmware simulado. |
 | Driver LD06 | Probado con paquetes sintéticos (CRC, resincronización). Falta probar con el sensor. |
-| Brazo | `BrazoXL430`: IK de mínimo esfuerzo en coordenadas del robot, posturas enseñadas a mano, secuencia de agarre vigilada (choques, garra vacía). Herramienta `tools.brazo`. Probado con bus falso; falta calibrar en el robot (`docs/brazo.md`). |
+| Brazo | `BrazoXL430`: IK de mínimo esfuerzo en coordenadas del robot, posturas enseñadas a mano, secuencia de agarre vigilada (choques, garra vacía). Perfil por brazo (`pi/brazos/`: ids, ceros, sentidos, límites, posturas). Herramienta `tools.brazo` con la calibración paso a paso, sin cámara. Probado con bus falso; falta calibrar en el robot (`docs/brazo.md`). |
 | Visión | `VisionCamara`: clasificador Lab de Pablo + posición de cada soporte proyectada con la medida del LiDAR + color de caja. Herramienta `tools.camara`. Probado con fotos sintéticas; falta calibrar con la cámara (`docs/camara.md`). |
 | Localización inicial | Zona de partida + pose + albercas/cajas con una vuelta del LiDAR; 95/100 en simulación (`docs/localizacion.md`). Falta probar con el LD06 real. |
 | Navegación (Pi) | SLAM + EKF con odometría del Mega + landmarks + A* + ejecutor, con interfaz gráfica. En simulación: error de 1–2 cm tras ir a un árbol y volver (odometría sola: 13 cm). Falta probar con el LD06 real (`docs/navegacion.md`). |

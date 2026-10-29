@@ -22,7 +22,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Raspberry Pi 5: decisiones. LD06 adelante a ~8 cm del suelo (180° de vista).
   Cámara Pi Module 3 **estándar** fija a ~35 cm sobre un servo de inclinación (`X 2 <ángulo>`).
 - Brazo 5 GDL + garra con Dynamixel XL430 (U2D2), base a 36 cm del suelo. El hombro se
-  sobrecarga si el brazo queda estirado en horizontal (ver `docs/brazo.md`).
+  sobrecarga si el brazo queda estirado en horizontal (ver `docs/brazo.md`). Ids, ceros, sentidos, límites y
+  posturas de cada brazo: su perfil `pi/brazos/<nombre>.json` (`tools.brazo`, la misión usa `brazo.perfil`).
 - Puertos en la Pi (28 oct): Mega = clon con CH340 (1a86) → `/dev/ttyUSB1`; LD06 (CP2102) → `/dev/ttyUSB0`;
   U2D2 (FTDI) → otro ttyUSB. Con `pi/system/99-cafebot.rules`: `/dev/cafebot-mega`, `-lidar`, `-u2d2`.
 - Sensores de línea: 4 × QTR-1A analógicos en A8–A11 (DI, DD, TI, TD), conector Analog IO del shield; A1/A4/A5
@@ -48,8 +49,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Probar sin hardware antes de pedir pruebas en el robot:
   - `firmware/test_host/correr.sh`: el firmware real compilado en el PC con una planta simulada.
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
-    test_dxl_falso, test_brazo_falso, test_vision_sintetica, test_inicio, test_landmarks, test_navegacion, test_mision,
-    test_ir).
+    test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
+    test_navegacion, test_mision, test_ir).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.mision` (todo junto).
@@ -70,7 +71,10 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   (`tools.camara`), conectados a la misión (`tools.mision --brazo --vision camara`).
 - 29 oct: sensores de línea QTR-1A integrados (firmware con umbrales/calibración/auto, `tools.ir`, cruces en la
   navegación asociados a la cancha; corrección del EKF lista pero apagada). Probado en simulación.
-- Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar brazo (yaw0, base, posturas
-  de depósito, umbral de garra) y cámara (inclinación, fx, referencias de color); recorrido inicial con las
-  líneas; servicio systemd + botón GPIO.
+- 29 oct: calibración del brazo sin cámara (`tools.brazo`: escanear, identificar, cero, verificar, limites,
+  articulacion, garra calibrar, fila) con un perfil por brazo. Probado con bus falso (`tests.test_calibracion_brazo`).
+  Arreglado: el retiro del agarre quedaba detrás del eje de la base y la hacía girar 180° (ahora `brazo.r_min_m`).
+- Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
+  (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
+  cámara (inclinación, fx, referencias de color); recorrido inicial con las líneas; servicio systemd + botón GPIO.
 - Por medir para la misión: base del brazo, grano delante del tablero, compuertas, GPIO del botón (`docs/mision.md`).

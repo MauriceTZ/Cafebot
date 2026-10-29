@@ -132,9 +132,11 @@ class ConfigMision:
 
 @dataclass
 class ConfigBrazo:
-    """Brazo real (cafebot/arm/brazo.py). La posición de su base está en ConfigMision (brazo_x/y/z)."""
-    yaw0_deg: float = 0.0          # ángulo de la base (servo 9) con el brazo apuntando hacia ADELANTE   [MEDIR: leer]
-    yaw_signo: int = 1             # +1 si al girar la base hacia la IZQUIERDA del robot el ángulo AUMENTA [MEDIR: leer]
+    """Brazo real (cafebot/arm/brazo.py). La posición de su base está en ConfigMision (brazo_x/y/z).
+    Ids, ceros, sentidos, límites y posturas de cada brazo: su PERFIL, pi/brazos/<perfil>.json (tools.brazo)."""
+    perfil: str = "principal"      # qué brazo usa la misión (pi/brazos/principal.json)
+    yaw0_deg: float = 0.0          # corrección extra de la base; con `tools.brazo cero` (base mirando adelante) = 0
+    yaw_signo: int = 1             # ídem: el sentido de la base lo fija `tools.brazo verificar` en el perfil
     garra_largo_m: float = 0.032   # eje de la muñeca -> centro de los dedos cerrados                    [MEDIR]
     garra_abierta_deg: float = 0.0
     garra_cerrada_deg: float = 65.0
@@ -145,6 +147,9 @@ class ConfigBrazo:
     aproximacion_m: float = 0.06   # el agarre parte 6 cm antes del grano y entra en línea recta
     levantar_m: float = 0.03       # sube el grano para sacarlo del hueco del soporte (25 mm)
     retirar_m: float = 0.08        # y retrocede antes de ir al depósito
+    r_min_m: float = 0.05          # la secuencia nunca acerca la garra a menos de esto del eje de la base (más cerca
+                                   # pasaría sobre el robot o el propio brazo): acorta la aproximación y el retiro.
+                                   # Con brazo_x = 0,10 el frente del robot queda a 5 cm del eje         [AJUSTAR]
     t_mov_s: float = 1.0           # duración de un movimiento grande
     t_fino_s: float = 0.4          # duración de cada paso de la aproximación
     error_max_deg: float = 6.0     # si una articulación queda más lejos de su meta: algo la bloquea, se aborta
@@ -152,7 +157,7 @@ class ConfigBrazo:
     postura_espera: str = "descanso"    # entre un grano y otro: plegado DETRÁS del frente del robot. "trabajo"
                                         # deja la garra a la altura de la fila media y 1 cm delante: chocaría
     descanso_sin_torque: bool = False   # True SOLO si el brazo plegado queda APOYADO (si no, se cae)
-    archivo_posturas: str = "brazo_posturas.json"   # en pi/; se crea con `tools.brazo grabar`
+    archivo_posturas: str = "brazo_posturas.json"   # ANTERIOR (en pi/): sus posturas pasan al perfil la 1ª vez
 
 
 @dataclass
