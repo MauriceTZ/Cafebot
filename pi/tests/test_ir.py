@@ -171,6 +171,31 @@ def prueba_navegacion(cfg):
         mega.cerrar()
 
 
+def prueba_bordes(cfg):
+    """4) tools.ir borde: el robot parte torcido 5°, retrocede hasta el borde de atrás, se endereza y va en
+    cangrejo hasta el borde derecho; mide blanco/negro de cada sensor que tocó un borde."""
+    import argparse
+    from tools.ir import BORDE_SIM, buscar_bordes, conectar
+    a = argparse.Namespace(sim=True, cmd="borde", torcido=5.0, puerto=None)
+    mega, ir = conectar(a, cfg)
+    try:
+        res = buscar_bordes(mega, cfg, vel=80, max_mm=1000, log=lambda t: None)
+        assert "error" not in res, res
+        assert res["atras_inicial"]["primero"] == 2, res          # TI: el robot está girado a la izquierda
+        assert abs(res["torcido_inicial_deg"] + 5) < 1.0, res     # y lo endereza girando −5°
+        assert abs(res["torcido_atras_deg"]) < 1.0 and abs(res["torcido_derecha_deg"]) < 1.0, res
+        x, y, th = mega.pose()
+        print(f"  bordes: atrás y derecho encontrados; rumbo final {math.degrees(th):+.1f}° (partió +5°), "
+              f"negro {res['negro']}, umbrales sugeridos {res['sugeridos']}")
+        assert abs(math.degrees(th)) < 1.0
+        # quedó despegado ~4 cm de cada borde: centro a 35 - 11 - 4 cm del de atrás y 40 - 11 - 4 del derecho
+        assert abs(x / 1000 + BORDE_SIM[0] - 0.1115 - 0.04) < 0.02 and abs(y / 1000 + BORDE_SIM[1] - 0.1085 - 0.04) < 0.02
+        assert all(abs(res["sugeridos"][k] - 510) < 40 for k in (1, 2, 3)) and res["negro"][0] is None
+    finally:
+        ir.detener()
+        mega.cerrar()
+
+
 def main():
     compilar()
     cfg = cargar()
@@ -180,6 +205,8 @@ def main():
     prueba_firmware(cfg)
     print("3) Navegación en la cancha")
     prueba_navegacion(cfg)
+    print("4) Buscar los bordes de atrás y derecho")
+    prueba_bordes(cfg)
     print("OK: sensores de línea")
 
 

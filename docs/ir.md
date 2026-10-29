@@ -83,6 +83,25 @@ y 250 mm/s, ida y vuelta, y muestra para cada sensor:
 El Mega ya corrige ese retraso. Informa la pose del momento del cruce, no la del ciclo de control siguiente. Sin
 robot: `python3 -m tools.ir --sim prueba`.
 
+## Buscar los bordes (`python3 -m tools.ir borde`)
+
+Prueba de taller de los 4 sensores y de sus umbrales con los bordes reales (huincha negra sobre la madera blanca):
+
+1. Revisa que ningún sensor esté sobre negro al partir y mide el **blanco** de cada uno.
+2. **Retrocede** (80 mm/s, `--vel`) con el freno de borde activo solo en los traseros (TI, TD) hasta que uno toque
+   el borde de atrás. Si tocó uno primero, sigue despacio hasta que toque el otro: esa distancia dice cuán
+   **torcido** está el robot (`atan(distancia / 217 mm)`). Se despega 4 cm, gira eso y vuelve a buscar el borde,
+   ahora derecho (`--sin-alinear` para no enderezarse).
+3. Entra 8 mm más (sensores al medio de la huincha) y mide el **negro** de TI y TD. Se despega 4 cm.
+4. **Cangrejo a la derecha** con el freno solo en DD y TD hasta el borde derecho; mide cuán torcido está respecto
+   de él (si ya se enderezó con el de atrás y da varios grados, el cangrejo se desvía) y el negro de DD y TD.
+5. Muestra por sensor: blanco, negro, contraste, umbral actual con su margen y el **umbral sugerido** (punto medio).
+   `--ajustar` los aplica y guarda (EEPROM + `robot_local.json`). DI no toca ningún borde: queda como estaba.
+
+Deja espacio libre atrás y a la derecha (`--max`, 1500 mm por defecto). Las ruedas quedan junto a la línea: en la
+cancha sería falta, es solo para el taller. Necesita los servos de dirección funcionando (cangrejo). Sin robot:
+`python3 -m tools.ir --sim borde --torcido 5`.
+
 ## En la navegación
 
 - El Mega manda `EVT IR mask subida bajada x y th` en cada cambio. `pi/cafebot/navegacion/lineas.py` ubica cada
