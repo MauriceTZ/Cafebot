@@ -173,8 +173,10 @@ class Planificador:
         return None, None
 
     def restante(self, xy):
-        if self.ruta_cruda is None or len(self.ruta_cruda) == 0:
+        # La interfaz lo llama desde otro hilo mientras la misión replanifica: copias locales
+        ruta, acum = self.ruta_cruda, self._acum
+        if ruta is None or acum is None or len(ruta) == 0 or len(acum) != len(ruta):
             return None
-        d = np.linalg.norm(self.ruta_cruda - np.asarray(xy), axis=1)
+        d = np.linalg.norm(ruta - np.asarray(xy), axis=1)
         i = int(np.argmin(d))
-        return float(self._acum[-1] - self._acum[i] + d[i])
+        return float(acum[-1] - acum[i] + d[i])

@@ -9,9 +9,10 @@
 
 Marco del mapa: origen en la pose del robot al arrancar (x adelante, y izquierda).
 Módulos (cada uno se puede cambiar por separado):
-    slam.py         mapa + ICP          odometria.py    EKF Mega(+giroscopio)+SLAM
+    slam.py         mapa + ICP          odometria.py    EKF Mega(+giroscopio)+SLAM(+líneas)
     landmarks.py    árboles/cajas/...   seguimiento.py  objetos que se mueven
     planificador.py A* sobre el mapa    ejecutor.py     ruta -> órdenes W/A del Mega
+    lineas.py       cruces de líneas negras (sensores IR) ubicados en el mapa y asociados a la cancha
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ import numpy as np
 from cafebot.config import Config
 from cafebot.navegacion.ejecutor import EjecutorRuta
 from cafebot.navegacion.landmarks import RegistroLandmarks, detectar
+from cafebot.navegacion.lineas import DetectorLineas
 from cafebot.navegacion.odometria import OdometriaEKF
 from cafebot.navegacion.planificador import Planificador
 from cafebot.navegacion.seguimiento import Seguidor
@@ -47,6 +49,8 @@ class SistemaNavegacion:
         self.registro = RegistroLandmarks()
         self.planificador = Planificador(self.slam, n.plan_res_m, g.radio + n.margen_obstaculos_m, n.seguridad_m)
         self.ejecutor = EjecutorRuta(self.mega, self.pose, n.vel_mm_s, n.tramo_max_m, n.tol_llegada_m, n.tol_rumbo_deg)
+        self.lineas = DetectorLineas(self.cfg.ir)
+        self.cancha_en_mapa = None      # el mapa nuevo tiene otro origen: hay que volver a ubicar la cancha
         self.pts_mundo = np.empty((0, 2))
         self.pose_icp = np.zeros(3)
         self.pistas = []
@@ -73,6 +77,25 @@ class SistemaNavegacion:
         return (t.modo == 0 and abs(t.vx) < 1 and abs(t.wz) < 0.005
                 and time.monotonic() - t.recibida < 0.3)
 
+    def fijar_cancha(self, T_mapa_cancha):
+        """Pose de la cancha en el marco del mapa (la da la localización inicial / la misión / la tecla I).
+        Con ella, los cruces de línea se asocian a las líneas conocidas de la cancha."""
+        self.cancha_en_mapa = None if T_mapa_cancha is None else np.asarray(T_mapa_cancha, float)
+        self.lineas.fijar_cancha(self.cancha_en_mapa)
+
+    def _procesar_ir(self):
+        """Eventos de los sensores de línea → cruces en el mapa (+ corrección del EKF si está activada)."""
+        cola = getattr(self.mega, "ir_eventos", None)
+        if cola is None:
+            return
+        while not cola.empty():
+            ev = cola.get_nowait()
+            _, mega_ahora = self._pose_mega()
+            for cruce, s_medio in self.lineas.procesar(ev, self.pose(), mega_ahora):
+                if self.cfg.ir.corregir_pose and cruce.linea is not None and self.ekf.inicializada:
+                    n, c = self.lineas.recta_en_mapa(cruce.linea)
+                    cruce.corregido = self.ekf.corregir_linea(s_medio, n, c, self.cfg.ir.sigma_m)
+
     def _yaw_gyro(self):
         return self.gyro.leer_yaw() if self.gyro is not None else None
 
@@ -88,6 +111,7 @@ class SistemaNavegacion:
                     self.ekf.inicializar(self.slam.pose, pm, self._yaw_gyro())
                 else:
                     self.ekf.predecir(pm, self._yaw_gyro())
+            self._procesar_ir()
         # 2) Barrido nuevo del LiDAR -> SLAM, corrección del EKF, seguimiento
         scan = self.lidar.ultimo_scan()
         if scan is not None and scan.t != self._ult_scan_t:

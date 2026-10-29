@@ -59,6 +59,17 @@ class LD06Simulado:
                 self._cv.notify_all()
             time.sleep(self.periodo)
 
+    def pose_real_ahora(self, pose_mega=None) -> np.ndarray:
+        """Pose real AHORA (no solo en el último barrido): la del último barrido + lo que se movió el
+        Mega desde entonces, con el mismo error de calibración. La usa el IR simulado."""
+        pm = np.asarray(pose_mega if pose_mega is not None else self.pose_mega_fn(), float)
+        if self._mega_prev is None:
+            return self.real.copy()
+        d = relativo(self._mega_prev, pm)
+        if math.hypot(d[0], d[1]) >= 0.25:
+            return self.real.copy()
+        return componer(self.real, np.array([d[0] / self.esc_d, d[1] / self.esc_d, d[2] / self.esc_g]))
+
     def ultimo_scan(self):
         with self._cv:
             return self._scan

@@ -9,7 +9,7 @@
   ├─ 4 motores + encoder  │  I2C: MPU9250 (usar giroscopio, no magnetómetro)
   ├─ 4 servos dirección   │  GPIO: botón de inicio
   ├─ 2 servos compuertas + 1 inclinación de cámara
-  └─ 4 IR de borde
+  └─ 4 sensores de línea QTR-1A (A8–A11)
 ```
 
 | Pieza | Responsable | Notas |
@@ -36,8 +36,9 @@ Los números `ttyUSB` dependen del orden en que se conectan: con las reglas inst
 | M3 | trasera der | 3 | 49 | 9 | 43 | 42 | 13 | 87 |
 | M4 | trasera izq | 2 | A1 | 5 | A4 | A5 | 45 | 90 |
 
-Pines provisorios, **por confirmar**: IR delanteros digitales 22/23, IR traseros
-analógicos A8/A9, compuertas 44/46, inclinación de cámara 11. Los pines 20/21 (SDA/SCL) también tienen
+Sensores de línea: 4 × QTR-1A analógicos en **A8, A9, A10, A11** (DI, DD, TI, TD) por el conector *Analog IO*
+del shield (S/V/G); **A1, A4 y A5 los usa el motor M4**: ver `docs/ir.md`. Pines provisorios, **por confirmar**:
+compuertas 44/46, inclinación de cámara 11. Los pines 20/21 (SDA/SCL) también tienen
 interrupción y están libres si no se usa I2C en el Mega.
 
 ## Medidas de la base

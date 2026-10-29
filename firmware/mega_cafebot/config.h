@@ -57,19 +57,30 @@
 #define M4_INV_ENC 0
 
 // ---------------------------------------------------------------------
-// 1b. SENSORES INFRARROJOS DE BORDE (nuevo)                 [CONFIRMAR pines]
+// 1b. SENSORES IR DE LÍNEA: 4 × Pololu QTR-1A (analógicos)          [CONFIRMAR pines]
 // ---------------------------------------------------------------------
-// Delanteros: digitales con umbral por trimmer. Traseros: analógicos (umbral por software).
-// No necesitan interrupciones: se leen en el loop a ~1 kHz (a 200 mm/s el robot
-// avanza 0,2 mm entre lecturas; la línea mide 19 mm).
-#define IR_DI_PIN 22   // delantero izquierdo  (digital)  [CONFIRMAR]
-#define IR_DD_PIN 23   // delantero derecho    (digital)  [CONFIRMAR]
-#define IR_TI_PIN A8   // trasero izquierdo    (analógico) [CONFIRMAR]
-#define IR_TD_PIN A9   // trasero derecho      (analógico) [CONFIRMAR]
-// Nivel que entrega el sensor digital al ver NEGRO (la mayoría de módulos TCRT5000
-// dan HIGH sobre negro porque no hay reflexión).                 [CONFIRMAR]
-#define IR_DIGITAL_NEGRO_ES_HIGH 1
-#define IR_PERIODO_US 1000
+// Van al conector "Analog IO" del shield 4Motor&9Servo (cada columna: S = señal, V = 5 V, G = GND).
+// QTR-1A: VIN -> V, GND -> G, OUT -> S.  ¡OJO! A1, A4 y A5 ya los usa el motor M4 (encoder B, DIR1,
+// DIR2): no conectar nada en esas columnas. A8..A11 (grupo J15 del esquemático) están libres.
+// QTR-1A: salida 0..5 V; MÁS voltaje = MENOS reflexión, así que el NEGRO da lecturas ALTAS.
+// Altura sobre el piso: óptima 3 mm, máxima 6 mm (más alto, el contraste cae mucho).
+// Se lee un sensor por milisegundo (cada uno a 250 Hz): a 200 mm/s son 0,8 mm entre lecturas
+// y la línea mide 19 mm.
+#define IR_N 4
+// Orden fijo = bits del "mask": 0 DI delantero izq, 1 DD delantero der, 2 TI trasero izq, 3 TD trasero der
+const uint8_t IR_PINES[IR_N] = { A8, A9, A10, A11 };   // [CONFIRMAR]
+#define IR_NEGRO_ES_ALTO 1        // QTR-1A: 1. Para un sensor que dé valores invertidos, 0
+
+// ---- UMBRALES DE FÁBRICA -------------------------------------------------------------------
+// Solo se usan si la EEPROM no tiene una calibración (comandos IW / IN / IA / IU + IG).
+// Lecturas de 10 bits (0..1023). Por sensor: NEGRO si lectura > umbral + histéresis/2,
+// vuelve a BLANCO si lectura < umbral − histéresis/2.
+#define IR_BLANCO_DEF 150         // QTR-1A a 3 mm sobre lona blanca: típico 50–250      [CONFIRMAR con IM]
+#define IR_NEGRO_DEF 850          // sobre la línea negra: típico 700–1000               [CONFIRMAR con IM]
+#define IR_HISTERESIS_DEF 60      // cuentas
+#define IR_CONTRASTE_MIN 120      // calibración rechazada si |negro − blanco| es menor (sensor alto o mal conectado)
+#define IR_MUESTRAS_CONFIRMAR 2   // lecturas seguidas para cambiar de estado (filtra ruido)
+#define IR_PERIODO_US 1000        // cada cuánto se lee UN sensor (round-robin)
 
 // ---------------------------------------------------------------------
 // 1c. SERVOS AUXILIARES (compuertas de los depósitos)        [CONFIRMAR pines]

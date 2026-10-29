@@ -24,10 +24,20 @@ template<class A,class B> inline auto min(A a,B b)->decltype(a+b){return a<b?a:b
 #define CHANGE 1
 #define A0 54
 #define A1 55
+#define A2 56
+#define A3 57
 #define A4 58
 #define A5 59
+#define A6 60
+#define A7 61
 #define A8 62
 #define A9 63
+#define A10 64
+#define A11 65
+#define A12 66
+#define A13 67
+#define A14 68
+#define A15 69
 #define F(x) (reinterpret_cast<const __FlashStringHelper*>(x))
 class __FlashStringHelper;
 inline float radians(float d){return d*PI/180.0f;}

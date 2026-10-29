@@ -13,6 +13,8 @@ Teclado (como el programa antiguo):
     Flechas mover a mano (↑↓ avanzar/retroceder, ←→ girar) | Q / E cangrejo izq / der
     M congelar/reanudar mapa | S guardar | L cargar | R reiniciar | C centrar | O origen
     I ubicar en la cancha (con el robot en su sector de partida) | T trayectoria de odometría
+    Sensores de línea (IR): cuadros en las esquinas del robot (negro = ve línea); cada cruce se dibuja en el
+    mapa (verde = asociado a una línea conocida de la cancha, naranjo = sin asociar). Calibrarlos: tools.ir
     B recalibrar giroscopio (quieto) | +/- zoom
     K MISIÓN completa (como el botón de inicio; el robot debe estar en su sector de partida). ESC la detiene
 """
@@ -99,6 +101,18 @@ def marcador(win, fuente, v, p, txt, color):
     win.blit(fuente.render(txt, True, color), (sx + 13, sy - 22))
 
 
+def texto_ir(nav, mask, cfg) -> str:
+    e = nav.lineas.estadisticas()
+    est = " ".join(f"{n}{'■' if mask & (1 << k) else '□'}" for k, n in enumerate(cfg.ir.nombres))
+    t = f"LÍNEAS    {est} | cruces {e['cruces']}"
+    if nav.cancha_en_mapa is None:
+        return t + " | ubicar la cancha (I) para asociarlos a sus líneas"
+    t += f", asociados {e['asociados']}"
+    if e["residuo_medio"] is not None:
+        t += f" | residuo {100 * e['residuo_medio']:+.1f} cm" + (f" ± {100 * e['residuo_std']:.1f}" if e["residuo_std"] else "")
+    return t + f" | corrige pose: {'sí (' + str(e['corregidos']) + ')' if cfg.ir.corregir_pose else 'no'}"
+
+
 def crear_mision(cfg, nav, lidar, mega, esc, usar_brazo=False, usar_camara=False):
     """Con --sim: brazo, visión y compuertas simulados. Con el robot: los reales que se pidan con --brazo /
     --camara; sin ellos la misión navega, se acerca y mide el árbol, pero no toca granos."""
@@ -137,7 +151,7 @@ def main():
     cfg = cargar()
 
     # ------------------------------------------------------------- hardware
-    mega = giroscopio = None
+    mega = giroscopio = ir_sim = None
     esc = None
     inicio_sim = None
     if a.sim:
@@ -151,6 +165,9 @@ def main():
         inicio_sim = np.array([cancha.ZONA_X_CENTRO, cancha.centros_zonas_beneficiadero()[a.zona_sim - 1], 0.0])
         lidar = LD06Simulado(cfg.geometria.config_ld06(), esc.segmentos(), inicio_sim,
                              lambda: (mega.tele.x / 1000, mega.tele.y / 1000, mega.tele.th))
+        from cafebot.drivers.ir_simulado import IRSimulado, pose_mega_extrapolada
+        ir_sim = IRSimulado(mega, cfg.ir.posiciones, cancha.lineas_cancha(),
+                            lambda: lidar.pose_real_ahora(pose_mega_extrapolada(mega))).iniciar()
     else:
         from cafebot.drivers.ld06 import LD06
         lidar = LD06(a.lidar or cfg.puertos.lidar, cfg.geometria.config_ld06())
@@ -168,6 +185,9 @@ def main():
                 print("Giroscopio DESACTIVADO:", e)
     if mega is not None:
         mega.telemetria(20)
+        if cfg.ir.umbrales is not None or cfg.ir.histeresis is not None:
+            est = mega.ir_aplicar(cfg.ir.umbrales, cfg.ir.histeresis)
+            print(f"Umbrales IR de robot_local.json enviados al Mega: {est.umbrales} (histéresis {est.histeresis})")
     lidar.iniciar()
     nav = SistemaNavegacion(cfg, lidar, mega, giroscopio)
 
@@ -285,6 +305,7 @@ def main():
                         # T tal que T ⊕ pose_cancha = pose_mapa  ->  T = pose_mapa ⊕ (pose_cancha)^-1
                         inv = relativo(pose_cancha, np.zeros(3))
                         T_mapa_cancha = componer(nav.pose(), inv)
+                        nav.fijar_cancha(T_mapa_cancha)
                         msg = (f"Ubicado: sector {r.zona}, confianza {r.confianza:.2f}, albercas {r.albercas}"
                                + ("  (BAJA: verificar)" if r.confianza < 0.15 else ""))
                 elif k in (pg.K_PLUS, pg.K_EQUALS, pg.K_KP_PLUS):
@@ -337,10 +358,11 @@ def main():
             sx, sy = v.a_pantalla(p)
             if 0 <= sx < v.w and 0 <= sy < v.h:
                 win.fill((240, 240, 255), (sx - 1, sy - 1, 3, 3))
-        linea(win, v, nav.planificador.ruta_cruda, (110, 40, 95), 1)
-        if nav.planificador.ruta is not None:
-            linea(win, v, nav.planificador.ruta, (255, 60, 200), 3)
-            for p in nav.planificador.ruta:
+        ruta_cruda, ruta = nav.planificador.ruta_cruda, nav.planificador.ruta   # la misión replanifica en otro hilo
+        linea(win, v, ruta_cruda, (110, 40, 95), 1)
+        if ruta is not None:
+            linea(win, v, ruta, (255, 60, 200), 3)
+            for p in ruta:
                 pg.draw.circle(win, (255, 160, 230), v.a_pantalla(p), 4)
         for lm in nav.registro.items:
             col = COLOR_CLASE.get(lm.cls, (90, 95, 110)) if lm.confirmado else (90, 95, 110)
@@ -359,6 +381,10 @@ def main():
             marcador(win, fuente, v, origen_A, "A", (60, 255, 120))
         if nav.destino is not None:
             marcador(win, fuente, v, nav.destino, "B", (255, 70, 70))
+        for c in nav.lineas.cruces:                             # cruces de líneas negras (IR)
+            col = (90, 230, 120) if c.linea else (255, 150, 40)
+            pg.draw.line(win, col, v.a_pantalla(c.p_entra), v.a_pantalla(c.p_sale), 3)
+            pg.draw.circle(win, col, v.a_pantalla(c.centro), 3)
         if ver_odom:
             linea(win, v, list(nav.ekf.tray_odom), (230, 180, 40), 1)       # solo odometría
         linea(win, v, list(nav.ekf.tray_ekf) or list(nav.slam.trayectoria), (0, 220, 130), 2)   # fusionada
@@ -375,6 +401,11 @@ def main():
         hx, hy = v.a_pantalla(pose[:2] + 0.3 * np.array([math.cos(pose[2]), math.sin(pose[2])]))
         pg.draw.circle(win, (0, 255, 140), (rx, ry), 6, 2)
         pg.draw.line(win, (0, 255, 140), (rx, ry), (hx, hy), 3)
+        mask_ir = mega.tele.ir if mega is not None else 0
+        for k, q in enumerate(transformar(np.array(cfg.ir.posiciones, float), pose)):   # sensores IR
+            sx, sy = v.a_pantalla(q)
+            pg.draw.rect(win, (20, 20, 20) if mask_ir & (1 << k) else (235, 235, 235), (sx - 4, sy - 4, 9, 9))
+            pg.draw.rect(win, (255, 200, 0), (sx - 4, sy - 4, 9, 9), 1)
 
         # HUD
         st = lidar.estadisticas()
@@ -395,6 +426,7 @@ def main():
             f"GIRO      {giroscopio.estado() if giroscopio else 'sin giroscopio (--imu para usarlo)'}"
             + (f" | signo {'verificado' if nav.ekf.gyro_verificado else 'por verificar (gira el robot)'}" if giroscopio else ""),
             f"LANDMARKS {', '.join(l.nombre for l in conf) or '—'} | elegido: {seleccion or '—'}",
+            texto_ir(nav, mask_ir, cfg),
             f"RUTA      {nav.planificador.msg}" + (f" | largo {nav.planificador.largo:.2f} m | restan {rest:.2f} m" if rest else "")
             + f" | ejecutor: {nav.ejecutor.estado}",
             (f"MISIÓN    {mision.estado} | {mision.tiempo():.0f} s | brazo {mision.brazo.estado()}"
@@ -417,6 +449,8 @@ def main():
 
     if mision is not None:
         mision.detener()
+    if ir_sim is not None:
+        ir_sim.detener()
     nav.detener()
     lidar.detener()
     if mega is not None:

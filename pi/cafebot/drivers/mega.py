@@ -3,8 +3,10 @@
 Protocolo: docs/protocolo_mega.md. Resumen:
     Pi -> Mega : "A 500", "W 90", "L 90 300", "G x y th", "V vx wz", "S", ...
     Mega -> Pi : "OK #7"  (meta encolada)      "DONE #7 x y th_mrad"
-                 "ABORT #7 MOTIVO x y th_mrad"  "EVT IR mask x y th" / "EVT STOP MOTIVO ..."
+                 "ABORT #7 MOTIVO x y th_mrad"  "EVT STOP MOTIVO ..."
+                 "EVT IR mask subida bajada x y th"  (un sensor de línea cambió: van a `ir_eventos`)
                  "T ms x y th_mrad vx wz_mrad modo postura cola ir"   (telemetría)
+                 "IRV v0 v1 v2 v3 mask"  (lecturas crudas de los IR, con `ir_monitor(hz)`)
 
 Uso típico:
     mega = Mega("/dev/cafebot-mega"); mega.conectar()
@@ -18,8 +20,11 @@ import math
 import queue
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Callable
+
+NOMBRES_IR = ("DI", "DD", "TI", "TD")   # bits 0..3 del mask del Mega
 
 
 @dataclass
@@ -54,6 +59,40 @@ class Evento:
     recibido: float = 0.0
 
 
+@dataclass
+class EventoIR:
+    """Un sensor de línea cambió de estado. Pose del Mega (su odometría) en el tick del evento."""
+    mascara: int          # estado actual (bit k = sensor k sobre NEGRO)
+    subida: int           # sensores que pasaron de blanco a negro (entran a una línea)
+    bajada: int           # sensores que pasaron de negro a blanco (salen de una línea)
+    x: float              # m
+    y: float              # m
+    th: float             # rad
+    recibido: float       # time.monotonic()
+
+
+@dataclass
+class EstadoIR:
+    mascara: int
+    valores: list         # lectura actual de cada sensor (0..1023)
+    umbrales: list
+    histeresis: int
+    blanco: list
+    negro: list
+    seguridad: bool
+    mascara_freno: int
+    auto: bool
+
+    @staticmethod
+    def desde(linea: str) -> "EstadoIR":
+        """IR mask=5 v=130/860/140/910 u=500/... h=60 b=... n=... seg=0/15 auto=0"""
+        d = dict(t.split("=", 1) for t in linea.split()[1:] if "=" in t)
+        lista = lambda k: [int(x) for x in d[k].split("/")]
+        seg = d.get("seg", "0/15").split("/")
+        return EstadoIR(int(d["mask"]), lista("v"), lista("u"), int(d["h"]), lista("b"), lista("n"),
+                        seg[0] == "1", int(seg[1]) if len(seg) > 1 else 15, d.get("auto", "0") == "1")
+
+
 def _pose_desde(tokens: list[str]) -> tuple[float, float, float]:
     try:
         return float(tokens[0]), float(tokens[1]), float(tokens[2]) / 1000.0
@@ -67,7 +106,11 @@ class Mega:
         self.baudios = baudios
         self.log = log or (lambda s: None)
         self.tele = Telemetria()
-        self.eventos: "queue.Queue[Evento]" = queue.Queue()
+        self.eventos: "queue.Queue[Evento]" = queue.Queue(maxsize=200)
+        self.ir_eventos: "queue.Queue[EventoIR]" = queue.Queue(maxsize=500)   # los consume la navegación
+        self.ir_crudo: tuple | None = None              # (valores, mascara, t) de la última línea IRV
+        self.ir_historia: deque = deque(maxlen=3000)    # para graficar / calibrar
+        self._ir_mascara = 0
         self._respuestas: "queue.Queue[str]" = queue.Queue()
         self._resultados: dict[int, Resultado] = {}
         self._cv = threading.Condition()
@@ -144,7 +187,33 @@ class Mega:
                 self._cv.notify_all()
             self.log(linea)
             return
+        if cab == "IRV" and len(tok) >= 6:
+            try:
+                v = [int(t) for t in tok[1:6]]
+            except ValueError:
+                return
+            self.ir_crudo = (v[:4], v[4], ahora)
+            self.ir_historia.append((ahora, v[:4], v[4]))
+            return
+        if cab == "EVT" and len(tok) >= 2 and tok[1] == "IR":
+            try:
+                n = [float(t) for t in tok[2:]]
+                if len(n) >= 6:                       # EVT IR mask subida bajada x y th
+                    m, sub, baj, x, y, th = int(n[0]), int(n[1]), int(n[2]), n[3], n[4], n[5]
+                else:                                 # formato antiguo: EVT IR mask x y th
+                    m, x, y, th = int(n[0]), n[1], n[2], n[3]
+                    sub, baj = m & ~self._ir_mascara, self._ir_mascara & ~m
+            except (ValueError, IndexError):
+                return
+            self._ir_mascara = m
+            ev = EventoIR(m, sub, baj, x / 1000.0, y / 1000.0, th / 1000.0, ahora)
+            if self.ir_eventos.full():
+                self.ir_eventos.get_nowait()          # nadie los consume: descartar los más viejos
+            self.ir_eventos.put(ev)
+            return
         if cab == "EVT":
+            if self.eventos.full():
+                self.eventos.get_nowait()
             self.eventos.put(Evento(tok[1] if len(tok) > 1 else "", tok[2:], ahora))
             self.log(linea)
             return
@@ -224,8 +293,64 @@ class Mega:
     def telemetria(self, hz: float) -> str:
         return self.comando(f"M {hz:.0f}")
 
-    def seguridad_ir(self, activa: bool) -> str:
-        return self.comando(f"IS {1 if activa else 0}")
+    def seguridad_ir(self, activa: bool, mascara: int | None = None) -> str:
+        """Freno inmediato al ver una línea NUEVA (solo los sensores de `mascara`; None = todos)."""
+        return self.comando(f"IS {1 if activa else 0}" + ("" if mascara is None else f" {mascara}"))
+
+    # ------------------------------------------------------------------ sensores de línea (QTR-1A)
+    def ir_estado(self) -> EstadoIR:
+        return EstadoIR.desde(self.comando("I"))
+
+    def ir_monitor(self, hz: float) -> str:
+        """Lecturas crudas a hz (0 = apagar): quedan en `ir_crudo` e `ir_historia`."""
+        return self.comando(f"IM {hz:.0f}")
+
+    def ir_calibrar_blanco(self) -> EstadoIR:
+        """Los 4 sensores sobre la lona blanca."""
+        return EstadoIR.desde(self.comando("IW", timeout=2.0))
+
+    def ir_calibrar_negro(self, k: int | None = None) -> EstadoIR:
+        """El sensor k (o los 4) sobre una línea negra. Si no hay contraste con el blanco, el Mega no lo
+        guarda y manda "EVT IRCAL contraste_bajo k lectura blanco" (queda en `eventos`)."""
+        return EstadoIR.desde(self.comando("IN" + ("" if k is None else f" {k}"), timeout=2.0))
+
+    def ir_auto(self, iniciar: bool) -> dict:
+        """IA 1: empieza a registrar mín./máx.; IA 0: termina y calcula blanco/negro/umbral de los
+        sensores que vieron contraste. Devuelve {'calibrados': mascara, 'min': [...], 'max': [...]}."""
+        r = self.comando(f"IA {1 if iniciar else 0}")
+        if not r.startswith("OK IA") or iniciar:
+            return {"respuesta": r}
+        d = dict(t.split("=", 1) for t in r.split()[2:] if "=" in t)
+        return {"calibrados": int(d.get("calibrados", 0)),
+                "min": [int(x) for x in d.get("min", "0/0/0/0").split("/")],
+                "max": [int(x) for x in d.get("max", "0/0/0/0").split("/")], "respuesta": r}
+
+    def ir_umbral(self, k: int, valor: int) -> EstadoIR:
+        return EstadoIR.desde(self.comando(f"IU {k} {int(valor)}"))
+
+    def ir_histeresis(self, valor: int) -> EstadoIR:
+        return EstadoIR.desde(self.comando(f"IH {int(valor)}"))
+
+    def ir_guardar(self) -> str:
+        """Guarda la calibración IR en la EEPROM del Mega."""
+        return self.comando("IG")
+
+    def ir_defecto(self) -> EstadoIR:
+        return EstadoIR.desde(self.comando("ID"))
+
+    def ir_aplicar(self, umbrales=None, histeresis=None) -> EstadoIR | None:
+        """Envía los umbrales de la config de la Pi (robot_local.json, sección "ir"), si los hay."""
+        est = None
+        if umbrales is not None:
+            for k, u in enumerate(umbrales):
+                est = self.ir_umbral(k, u)
+        if histeresis is not None:
+            est = self.ir_histeresis(histeresis)
+        return est
+
+    def enviar_sim(self, linea: str) -> None:
+        """Solo con el firmware simulado: líneas "@A pin valor" para la planta (no son comandos)."""
+        self._enviar(linea)
 
     def pose(self) -> tuple[float, float, float]:
         r = self.comando("P")

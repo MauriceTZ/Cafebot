@@ -67,6 +67,9 @@ def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None):
     lidar = LD06Simulado(cfg.geometria.config_ld06(), esc.segmentos(), inicio,
                          lambda: (mega.tele.x / 1000, mega.tele.y / 1000, mega.tele.th), semilla=semilla)
     real = lambda: tuple(lidar.real)
+    from cafebot.drivers.ir_simulado import IRSimulado, pose_mega_extrapolada
+    mega.ir_sim = IRSimulado(mega, cfg.ir.posiciones, cancha.lineas_cancha(),
+                             lambda: lidar.pose_real_ahora(pose_mega_extrapolada(mega)), semilla=semilla).iniciar()
     c = cfg.mision
     brazo = I.BrazoSimulado(esc, real, (c.brazo_x, c.brazo_y, c.brazo_z), t_agarre=t_agarre, rng=rng)
     # Como la cámara real: los soportes fuera de la foto salen FUERA y desde la partida no ve las cajas
@@ -107,6 +110,8 @@ def main():
         print("Conectando con el Mega...")
         mega.conectar()
         mega.telemetria(20)
+        if cfg.ir.umbrales is not None or cfg.ir.histeresis is not None:
+            mega.ir_aplicar(cfg.ir.umbrales, cfg.ir.histeresis)
         lidar = LD06(cfg.puertos.lidar, cfg.geometria.config_ld06())
         brazo, vision, depositos = armar_reales(cfg, a.brazo, a.vision, mega)
         if a.imu:
@@ -137,6 +142,9 @@ def main():
         print(f"Robot: {brazo.estado()} | roja {depositos.en_roja} | azul {depositos.en_azul} | "
               f"abandonados {depositos.abandonados}")
         print(f"PUNTAJE (simulado): {depositos.puntaje()}")
+    print("Líneas cruzadas:", m.nav.lineas.estadisticas() if hasattr(m, "nav") else "")
+    if getattr(mega, "ir_sim", None):
+        mega.ir_sim.detener()
     lidar.detener()
     mega.cerrar()
 

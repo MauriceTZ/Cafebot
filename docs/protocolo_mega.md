@@ -48,11 +48,15 @@ Si no llega otra `V`/`K` en 500 ms, el Mega se detiene y emite `EVT STOP WATCHDO
 | `R [x y th]` | Fija la pose (la Pi corrige la odometría con LiDAR/líneas). Sin argumentos = 0 0 0. |
 | `Z` | Reinicia encoders (solo detenido). |
 | `M hz` | Telemetría periódica (1–50 Hz, 0 = apagada). |
-| `I` | `IR mask=.. TI=.. TD=.. blanco=../.. negro=../.. seguridad=..` |
-| `IW` | Calibra BLANCO de los IR traseros (robot sobre la lona). |
-| `IN k` | Calibra NEGRO del sensor trasero k (0 = izq, 1 = der) puesto sobre la línea. |
-| `IG` | Guarda la calibración IR en EEPROM. |
-| `IS 0/1` | Seguridad de borde: con 1, al detectar una línea nueva mientras se mueve → `ABORT ... BORDE`. |
+| `I` | Sensores de línea (4 × QTR-1A, ver `docs/ir.md`): `IR mask=5 v=130/860/140/910 u=500/500/500/500 h=60 b=150/... n=850/... seg=0/15 auto=0` (lecturas, umbrales, histéresis, blanco, negro, freno/máscara, auto-calibración). Sensores en orden DI, DD, TI, TD. |
+| `IM hz` | Lecturas crudas `IRV v0 v1 v2 v3 mask` a hz (1–100; 0 = apagado). |
+| `IW` | Calibra el BLANCO de los 4 (robot sobre la lona). Recalcula los umbrales (punto medio). |
+| `IN [k]` | Calibra el NEGRO del sensor k (0..3) o de los 4, sobre la línea. Sin contraste suficiente no lo guarda y avisa `EVT IRCAL contraste_bajo k lectura blanco`. |
+| `IA 1` / `IA 0` | Auto-calibración: registra mín./máx. mientras se pasa sobre una línea; al terminar `OK IA calibrados=mask min=.. max=..` (blanco = mín, negro = máx, umbral = punto medio). |
+| `IU [k v]` | Fija a mano el umbral del sensor k (0..1023). Sin argumentos muestra el estado. |
+| `IH v` | Histéresis común (cuentas). |
+| `IG` / `ID` | Guarda la calibración IR en EEPROM / vuelve a los valores de fábrica de `config.h` (sin guardar). |
+| `IS 0\|1 [mascara]` | Freno de borde: con 1, al detectar una línea NUEVA mientras se mueve → `ABORT ... BORDE`. `mascara` elige los sensores (15 = todos, 3 = solo delanteros). |
 | `X k ang` | Servo auxiliar k: 0 = compuerta maduros, 1 = compuerta sobremaduros, 2 = inclinación de la cámara. |
 | `J kp ki kff` | Ganancias del PI de rueda (sin argumentos: muestra las actuales). |
 | `H` / `?` | Ayuda. |
@@ -61,7 +65,9 @@ Si no llega otra `V`/`K` en 500 ms, el Mega se detiene y emite `EVT STOP WATCHDO
 
 ```
 T ms x y th_mrad vx_mm_s wz_mrad_s modo postura cola ir_mask     (telemetría, con M)
-EVT IR mask x y th_mrad      (cambió algún sensor IR: sirve para corregir la pose al cruzar líneas)
+EVT IR mask subida bajada x y th_mrad   (cambió algún sensor de línea; subida = entraron a negro, bajada = salieron.
+                                         La pose es la del MOMENTO del cruce: ya descuenta el retraso del filtro)
+IRV v0 v1 v2 v3 mask         (lecturas crudas de los IR, con IM)
 EVT STOP motivo x y th_mrad  (se detuvo sin meta activa: WATCHDOG, BORDE)
 ```
 

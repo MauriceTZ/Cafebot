@@ -104,6 +104,25 @@ def rect_caja(zona: int) -> Rect:
     return Rect(ZONA_X_CENTRO, centros_zonas_beneficiadero()[zona - 1], CAJA_LADO, CAJA_LADO)
 
 
+def lineas_cancha() -> list[tuple[str, "Rect"]]:
+    """Líneas negras de 19 mm que se conocen de antemano (Apéndice A), como rectángulos con nombre:
+    perímetro, borde del beneficiadero y sus divisiones, borde del cultivo y sus divisiones.
+    Las de las albercas no: dependen del sorteo y su forma está por confirmar.               [CONFIRMAR]"""
+    L, X, Y = LINEA, LARGO_X, LARGO_Y
+    out = [("perimetro y=0", Rect(X / 2, L / 2, X, L)), ("perimetro y=3,6", Rect(X / 2, Y - L / 2, X, L)),
+           ("perimetro x=0", Rect(L / 2, Y / 2, L, Y)), ("perimetro x=3", Rect(X - L / 2, Y / 2, L, Y)),
+           ("borde beneficiadero", Rect(BENEF_X - L / 2, Y / 2, L, Y)),
+           ("borde cultivo", Rect(CULTIVO_X0 + L / 2, Y / 2, L, Y))]
+    for k in range(1, 5):                                   # entre los 5 sectores del beneficiadero
+        out.append((f"beneficiadero {k}|{k + 1}", Rect(BENEF_X / 2, k * (SECTOR_BENEF_Y + L) + L / 2, BENEF_X, L)))
+    y = L
+    for k, sector in enumerate(SECTORES_CULTIVO_Y[:-1]):    # entre los 3 sectores del cultivo
+        y += sector
+        out.append((f"cultivo {k + 1}|{k + 2}", Rect((CULTIVO_X0 + X) / 2, y + L / 2, X - CULTIVO_X0, L)))
+        y += L
+    return out
+
+
 def segmentos_arbol(y_centro: float) -> np.ndarray:
     """Pie del tablero (rectángulo delgado) + aleta trasera, a la altura del LiDAR."""
     tablero = Rect(ARBOL_X_FRENTE + ARBOL_ESPESOR / 2, y_centro, ARBOL_ESPESOR, ARBOL_ANCHO_PIE).segmentos()

@@ -200,6 +200,7 @@ class Mision:
         # El mapa empezó en la pose de partida; si el SLAM ya se movió algo, se compensa.
         self.inicio = componer(np.array([r.x, r.y, r.th]), relativo(self.nav.pose(), np.zeros(3)))
         self.res_inicio = r
+        self.nav.fijar_cancha(self.T_mapa_cancha())       # los cruces de línea se asocian a la cancha
         self.log(f"partida: sector {r.zona} (x={r.x:.2f} y={r.y:.2f} θ={math.degrees(r.th):+.1f}°) "
                  f"confianza {r.confianza:.2f} | albercas {r.albercas} | cajas en {r.zonas_con_caja}")
         self.dudoso = r.confianza < 0.15
@@ -256,6 +257,7 @@ class Mision:
             return False
         cambio = r.zona != self.res_inicio.zona
         self.inicio = np.array([r.x, r.y, r.th])
+        self.nav.fijar_cancha(self.T_mapa_cancha())
         self.res_inicio, self.dudoso = r, r.confianza < 0.15
         if cambio:                                   # lo que se dedujo de las cajas estaba corrido
             self.zonas_caja, self.cajas = set(), {}

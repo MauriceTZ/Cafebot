@@ -70,6 +70,26 @@ class ConfigNavegacion:
 
 
 @dataclass
+class ConfigIR:
+    """Sensores de línea: 4 × QTR-1A en A8..A11 del Mega. Orden fijo DI, DD, TI, TD (= bits 0..3).
+    Calibración y prueba: `python3 -m tools.ir` (docs/ir.md)."""
+    nombres: tuple = ("DI", "DD", "TI", "TD")
+    # Posición de cada sensor en el sistema del robot (x adelante, y izquierda), en metros.     [MEDIR]
+    posiciones: tuple = ((0.13, 0.09), (0.13, -0.09), (-0.13, 0.09), (-0.13, -0.09))
+    # ---- UMBRALES ------------------------------------------------------------------------------
+    # Cuentas del ADC del Mega (0..1023). NEGRO si la lectura pasa umbral + histéresis/2.
+    # None = usar los guardados en la EEPROM del Mega. Con valores, tools.navegacion / tools.mision se
+    # los envían al Mega al conectar (así quedan en el repo). `tools.ir` los guarda aquí al calibrar.
+    umbrales: tuple | None = None
+    histeresis: int | None = None
+    # ---- Uso en la navegación ----
+    ancho_linea_m: float = 0.019
+    asociar_m: float = 0.05        # distancia máx. de un cruce a una línea conocida de la cancha
+    corregir_pose: bool = False    # corregir el EKF con los cruces asociados (activar tras validarlo)
+    sigma_m: float = 0.008         # incertidumbre de la posición de un cruce
+
+
+@dataclass
 class ConfigMision:
     nivel: int = 2                 # 1 = granos dentro del robot | 2 = + entregar | 3 = + sobremaduros y más árboles
     duracion_s: float = 480.0      # ronda de 8 min
@@ -153,6 +173,7 @@ class Config:
     geometria: GeometriaRobot = field(default_factory=GeometriaRobot)
     puertos: Puertos = field(default_factory=Puertos)
     navegacion: ConfigNavegacion = field(default_factory=ConfigNavegacion)
+    ir: ConfigIR = field(default_factory=ConfigIR)
     mision: ConfigMision = field(default_factory=ConfigMision)
     brazo: ConfigBrazo = field(default_factory=ConfigBrazo)
     camara: ConfigCamara = field(default_factory=ConfigCamara)

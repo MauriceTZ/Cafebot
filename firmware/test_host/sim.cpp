@@ -73,9 +73,20 @@ int interactivo(){
   setup();
   auto t0=std::chrono::steady_clock::now();
   char b[256];
+  std::string pendiente;   // líneas "@A pin valor" son para la PLANTA (lecturas analógicas simuladas)
   while(true){
     ssize_t n=::read(0,b,sizeof b);
-    if(n>0) Serial.in.append(b,n); else if(n==0) return 0;
+    if(n==0) return 0;
+    if(n>0){
+      pendiente.append(b,n);
+      size_t fin;
+      while((fin=pendiente.find('\n'))!=std::string::npos){
+        std::string l=pendiente.substr(0,fin+1); pendiente.erase(0,fin+1);
+        int pin,val;
+        if(l[0]=='@'){ if(sscanf(l.c_str(),"@A %d %d",&pin,&val)==2 && pin>=0 && pin<128) analog_val[pin]=val; }
+        else Serial.in+=l;
+      }
+    }
     uint32_t real_us=(uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
     while(sim_us<real_us){ sim_us+=100; planta(1e-4f); loop(); }
     if(!Serial.out.empty()){ fwrite(Serial.out.data(),1,Serial.out.size(),stdout); Serial.out.clear(); }
@@ -94,12 +105,52 @@ int main(int argc,char**argv){
   // Watchdog
   log_out.clear(); enviar("V 100 0"); bool wd=correr_hasta("WATCHDOG",2.0);
   printf("%-34s %s\n","Watchdog V sin repetir",wd&&log_out.find("WATCHDOG")!=std::string::npos?"OK":"FALLA"); if(!wd) fallos++;
-  // IR borde con seguridad activa
-  correr_hasta("@@",0.5); analog_val[A8]=200; analog_val[A9]=200; enviar("IS 1"); enviar("A 1000"); correr_hasta("OK #",0.2);
-  correr_hasta("@@",1.5); pin_val[IR_DI_PIN]=1; double x0=X; log_out.clear(); bool br=correr_hasta("BORDE",0.1);
-  correr_hasta("@@",0.5);
-  printf("%-34s %s  (recorrido desde que ve la linea hasta quedar quieto: %.1f mm)\n","IR: frena al ver borde",br?"OK":"FALLA",X-x0); if(!br) fallos++;
-  pin_val[IR_DI_PIN]=0;
+  // ---- IR (4 x QTR-1A analógicos) ----
+  for(int k=0;k<IR_N;k++) analog_val[IR_PINES[k]]=150;      // lona blanca
+  correr_hasta("@@",0.05);
+  // Evento con flancos: DI ve negro -> "EVT IR 1 1 0 x y th"
+  log_out.clear(); analog_val[IR_PINES[0]]=900; bool ev=correr_hasta("EVT IR 1 1 0",0.1);
+  analog_val[IR_PINES[0]]=150; bool ev2=correr_hasta("EVT IR 0 0 1",0.1);
+  printf("%-34s %s\n","IR: evento con flancos",(ev&&ev2)?"OK":"FALLA"); if(!(ev&&ev2)) fallos++;
+  // Histéresis (umbral 500, h 60): 520 sigue blanco, 540 negro; 480 sigue negro, 460 blanco
+  { auto mask=[&](){ log_out.clear(); enviar("I"); correr_hasta("auto=",0.1); return atoi(log_out.c_str()+log_out.find("mask=")+5); };
+    int m[4];
+    analog_val[IR_PINES[1]]=520; correr_hasta("@@",0.03); m[0]=mask()&2;
+    analog_val[IR_PINES[1]]=540; correr_hasta("@@",0.03); m[1]=mask()&2;
+    analog_val[IR_PINES[1]]=480; correr_hasta("@@",0.03); m[2]=mask()&2;
+    analog_val[IR_PINES[1]]=460; correr_hasta("@@",0.03); m[3]=mask()&2;
+    bool ok= !m[0] && m[1] && m[2] && !m[3];
+    printf("%-34s %s  (520:%d 540:%d 480:%d 460:%d)\n","IR: umbral con histeresis",ok?"OK":"FALLA",!!m[0],!!m[1],!!m[2],!!m[3]); if(!ok) fallos++; }
+  // Calibración manual: IW (blanco 140) + IN 2 (negro 870) -> umbral 505; contraste bajo se rechaza
+  { for(int k=0;k<IR_N;k++) analog_val[IR_PINES[k]]=140;
+    log_out.clear(); enviar("IW"); correr_hasta("auto=",0.2);
+    analog_val[IR_PINES[2]]=870; correr_hasta("@@",0.02); log_out.clear(); enviar("IN 2"); correr_hasta("auto=",0.2);
+    bool ok = log_out.find("u=495/495/505/495")!=std::string::npos && log_out.find("b=140/140/140/140")!=std::string::npos;
+    analog_val[IR_PINES[3]]=200; correr_hasta("@@",0.02); log_out.clear(); enviar("IN 3"); correr_hasta("auto=",0.2);
+    // 200 vs 140: contraste bajo -> aviso, y ni el negro ni el umbral del sensor 3 cambian
+    ok = ok && log_out.find("contraste_bajo 3")!=std::string::npos && log_out.find("u=495/495/505/495")!=std::string::npos
+            && log_out.find("n=850/850/870/850")!=std::string::npos;
+    printf("%-34s %s\n","IR: calibracion IW / IN",ok?"OK":"FALLA"); if(!ok){ fallos++; printf("   %s",log_out.c_str()); } }
+  // Auto-calibración: IA 1, pasar sobre la línea (130 <-> 910), IA 0 -> umbral 520 en los 4
+  { log_out.clear(); enviar("ID"); correr_hasta("auto=",0.1); enviar("IA 1"); correr_hasta("OK IA",0.1);
+    for(int paso=0;paso<6;paso++){ for(int k=0;k<IR_N;k++) analog_val[IR_PINES[k]]=(paso%2)?910:130; correr_hasta("@@",0.03); }
+    log_out.clear(); enviar("IA 0"); correr_hasta("max=",0.1); bool ok=log_out.find("calibrados=15")!=std::string::npos;
+    log_out.clear(); enviar("I"); correr_hasta("auto=",0.1); ok = ok && log_out.find("u=520/520/520/520")!=std::string::npos;
+    printf("%-34s %s\n","IR: auto-calibracion IA",ok?"OK":"FALLA"); if(!ok){ fallos++; printf("   %s",log_out.c_str()); } }
+  // Lecturas crudas
+  { for(int k=0;k<IR_N;k++) analog_val[IR_PINES[k]]=100+k; correr_hasta("@@",0.02);
+    log_out.clear(); enviar("IM 50"); bool ok=correr_hasta("IRV 100 101 102 103 0",0.2); enviar("IM 0"); correr_hasta("OK IM",0.1);
+    printf("%-34s %s\n","IR: lecturas crudas IM",ok?"OK":"FALLA"); if(!ok) fallos++; }
+  // Freno por borde: solo los sensores de la máscara (IS 1 3 = delanteros)
+  { enviar("IG"); correr_hasta("guardado",0.1);
+    enviar("IS 1 3"); enviar("A 1000"); correr_hasta("OK #",0.2); correr_hasta("@@",1.0);
+    log_out.clear(); analog_val[IR_PINES[2]]=950; bool trasero=correr_hasta("BORDE",0.1);   // trasero: no frena
+    analog_val[IR_PINES[2]]=110;
+    correr_hasta("@@",0.2); double x0=X; log_out.clear(); analog_val[IR_PINES[0]]=950; bool br=correr_hasta("BORDE",0.1);
+    correr_hasta("@@",0.5);
+    bool ok = br && !trasero;
+    printf("%-34s %s  (recorrido desde que ve la linea hasta quedar quieto: %.1f mm)\n","IR: frena al ver borde",ok?"OK":"FALLA",X-x0); if(!ok) fallos++;
+    analog_val[IR_PINES[0]]=110; enviar("IS 0"); correr_hasta("seg=",0.1); }
   // Diagnóstico de encoders: en cuadratura sana ambos flancos suman con el mismo signo
   enviar("S"); correr_hasta("@@",0.3); log_out.clear(); enviar("ED"); correr_hasta("ENCD",0.2);
   log_out.clear(); enviar("A 300"); correr_hasta("DONE",10); log_out.clear(); enviar("ED"); correr_hasta("ENCD",0.2);

@@ -287,11 +287,19 @@ void control_tick() {
         v_med[i] = FILTRO_VEL_ALFA * (d[i] / dt) + (1.0f - FILTRO_VEL_ALFA) * v_med[i];
     odometria(d);
 
-    // 3. Seguridad de borde
+    // 3. Líneas: EVT IR mask subida bajada x y th  (la Pi ubica cada cruce en el mapa)
+    //    La pose informada es la del MOMENTO del cruce: la del tick actual "retrocedida" con la
+    //    velocidad del último tick por el tiempo transcurrido desde que el sensor cruzó el umbral.
     if (ir_flancos_subida || ir_flancos_bajada) {
+        float t_atras = (micros() - ir_t_flanco_us + IR_RETRASO_US) * 1e-6f;
+        float c = cos(pose.th), s = sin(pose.th);
         Serial.print(F("EVT IR ")); Serial.print(ir_mascara); Serial.print(' ');
-        imprimir_pose_corta(); Serial.println();
-        bool nuevo_negro = ir_flancos_subida != 0;
+        Serial.print(ir_flancos_subida); Serial.print(' ');
+        Serial.print(ir_flancos_bajada); Serial.print(' ');
+        Serial.print((long)(pose.x - (vel_x * c - vel_y * s) * t_atras)); Serial.print(' ');
+        Serial.print((long)(pose.y - (vel_x * s + vel_y * c) * t_atras)); Serial.print(' ');
+        Serial.println((long)((pose.th - vel_w * t_atras) * 1000.0f));
+        uint8_t nuevo_negro = ir_flancos_subida & ir_mascara_freno;
         ir_flancos_subida = 0; ir_flancos_bajada = 0;
         if (seguridad_ir && nuevo_negro && modo != MODO_QUIETO) detener_todo(F("BORDE"));
     }

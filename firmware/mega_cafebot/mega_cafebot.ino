@@ -5,7 +5,7 @@
 //    - PI de velocidad por rueda + rampa de aceleración
 //    - Servos de dirección (recto / giro en el sitio / cangrejo)
 //    - Odometría y movimientos básicos (avanzar, girar, cangrejo, waypoint)
-//    - Sensores IR de borde con freno inmediato opcional
+//    - 4 sensores de línea QTR-1A: umbrales, calibración, eventos de cruce y freno opcional
 //    - Watchdog: si la Raspberry deja de mandar V/K, se detiene
 //  La Raspberry decide QUÉ hacer; el Mega decide CÓMO mover las ruedas.
 //
@@ -32,7 +32,7 @@ void setup() {
 }
 
 void loop() {
-    ir_actualizar();  // ~1 kHz
+    ir_actualizar();  // un sensor por ms (cada uno a 250 Hz)
 
     uint32_t ahora = micros();
     if (ahora - ultimo_control_us >= PERIODO_CONTROL_US) {

@@ -33,6 +33,8 @@ def ronda(semilla: int) -> int:
     while not m.terminada:
         nav.actualizar()
         time.sleep(0.02)
+    if getattr(mega, "ir_sim", None):
+        mega.ir_sim.detener()
     lidar.detener()
     mega.cerrar()
     pts = depositos.puntaje()

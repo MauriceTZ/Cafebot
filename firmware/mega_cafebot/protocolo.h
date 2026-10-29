@@ -12,6 +12,8 @@ uint8_t linea_len = 0;
 bool linea_descartando = false;  // tras una línea demasiado larga, ignorar hasta '\n'
 uint16_t telemetria_periodo_ms = 0;  // 0 = apagada
 uint32_t telemetria_ultimo_ms = 0;
+uint16_t ir_monitor_ms = 0;          // IM: lecturas crudas de los IR (0 = apagado)
+uint32_t ir_monitor_ultimo_ms = 0;
 
 #define FW_VERSION "cafebot-mega v1.0"
 
@@ -29,7 +31,10 @@ void imprimir_ayuda() {
     Serial.println(F("R [x y th]     fijar pose (sin args = 0 0 0)"));
     Serial.println(F("Z              reiniciar encoders (solo detenido)"));
     Serial.println(F("M hz           telemetria T a hz (0 = off)"));
-    Serial.println(F("I | IW | IN k | IS 0/1 | IG   IR: estado | blanco | negro k(0=TI,1=TD) | seguridad | guardar"));
+    Serial.println(F("I | IM hz        IR: estado | lecturas crudas IRV a hz (0 = off)"));
+    Serial.println(F("IW | IN [k] | IA 1|0   IR calibrar: blanco | negro (k=0 DI,1 DD,2 TI,3 TD) | auto min/max"));
+    Serial.println(F("IU [k v] | IH v | IG | ID   IR umbral k | histeresis | guardar EEPROM | fabrica"));
+    Serial.println(F("IS 0|1 [mascara]   IR freno al ver linea nueva (mascara de sensores, 15 = todos)"));
     Serial.println(F("X k ang        servo aux k (0,1 compuertas, 2 camara) a ang grados"));
     Serial.println(F("Y | Y i us | YS i k us | YG | YD   servos direccion: tabla | pulso crudo | fijar k=-1/0/1 | guardar | defecto"));
     Serial.println(F("J kp ki kff    ganancias del PI de rueda"));
@@ -57,13 +62,31 @@ void imprimir_telemetria() {
     Serial.println(ir_mascara);
 }
 
+void imprimir_lista(const __FlashStringHelper* nombre, const int16_t* v) {
+    Serial.print(nombre);
+    for (uint8_t k = 0; k < IR_N; k++) {
+        if (k) Serial.print('/');
+        Serial.print(v[k]);
+    }
+}
+
+// IR mask=5 v=130/860/140/910 u=500/500/500/500 h=60 b=150/150/150/150 n=850/850/850/850 seg=0/15 auto=0
 void imprimir_ir() {
     Serial.print(F("IR mask=")); Serial.print(ir_mascara);
-    Serial.print(F(" TI=")); Serial.print(ir_analog[0]);
-    Serial.print(F(" TD=")); Serial.print(ir_analog[1]);
-    Serial.print(F(" blanco=")); Serial.print(calib_ir.blanco[0]); Serial.print('/'); Serial.print(calib_ir.blanco[1]);
-    Serial.print(F(" negro=")); Serial.print(calib_ir.negro[0]); Serial.print('/'); Serial.print(calib_ir.negro[1]);
-    Serial.print(F(" seguridad=")); Serial.println(seguridad_ir ? 1 : 0);
+    imprimir_lista(F(" v="), ir_valor);
+    imprimir_lista(F(" u="), calib_ir.umbral);
+    Serial.print(F(" h=")); Serial.print(calib_ir.histeresis);
+    imprimir_lista(F(" b="), calib_ir.blanco);
+    imprimir_lista(F(" n="), calib_ir.negro);
+    Serial.print(F(" seg=")); Serial.print(seguridad_ir ? 1 : 0); Serial.print('/'); Serial.print(ir_mascara_freno);
+    Serial.print(F(" auto=")); Serial.println(ir_auto ? 1 : 0);
+}
+
+void imprimir_ir_crudo() {
+    // IRV v0 v1 v2 v3 mask
+    Serial.print(F("IRV"));
+    for (uint8_t k = 0; k < IR_N; k++) { Serial.print(' '); Serial.print(ir_valor[k]); }
+    Serial.print(' '); Serial.println(ir_mascara);
 }
 
 // Lee hasta n números de la línea; devuelve cuántos encontró
@@ -149,12 +172,50 @@ void ejecutar_linea(char* s) {
 
     if (dos_letras && c0 == 'I') {
         switch (c1) {
-            case 'W': ir_calibrar_blanco(); imprimir_ir(); return;
-            case 'N':
-                if (n < 1 || v[0] < 0 || v[0] > 1) { Serial.println(F("ERR IN 0|1")); return; }
-                ir_calibrar_negro((uint8_t)v[0]); imprimir_ir(); return;
-            case 'S': seguridad_ir = (n >= 1 && v[0] != 0); imprimir_ir(); return;
+            case 'W':                                   // IW: blanco de los 4
+                ir_calibrar_blanco(); imprimir_ir(); return;
+            case 'N':                                   // IN [k]: negro de uno o de los 4
+                if (n >= 1 && (v[0] < 0 || v[0] >= IR_N)) { Serial.println(F("ERR IN [0..3]")); return; }
+                for (uint8_t k = 0; k < IR_N; k++) {
+                    if (n >= 1 && k != (uint8_t)v[0]) continue;
+                    bool ok;
+                    int16_t lect = ir_calibrar_negro(k, &ok);
+                    if (!ok) {   // aviso (no es la respuesta: la respuesta es la línea IR de abajo)
+                        Serial.print(F("EVT IRCAL contraste_bajo ")); Serial.print(k); Serial.print(' ');
+                        Serial.print(lect); Serial.print(' '); Serial.println(calib_ir.blanco[k]);
+                    }
+                }
+                imprimir_ir(); return;
+            case 'A':                                   // IA 1 = empezar, IA 0 = terminar y calcular
+                if (n >= 1 && v[0] != 0) { ir_auto_iniciar(); Serial.println(F("OK IA registrando")); return; }
+                {
+                    uint8_t ok = ir_auto_terminar();
+                    Serial.print(F("OK IA calibrados=")); Serial.print(ok);
+                    imprimir_lista(F(" min="), ir_min);
+                    imprimir_lista(F(" max="), ir_max);
+                    Serial.println();
+                }
+                return;
+            case 'U':                                   // IU k v: umbral a mano; IU: mostrar
+                if (n >= 2) {
+                    if (v[0] < 0 || v[0] >= IR_N || v[1] < 0 || v[1] > 1023) { Serial.println(F("ERR IU k(0..3) v(0..1023)")); return; }
+                    calib_ir.umbral[(uint8_t)v[0]] = (int16_t)v[1];
+                }
+                imprimir_ir(); return;
+            case 'H':                                   // IH v: histéresis
+                if (n < 1 || v[0] < 0 || v[0] > 400) { Serial.println(F("ERR IH 0..400")); return; }
+                calib_ir.histeresis = (int16_t)v[0];
+                imprimir_ir(); return;
+            case 'M':                                   // IM hz: lecturas crudas
+                ir_monitor_ms = (n > 0 && v[0] > 0) ? (uint16_t)(1000.0f / constrain(v[0], 1, 100)) : 0;
+                Serial.print(F("OK IM ")); Serial.println(ir_monitor_ms);
+                return;
+            case 'S':                                   // IS 0|1 [mascara]
+                seguridad_ir = (n >= 1 && v[0] != 0);
+                if (n >= 2) ir_mascara_freno = (uint8_t)v[1] & 0x0F;
+                imprimir_ir(); return;
             case 'G': ir_guardar_eeprom(); Serial.println(F("OK IR guardado")); return;
+            case 'D': ir_calib_defecto(); imprimir_ir(); return;
         }
         Serial.println(F("ERR IR?"));
         return;
@@ -276,5 +337,9 @@ void protocolo_actualizar() {
     if (telemetria_periodo_ms && millis() - telemetria_ultimo_ms >= telemetria_periodo_ms) {
         telemetria_ultimo_ms = millis();
         imprimir_telemetria();
+    }
+    if (ir_monitor_ms && millis() - ir_monitor_ultimo_ms >= ir_monitor_ms) {
+        ir_monitor_ultimo_ms = millis();
+        imprimir_ir_crudo();
     }
 }

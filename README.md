@@ -27,7 +27,7 @@ pi/
   cafebot/config.py  geometría del robot y puertos (se sobreescribe con pi/robot_local.json)
   cafebot/mundo/     cancha.py (Apéndices A/B), simulador_lidar.py
   cafebot/localizacion/ inicio.py (¿en qué sector partimos? + albercas/cajas)
-  tools/             prueba_navegacion, teleop, visor_lidar, localizar, navegacion, brazo, camara, mision
+  tools/             prueba_navegacion, teleop, visor_lidar, localizar, navegacion, ir, brazo, camara, mision
   tests/             pruebas sin hardware
   system/            reglas udev (nombres fijos de puertos)
 description/         URDF + mallas del brazo (Fusion 360 → URDF)
@@ -70,7 +70,8 @@ python3 -m tools.visor_lidar --puerto /dev/cafebot-lidar
 
 | Módulo | Estado |
 |---|---|
-| Firmware Mega v1 | Probado en el robot (27 oct): encoders x2, diámetro efectivo 52,6 mm (ruedas nuevas, 28 oct), cableado y signos de servos de dirección verificados. Falta: calibración fina de servos, `W 360` en el piso, IR. |
+| Firmware Mega v1 | Probado en el robot (27 oct): encoders x2, diámetro efectivo 52,6 mm (ruedas nuevas, 28 oct), cableado y signos de servos de dirección verificados. Falta: calibración fina de servos, `W 360` en el piso. |
+| Sensores de línea | 4 × QTR-1A en A8–A11: umbrales por sensor con histéresis, calibración manual y automática, cruces ubicados en el mapa y asociados a la cancha. Herramienta `tools.ir`. Probado en simulación; falta calibrar en el robot (`docs/ir.md`). |
 | Driver Mega (Pi) | Probado contra el firmware simulado. |
 | Driver LD06 | Probado con paquetes sintéticos (CRC, resincronización). Falta probar con el sensor. |
 | Brazo | `BrazoXL430`: IK de mínimo esfuerzo en coordenadas del robot, posturas enseñadas a mano, secuencia de agarre vigilada (choques, garra vacía). Herramienta `tools.brazo`. Probado con bus falso; falta calibrar en el robot (`docs/brazo.md`). |

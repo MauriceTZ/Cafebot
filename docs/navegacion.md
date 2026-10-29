@@ -46,7 +46,8 @@ python3 -m tools.navegacion --sim                                             # 
 | `seguimiento.py` | Objetos que se mueven (Kalman + asignación húngara) | Lo que el código antiguo llamaba "JPDA" es asociación GNN; se mantiene. Sin scikit‑learn |
 | `planificador.py` | A* sobre el mapa (grafo de celdas) + acortado por línea de vista | Aproximación a un landmark de cara plana: se queda frente a la cara que mira al robot |
 | `ejecutor.py` | Ruta → órdenes `W` (girar) y `A` (avanzar) del Mega, en tramos ≤ 0,5 m | Antes mandaba velocidades continuas pensadas para tracción diferencial. Ahora usa las primitivas del firmware y relee la pose fusionada antes de cada tramo |
-| `sistema.py` | Une todo sin interfaz (`actualizar()`, `pose()`, `ir_a()`, `aproximar()`) | La misión y la interfaz usan la misma clase |
+| `lineas.py` | Cruces de líneas negras (4 sensores IR QTR-1A): cada cruce ubicado en el mapa, asociado a la línea conocida de la cancha, con su residuo; corrección opcional del EKF perpendicular a la línea | Nuevo (`docs/ir.md`) |
+| `sistema.py` | Une todo sin interfaz (`actualizar()`, `pose()`, `ir_a()`, `aproximar()`, `fijar_cancha()`) | La misión y la interfaz usan la misma clase |
 
 Otros: `drivers/imu.py` (MPU9250), `drivers/lidar_simulado.py` (LD06 simulado con error de calibración),
 `config.py` (geometría y puertos en un solo lugar; se sobreescribe con `pi/robot_local.json`).
@@ -65,7 +66,8 @@ un 3 % y girar un 2 % de más:
 Con el robot quieto, la pose se mantiene dentro de 0,4 cm en 15 s.
 
 ## Pendiente
-- Integrar los IR (líneas de la cancha) como corrección absoluta y para la ruta inicial.
+- IR: ya ubicados en el mapa y asociados a la cancha (`docs/ir.md`). Falta validar los residuos en la cancha real,
+  activar `ir.corregir_pose` y usar las líneas en el recorrido inicial.
 - Probar con el LD06 real. Ajustar `lidar_x`, `lidar_yaw_deg`, `extras` y los rangos de `CLASES`.
 - Brazo y cámara: tienen sus propios módulos (`cafebot/arm`, visión por portar). Se conectan a
   `SistemaNavegacion` a través de la misión, no dentro de la navegación.

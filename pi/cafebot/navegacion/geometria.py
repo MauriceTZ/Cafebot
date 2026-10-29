@@ -32,3 +32,13 @@ def relativo(a, b) -> np.ndarray:
 
 def rectangulo(cx, cy, hx, hy) -> np.ndarray:
     return np.array([[cx - hx, cy - hy], [cx + hx, cy - hy], [cx + hx, cy + hy], [cx - hx, cy + hy]])
+
+
+def invertir(pose) -> np.ndarray:
+    """Pose inversa: si `pose` es el marco B visto desde A, devuelve A visto desde B."""
+    return relativo(pose, np.zeros(3))
+
+
+def rotar(v, th: float) -> np.ndarray:
+    c, s = math.cos(th), math.sin(th)
+    return np.array([c * v[0] - s * v[1], s * v[0] + c * v[1]])

@@ -18,14 +18,16 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   (800 pulsos/vuelta en x1; se usa **x2**, verificado con `ED`) y servo de dirección HS-311 cada una.
 - Ruedas: M1 delantera der, M2 delantera izq, M3 trasera der, M4 trasera izq.
   Servos de dirección: pin 6 = M1, 10 = M2, 13 = M3, 45 = M4, los 4 con `SIGNO_SERVO = +1`.
-- Arduino Mega + shield 4Motor&9Servo: control de ruedas, dirección, odometría, IR de borde.
+- Arduino Mega + shield 4Motor&9Servo: control de ruedas, dirección, odometría, sensores de línea.
 - Raspberry Pi 5: decisiones. LD06 adelante a ~8 cm del suelo (180° de vista).
   Cámara Pi Module 3 **estándar** fija a ~35 cm sobre un servo de inclinación (`X 2 <ángulo>`).
 - Brazo 5 GDL + garra con Dynamixel XL430 (U2D2), base a 36 cm del suelo. El hombro se
   sobrecarga si el brazo queda estirado en horizontal (ver `docs/brazo.md`).
 - Puertos en la Pi (28 oct): Mega = clon con CH340 (1a86) → `/dev/ttyUSB1`; LD06 (CP2102) → `/dev/ttyUSB0`;
   U2D2 (FTDI) → otro ttyUSB. Con `pi/system/99-cafebot.rules`: `/dev/cafebot-mega`, `-lidar`, `-u2d2`.
-- Pendiente de confirmar: pines de los IR (22/23 digitales, A8/A9 analógicos), compuertas (44/46).
+- Sensores de línea: 4 × QTR-1A analógicos en A8–A11 (DI, DD, TI, TD), conector Analog IO del shield; A1/A4/A5
+  son del motor M4. Calibración y umbrales: `docs/ir.md` (`python3 -m tools.ir`).
+- Pendiente de confirmar: compuertas (44/46), posición de los sensores de línea en el robot.
 
 ## Arquitectura
 - **Mega = reflejos** (`firmware/mega_cafebot`): PI por rueda, primitivas `A` (avanzar), `W` (girar),
@@ -45,9 +47,11 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Probar sin hardware antes de pedir pruebas en el robot:
   - `firmware/test_host/correr.sh`: el firmware real compilado en el PC con una planta simulada.
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
-    test_dxl_falso, test_brazo_falso, test_vision_sintetica, test_inicio, test_landmarks, test_navegacion, test_mision).
+    test_dxl_falso, test_brazo_falso, test_vision_sintetica, test_inicio, test_landmarks, test_navegacion, test_mision,
+    test_ir).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
-    `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md), `tools.mision` (todo junto).
+    `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
+    `tools.mision` (todo junto).
 - Lo que no se ha medido en el robot se marca `[CONFIRMAR]` / `[MEDIR]` / `[AJUSTAR]` en el código.
 - Commits pequeños y descriptivos en español. Cuando el equipo prueba algo en el robot, anotar el
   resultado (fecha + qué se midió) en el comentario de la constante que se ajustó.
@@ -63,6 +67,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   a la izquierda en 1 m, por revisar de nuevo (un intento de corrección por rueda se revirtió).
 - Hecho (sin hardware, probado con bus falso y fotos sintéticas): brazo real (`tools.brazo`) y cámara real
   (`tools.camara`), conectados a la misión (`tools.mision --brazo --vision camara`).
-- Por hacer en el robot: calibrar brazo (yaw0, base, posturas de depósito, umbral de garra) y cámara (inclinación,
-  fx, referencias de color); IR en la navegación; servicio systemd + botón GPIO.
+- 29 oct: sensores de línea QTR-1A integrados (firmware con umbrales/calibración/auto, `tools.ir`, cruces en la
+  navegación asociados a la cancha; corrección del EKF lista pero apagada). Probado en simulación.
+- Por hacer en el robot: calibrar los IR (`tools.ir`) y medir su posición; calibrar brazo (yaw0, base, posturas
+  de depósito, umbral de garra) y cámara (inclinación, fx, referencias de color); recorrido inicial con las
+  líneas; servicio systemd + botón GPIO.
 - Por medir para la misión: base del brazo, grano delante del tablero, compuertas, GPIO del botón (`docs/mision.md`).

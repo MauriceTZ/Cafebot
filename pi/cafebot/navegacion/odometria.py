@@ -94,6 +94,29 @@ class OdometriaEKF:
         self.P = (I - K) @ self.P @ (I - K).T + K @ R @ K.T
         self._guardar()
 
+    def corregir_linea(self, s_robot, n, c, sigma: float = 0.008, compuerta: float = 3.0) -> bool:
+        """Un punto del robot (s_robot, en el sistema del robot) está sobre una recta conocida del mapa:
+        n·p = c (n unitaria). Corrige solo en la dirección de n: un cruce de línea no dice nada a lo
+        largo de la línea. Rechaza (False) si la innovación es mayor que `compuerta` desviaciones."""
+        if not self.inicializada:
+            return False
+        x, y, th = self.x
+        ct, st = math.cos(th), math.sin(th)
+        sx, sy = float(s_robot[0]), float(s_robot[1])
+        px, py = x + ct * sx - st * sy, y + st * sx + ct * sy
+        H = np.array([n[0], n[1], n[0] * (-st * sx - ct * sy) + n[1] * (ct * sx - st * sy)])
+        S = float(H @ self.P @ H) + sigma ** 2
+        inn = c - (n[0] * px + n[1] * py)
+        if inn * inn / S > compuerta ** 2:
+            return False
+        K = self.P @ H / S
+        self.x = self.x + K * inn
+        self.x[2] = envolver(self.x[2])
+        IKH = np.eye(3) - np.outer(K, H)
+        self.P = IKH @ self.P @ IKH.T + np.outer(K, K) * sigma ** 2
+        self._guardar()
+        return True
+
     def _guardar(self):
         if not self.tray_ekf or np.linalg.norm(self.x[:2] - self.tray_ekf[-1]) > 0.01:
             self.tray_ekf.append(self.x[:2].copy())
