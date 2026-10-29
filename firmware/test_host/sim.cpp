@@ -17,6 +17,9 @@ static const uint8_t ENC_A[4]={M1_ENC_A,M2_ENC_A,M3_ENC_A,M4_ENC_A}, ENC_B[4]={M
 float ganancia[4]={1.05f,0.95f,1.0f,0.92f};  // motores distintos a propósito
 float vrueda[4]={0}, dist_acum[4]={0}; long cuentas_gen[4]={0};
 double X=0,Y=0,TH=0;  // pose real
+// Rueda unida al servo con una L: al girar el servo, la rueda se arrastra y empuja la base. Modelo simple:
+// la base gira K_ARRASTRE × (suma de lo que giraron los 4 servos) / 4. Con dos y dos se cancela.
+const double K_ARRASTRE=0.10; double phi_prev[4]={0,0,0,0}; bool phi_ini=false;
 void planta(float h){
   float vw[4][2];
   for(int i=0;i<4;i++){
@@ -27,6 +30,7 @@ void planta(float h){
     float tau = freno?0.03f:0.08f;
     vrueda[i]+= (obj-vrueda[i])*h/tau;
     float phi = radians(((servo_cmd[PIN_SERVO[i]]-544)/10.311f-OFFSET_SERVO[i])*SIGNO_SERVO[i]);
+    if(phi_ini) TH += K_ARRASTRE*(phi-phi_prev[i])/4; phi_prev[i]=phi;
     vw[i][0]=vrueda[i]*cos(phi); vw[i][1]=vrueda[i]*sin(phi);
     dist_acum[i]+=vrueda[i]*h;
     long objetivo=lround(dist_acum[i]/(CIRCUNFERENCIA_RUEDA/(PULSOS_POR_REVOLUCION*2.0f)));  // cada flanco físico de A
@@ -42,7 +46,7 @@ void planta(float h){
   // Movimiento rígido por mínimos cuadrados: v_i = (vx - w*y_i, vy + w*x_i)
   double sx=0,sy=0,sw=0,den=0; for(int i=0;i<4;i++){sx+=vw[i][0]; sy+=vw[i][1];}
   double vx=sx/4, vy=sy/4; double num=0; for(int i=0;i<4;i++){num+= -POS[i][1]*vw[i][0]+POS[i][0]*vw[i][1]; den+=POS[i][0]*POS[i][0]+POS[i][1]*POS[i][1];}
-  double w=num/den;
+  double w=num/den; phi_ini=true;
   X+= (vx*cos(TH)-vy*sin(TH))*h; Y+=(vx*sin(TH)+vy*cos(TH))*h; TH+=w*h;
 }
 std::string log_out;
@@ -100,8 +104,28 @@ int main(int argc,char**argv){
   prueba("W 90 (girar 90° izq)","W 90","DONE #2",500,0,90);
   prueba("A -200 (retroceder)","A -200","DONE #3",500,-200,90);
   prueba("L 90 300 (cangrejo a la izq)","L 90 300","DONE #4",200,-200,90);
-  prueba("W -180","W -180","DONE #5",200,-200,-90);
-  prueba("G 0 0 0 (waypoint al origen)","G 0 0 0","DONE #6",0,0,0);
+  // Cangrejo espejado: de izquierda a derecha las ruedas no se mueven (solo cambia el sentido de los motores)
+  { int antes[4]; for(int i=0;i<4;i++) antes[i]=servo_cmd[PIN_SERVO[i]];
+    prueba("L -90 300 (sin mover los servos)","L -90 300","DONE #5",500,-200,90);
+    bool quietos=true; for(int i=0;i<4;i++) quietos = quietos && servo_cmd[PIN_SERVO[i]]==antes[i];
+    int dist=0; for(int i=0;i<4;i++) dist += abs(antes[i]-servo_cmd[PIN_SERVO[0]])>500;
+    printf("%-34s %s\n","  servos quietos, dos a cada lado",(quietos&&dist==2)?"OK":"FALLA"); if(!(quietos&&dist==2)) fallos++; }
+  prueba("L 0 300 (cangrejo adelante)","L 0 300","DONE #6",500,100,90);
+  // Patrón 0 (las 4 igual, como antes): el arrastre de las L gira la base y la odometría no lo ve
+  { log_out.clear(); enviar("LE 0"); correr_hasta("OK LE 0",0.1);
+    double th0=TH; log_out.clear(); enviar("L 90 20"); correr_hasta("DONE #7",10); correr_hasta("@@",0.3);
+    double giro_igual=degrees(TH-th0);
+    enviar("L 0 20"); correr_hasta("DONE #8",10); correr_hasta("@@",0.3);
+    enviar("LE 1"); correr_hasta("OK LE 1",0.1);
+    th0=TH; enviar("L 90 20"); correr_hasta("DONE #9",10); correr_hasta("@@",0.3);
+    double giro_espejo=degrees(TH-th0);
+    enviar("L 0 20"); correr_hasta("DONE #10",10); correr_hasta("@@",0.3);
+    bool ok=fabs(giro_igual)>5 && fabs(giro_espejo)<0.5;
+    printf("%-34s %s  (las 4 igual: %+.1f°, espejado: %+.1f°)\n","Cangrejo: torque de las L",ok?"OK":"FALLA",giro_igual,giro_espejo);
+    if(!ok) fallos++;
+    pose.th = TH; }   // la odometría no vio el giro del patrón 0: se corrige para las pruebas siguientes
+  prueba("W -180","W -180","DONE #11",pose.x,pose.y,-90);
+  prueba("G 0 0 0 (waypoint al origen)","G 0 0 0","DONE #12",0,0,0);
   // Watchdog
   log_out.clear(); enviar("V 100 0"); bool wd=correr_hasta("WATCHDOG",2.0);
   printf("%-34s %s\n","Watchdog V sin repetir",wd&&log_out.find("WATCHDOG")!=std::string::npos?"OK":"FALLA"); if(!wd) fallos++;
@@ -165,7 +189,7 @@ int main(int argc,char**argv){
   enviar("EM 1"); correr_hasta("OK EM",0.2);
   // Ruta T
   enviar("S"); enviar("R"); X=Y=TH=0; correr_hasta("@@",0.3);
-  prueba("T (cuadrado 500 mm)","T","DONE #13",0,0,0,25,4);
+  prueba("T (cuadrado 500 mm)","T","DONE #19",0,0,0,25,4);
   printf("\n%s (%d fallos)\n", fallos?"HAY FALLOS":"TODO OK", fallos);
   return fallos?1:0;
 }

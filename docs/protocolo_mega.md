@@ -16,7 +16,8 @@ Al abrir el puerto USB el Mega se reinicia (≈2 s) y responde `READY cafebot-me
 |---|---|
 | `A d [v]` | Avanza `d` mm en línea recta (negativo = retrocede), manteniendo el rumbo. |
 | `W a [wmax]` | Gira en el sitio `a` grados (ruedas a ±45,8°). `wmax` en grados/s. |
-| `L a d [v]` | **Cangrejo**: las 4 ruedas a `a` grados (±90) y avanza `d` mm en esa dirección sin girar. `L 90 300` = 30 cm a la izquierda. |
+| `L a d [v]` | **Cangrejo**: las 4 ruedas a `a` grados (±90) y avanza `d` mm en esa dirección sin girar. `L 90 300` = 30 cm a la izquierda. A ±90° las ruedas se reparten dos a +90 y dos a −90 (con el motor al revés) para que el arrastre de las L no gire la base; entre `L 90` y `L -90` las ruedas no se mueven. |
+| `LE [m]` | Patrón del cangrejo lateral: 0 = las 4 igual (antes), 1 = diagonales (por defecto), 2 = izquierdas/derechas, 3 = delanteras/traseras. Sin argumento lo muestra. No se guarda: el elegido se deja en `CANGREJO_ESPEJO_DEF` (`config.h`, PASO 1b). |
 | `G x y [th]` | Va al punto absoluto (x, y) y, si se da, termina mirando a `th` grados. |
 | `T` | Ruta cuadrada de prueba de 500 mm. |
 

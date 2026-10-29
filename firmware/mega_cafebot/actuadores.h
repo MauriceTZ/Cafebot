@@ -131,6 +131,19 @@ bool servos_actualizar() {
 
 // Posturas
 enum Postura : uint8_t { POSTURA_RECTO = 0, POSTURA_GIRO = 1, POSTURA_CANGREJO = 2 };
+uint8_t cangrejo_espejo = CANGREJO_ESPEJO_DEF;   // patrón del cangrejo lateral (config.h, PASO 1b; comando LE)
+
+// +1 / -1: hacia qué lado gira la rueda i al pasar a cangrejo lateral (dos y dos, para cancelar el torque)
+int8_t patron_espejo(uint8_t i) {
+    switch (cangrejo_espejo) {
+        case 1: return ESQUINA_X[i] * ESQUINA_Y[i];
+        case 2: return ESQUINA_Y[i];
+        case 3: return ESQUINA_X[i];
+        default: return 1;
+    }
+}
+
+bool es_lateral(float a) { return fabs(fabs(a) - CANGREJO_MAX_DEG) < 0.5f; }
 
 void angulos_postura(Postura p, float ang_cangrejo, float out[4]) {
     if (p == POSTURA_GIRO) {
@@ -141,7 +154,11 @@ void angulos_postura(Postura p, float ang_cangrejo, float out[4]) {
             out[i] = -SIGNO_GIRO * ESQUINA_X[i] * ESQUINA_Y[i] * ANGULO_SERVOS_Z;
     } else if (p == POSTURA_CANGREJO) {
         float a = constrain(ang_cangrejo, -CANGREJO_MAX_DEG, CANGREJO_MAX_DEG);
-        for (uint8_t i = 0; i < 4; i++) out[i] = a;
+        for (uint8_t i = 0; i < 4; i++) {
+            if (!es_lateral(a)) out[i] = a;
+            else if (es_lateral(servo_destino[i])) out[i] = servo_destino[i];   // ya está de lado: no se mueve
+            else out[i] = patron_espejo(i) * a;                                // dos y dos: torques cancelados
+        }
     } else {
         for (uint8_t i = 0; i < 4; i++) out[i] = 0;
     }

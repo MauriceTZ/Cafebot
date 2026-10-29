@@ -63,7 +63,11 @@ de subida de A (1600 con `ENCODER_X2`). Reductora 1:8.
    - Igual para +90° (`YS i 1 <us>`) y -90° (`YS i -1 <us>`), con una escuadra contra el chasis.
    - Si un servo no llega a 90° exactos, calibrar las 4 a un ángulo menor **común** (p. ej. 88°, medido con transportador) y poner ese valor en `SERVO_ANG_CAL_DEG` (config.h): lo importante es que las 4 queden paralelas; la odometría usa el ángulo real.
    - `YG` guarda en EEPROM (sobrevive al apagado y a recargar el firmware). `YD` vuelve a los valores por defecto.
-   - Después, `L 90 200`: las 4 ruedas quedan paralelas, rodando hacia la izquierda.
+   - Después, `L 90 200`: las 4 ruedas quedan paralelas, rodando hacia la izquierda. Dos quedan a +90 y dos a −90
+     (es a propósito: así el arrastre de las L de aluminio no hace girar la base; ver PASO 1b de `config.h`).
+   - **Torque del cangrejo** (29 oct): desde recto, `L 90 50` y luego `L 0 50`, mirando si la base gira al
+     reposicionarse las ruedas. Probar los patrones con `LE 1`, `LE 2`, `LE 3` (y `LE 0` = como antes, para
+     comparar) y dejar en `CANGREJO_ESPEJO_DEF` el que no gire. Una marca en el piso junto a una esquina ayuda.
 5. En el piso: `A 1000` + huincha → diámetro de rueda. `W 360` → `CINEMATICA_D_GIRO_Z`.
 6. `J`: si oscila, bajar `kp`; si no llega a la velocidad, subir `kff` o `PWM_ARRANQUE`.
 

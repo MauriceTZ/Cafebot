@@ -65,6 +65,7 @@ int32_t enc_previo[4] = { 0, 0, 0, 0 };
 float v_med[4] = { 0, 0, 0, 0 };    // mm/s filtrada
 float v_ref[4] = { 0, 0, 0, 0 };    // consigna con rampa
 float v_obj[4] = { 0, 0, 0, 0 };    // consigna pedida
+float signo_k[4] = { 1, 1, 1, 1 };   // cangrejo: -1 si la rueda quedó del lado opuesto (a -90 para ir a +90)
 float integ[4] = { 0, 0, 0, 0 };
 int16_t pwm_actual[4] = { 0, 0, 0, 0 };
 
@@ -116,7 +117,7 @@ void cinematica_inversa(Postura p, float vx, float wz, float v_cangrejo) {
         if (p == POSTURA_GIRO)
             v_obj[i] = -lado * wz * CINEMATICA_D_GIRO_Z * 0.5f;   // derecha avanza, izquierda retrocede
         else if (p == POSTURA_CANGREJO)
-            v_obj[i] = v_cangrejo;
+            v_obj[i] = v_cangrejo * signo_k[i];
         else
             v_obj[i] = vx - lado * wz * CINEMATICA_W * 0.5f;      // recto con corrección de rumbo
     }
@@ -136,7 +137,7 @@ void odometria(const float d[4]) {
     if (postura == POSTURA_GIRO) {
         dth = (d_der - d_izq) / CINEMATICA_D_GIRO_Z;
     } else if (postura == POSTURA_CANGREJO) {
-        float s = 0.25f * (d[0] + d[1] + d[2] + d[3]);
+        float s = 0.25f * (signo_k[0] * d[0] + signo_k[1] * d[1] + signo_k[2] * d[2] + signo_k[3] * d[3]);
         float a = radians(ang_cangrejo_actual);
         dx = s * cos(a);
         dy = s * sin(a);
@@ -336,6 +337,8 @@ void control_tick() {
     // 5. Cambio de postura: motores parados hasta que los servos lleguen
     float ang[4];
     angulos_postura(s.p, s.ang_k, ang);
+    for (uint8_t i = 0; i < 4; i++)
+        signo_k[i] = (s.p == POSTURA_CANGREJO && ang[i] * s.ang_k < 0) ? -1.0f : 1.0f;
     if (!servos_pedir(ang)) {
         frenar(PARADA_NEUTRO);
         postura = s.p;

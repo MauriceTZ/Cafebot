@@ -22,6 +22,7 @@ void imprimir_ayuda() {
     Serial.println(F("A d [v]        avanzar d mm recto (negativo = atras)"));
     Serial.println(F("W a [wmax]     girar a grados en el sitio (+ = izquierda)"));
     Serial.println(F("L a d [v]      cangrejo: d mm en direccion a grados"));
+    Serial.println(F("LE [m]         cangrejo lateral: 0 igual, 1 diagonales, 2 izq/der, 3 adel/atras"));
     Serial.println(F("G x y [th]     ir a (x,y) y opcionalmente al rumbo th (grados)"));
     Serial.println(F("V vx wz        velocidad (mm/s, rad/s); repetir antes de 500 ms"));
     Serial.println(F("K a v          velocidad cangrejo (grados, mm/s); repetir < 500 ms"));
@@ -140,6 +141,15 @@ void ejecutar_linea(char* s) {
             Serial.print(F("OK EM x")); Serial.println(enc_x2 ? 2 : 1);
             return;
         }
+    }
+
+    if (c0 == 'L' && dos_letras && c1 == 'E') {   // LE [m]: patrón del cangrejo lateral (config.h, PASO 1b)
+        if (n >= 1) {
+            if (v[0] < 0 || v[0] > 3) { Serial.println(F("ERR LE 0..3")); return; }
+            cangrejo_espejo = (uint8_t)v[0];
+        }
+        Serial.print(F("OK LE ")); Serial.println(cangrejo_espejo);
+        return;
     }
 
     if (c0 == 'Y') {  // calibración de servos de dirección

@@ -71,6 +71,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   (`tools.camara`), conectados a la misión (`tools.mision --brazo --vision camara`).
 - 29 oct: sensores de línea QTR-1A integrados (firmware con umbrales/calibración/auto, `tools.ir`, cruces en la
   navegación asociados a la cancha; corrección del EKF lista pero apagada). Probado en simulación.
+- 29 oct: cangrejo ESPEJADO: a ±90° dos ruedas a +90 y dos a −90 (motor al revés) para que el arrastre de las L no
+  gire la base; patrón con `LE m` / `CANGREJO_ESPEJO_DEF` (por elegir en el robot, docs/hardware.md).
 - 29 oct: calibración del brazo sin cámara (`tools.brazo`: escanear, identificar, cero, verificar, limites,
   articulacion, garra calibrar, fila) con un perfil por brazo. Probado con bus falso (`tests.test_calibracion_brazo`).
   Arreglado: el retiro del agarre quedaba detrás del eje de la base y la hacía girar 180° (ahora `brazo.r_min_m`).

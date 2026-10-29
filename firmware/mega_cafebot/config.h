@@ -134,6 +134,18 @@ const float ANGULO_SERVOS_Z = atan2(CINEMATICA_L, CINEMATICA_W) * 180.0f / PI;
 #define CANGREJO_MAX_DEG SERVO_ANG_CAL_DEG
 const int8_t SIGNO_SERVO[4] = { +1, +1, +1, +1 };  // 27 oct: deducido de las pruebas W 90 / L 45 [CONFIRMAR con L 45 200]
 
+// PASO 1b - CANGREJO ESPEJADO (29 oct). Cada rueda está unida a su servo con una L de aluminio: no está sobre el
+// eje del servo, así que al girarlo la rueda se arrastra por el piso y empuja la base. Si las 4 giran hacia el
+// MISMO lado (como pasaba al ir de recto a ±90°), los 4 empujones suman un torque que hace girar toda la base.
+// A ±90° cada rueda puede quedar a +90 o a -90 (misma línea; a -90 el motor gira al revés): dos giran hacia un
+// lado y dos hacia el otro y los torques se cancelan. Patrón (se cambia en vivo con "LE m", sin guardar):
+//   0 = las 4 igual (como antes)   1 = diagonales: DI y TD hacia un lado, DD y TI hacia el otro
+//   2 = izquierdas / derechas      3 = delanteras / traseras
+// Además, entre L 90 y L -90 las ruedas NO se mueven: solo cambia el sentido de los motores.
+// Probar con "L 90 50" y "L 0 50" (desde recto, ida y vuelta) mirando si la base gira; dejar aquí el que no gire.
+// En ángulos intermedios (|a| < 90) no hay alternativa dentro del rango del servo: las 4 giran igual.
+#define CANGREJO_ESPEJO_DEF 1   // [AJUSTAR en el robot]
+
 // PASO 2 - ESQUINA de cada rueda, vista desde arriba con el robot mirando hacia adelante.
 //   ESQUINA_X: +1 = delantera, -1 = trasera.   ESQUINA_Y: +1 = izquierda, -1 = derecha.
 // De esto salen el rombo del giro en el sitio y qué ruedas son del lado derecho/izquierdo.
