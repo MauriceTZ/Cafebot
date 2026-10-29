@@ -254,7 +254,7 @@ def main():
     origen_A = None
     seleccion = None
     msg = "Mueve el robot (flechas) para mapear; clic para elegir destino"
-    arrastrando, recorrido = False, 0.0
+    arrastrando, arrastre = False, 0.0
     ver_odom = True
     T_mapa_cancha = None        # pose de la cancha en el marco del mapa (tecla I)
     ult_manual = 0.0
@@ -269,9 +269,9 @@ def main():
             if ev.type == pg.QUIT:
                 corriendo = False
             elif ev.type == pg.MOUSEBUTTONDOWN and ev.button in (1, 2, 3):
-                arrastrando, recorrido = True, 0.0
+                arrastrando, arrastre = True, 0.0
             elif ev.type == pg.MOUSEBUTTONUP and ev.button in (1, 2, 3):
-                if arrastrando and ev.button == 1 and recorrido < 6:
+                if arrastrando and ev.button == 1 and arrastre < 6:
                     p = v.a_mundo(*ev.pos)
                     if pg.key.get_mods() & pg.KMOD_SHIFT:
                         origen_A = p
@@ -282,7 +282,7 @@ def main():
                 arrastrando = False
             elif ev.type == pg.MOUSEMOTION and arrastrando:
                 v.pan += ev.rel
-                recorrido += abs(ev.rel[0]) + abs(ev.rel[1])
+                arrastre += abs(ev.rel[0]) + abs(ev.rel[1])
             elif ev.type == pg.MOUSEWHEEL:
                 v.zoom(1.15 if ev.y > 0 else 1 / 1.15, pg.mouse.get_pos())
             elif ev.type == pg.KEYDOWN:
