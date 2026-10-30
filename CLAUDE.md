@@ -19,7 +19,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Ruedas: M1 delantera der, M2 delantera izq, M3 trasera der, M4 trasera izq.
   Servos de dirección: pin 6 = M1, 10 = M2, 13 = M3, 45 = M4, los 4 con `SIGNO_SERVO = +1`.
 - Arduino Mega + shield 4Motor&9Servo: control de ruedas, dirección, odometría, sensores de línea.
-- Raspberry Pi 5: decisiones. LD06 al frente, por fuera de la base y centrado, a ~5 mm del suelo (29 oct); se
+- Raspberry Pi 5: decisiones. LD06 al frente, por fuera de la base y centrado, a ~5 cm del suelo (29 oct, confirmado); se
   descarta lo que ve en el cuadrado de 45 cm detrás de él (`geometria.lidar_caja_m`).
   Cámara Pi Module 3 **estándar** (29 oct) FIJA al frente del brazo, en el eje de su base, a 25 cm del suelo, casi
   horizontal (pegada con silicona; recomendado ~28° hacia arriba). Después: pan/tilt con 2 Dynamixel.

@@ -23,7 +23,7 @@ class GeometriaRobot:
     ancho: float = 0.23            # base, a lo largo de y
     margen: float = 0.03           # holgura del filtro de huella (cables, ruedas, vibración)
     lidar_x: float = 0.16          # LD06 al frente, por FUERA de la base, centrado      [MEDIR]
-    lidar_z: float = 0.005         # 29 oct: a ~5 mm del suelo (solo informativo)        [MEDIR]
+    lidar_z: float = 0.05          # 29 oct: a ~5 cm del suelo, confirmado (solo informativo)
     lidar_y: float = 0.0
     lidar_yaw_deg: float = 0.0     # hacia dónde mira el 0° del LD06 (0 = adelante)    [MEDIR]
     lidar_fov_deg: float = 95.0    # vista útil ±fov respecto del frente del LD06

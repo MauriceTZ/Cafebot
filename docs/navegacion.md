@@ -67,8 +67,8 @@ Ojo:
 - Los sensores van junto a las ruedas: al tocar un borde la **rueda está sobre la línea** (en la cancha es falta).
   Es una prueba de taller. En la cancha del torneo las líneas interiores (beneficiadero, cultivo) también frenan.
 - Necesita los servos de dirección funcionando (cangrejo) y los umbrales IR calibrados (`tools.ir borde`).
-- El LiDAR a ~5 mm del suelo: si el piso no es plano puede verlo (puntos sueltos cerca del robot que aparecen
-  y desaparecen). El recorrido no depende del LiDAR (lo guían los bordes); el LiDAR da el mapa y la pose fusionada.
+- El LiDAR va a ~5 cm del suelo: a esa altura ve el pie de los árboles, las cajas y las albercas; si el robot
+  cabecea, puede ver el piso lejos (puntos sueltos que aparecen y desaparecen). El recorrido no depende del LiDAR (lo guían los bordes); el LiDAR da el mapa y la pose fusionada.
 
 ## Módulos (`pi/cafebot/navegacion/`)
 
