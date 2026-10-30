@@ -280,11 +280,11 @@ def cmd_intrinseca(a):
     if any(i is None for i in imgs):
         raise SystemExit("no se pudo leer alguna foto")
     if not a.imagen:
-        cam = _camara(0.5)
+        cam = _camara(cfg.camara.foco_m)    # el MISMO foco que en la cosecha: al mover el lente cambia la focal
         os.makedirs(cl.CARPETA_CAPTURAS, exist_ok=True)
         print(f"Tablero de {cols}×{filas} esquinas INTERIORES, cuadros de {1000 * a.cuadro:.0f} mm, pegado sobre algo "
-              "plano. Mostrarlo a 30-80 cm en 12-20 posiciones: centro, esquinas y bordes de la imagen, inclinado "
-              "±30° hacia los lados y arriba/abajo.")
+              f"plano. Mostrarlo a 40-80 cm (foco fijo a {cfg.camara.foco_m:.2f} m, como en la cosecha) en 12-20 "
+              "posiciones: centro, esquinas y bordes de la imagen, inclinado ±30° hacia los lados y arriba/abajo.")
         try:
             while True:
                 if input(f"[{len(imgs)} fotos] ENTER = foto, q = calcular: ").strip().lower() == "q":
