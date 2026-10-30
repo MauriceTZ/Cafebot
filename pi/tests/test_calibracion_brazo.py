@@ -154,18 +154,20 @@ def prueba_con_bus(cfg):
     b = nuevo_brazo(cfg)
     ids = b.id
     # 1) Postura enseñada a mano con los ceros del código antiguo
-    pose = {9: 3088 + 300, 8: 1042 - 200, 11: 3074 + 400, 7: 1546 + 500, 5: 1014 - 100}
+    c0 = {c.id: c.centro_pasos for c in dxl.BRAZO + [dxl.GARRA]}
+    pose = {9: c0[9] + 300, 8: c0[8] - 200, 11: c0[11] + 400, 7: c0[7] + 500, 5: c0[5] - 100}
     for sid, v in pose.items():
         bus.mem[(sid, 132)] = v
     b.grabar_postura("prueba")
     # 2) El brazo recto de ESTE brazo no coincide con los ceros antiguos: cero
-    recto = {9: 3088 + 20, 8: 1042 - 30, 11: 3074 + 15, 7: 1546 + 40, 5: 1014 - 25, 4: 336 + 10}
+    recto = {9: c0[9] + 20, 8: c0[8] - 30, 11: c0[11] + 15, 7: c0[7] + 40, 5: c0[5] - 25, 4: c0[4] + 10}
     for sid, v in recto.items():
         bus.mem[(sid, 132)] = v
     assert max(abs(v) for v in b.angulos_nombre().values()) > 2
     hecho = b.cero()
     assert all(abs(v) < 1e-9 for v in b.angulos_nombre().values()), b.angulos_nombre()
-    assert hecho["codo2"][1] == 1586 and json.loads(b.perfil.ruta.read_text())["articulaciones"]["codo2"]["centro"] == 1586
+    assert hecho["codo2"][1] == c0[7] + 40
+    assert json.loads(b.perfil.ruta.read_text())["articulaciones"]["codo2"]["centro"] == c0[7] + 40
     # la postura enseñada sigue llevando el brazo al MISMO lugar físico
     assert b.ir("prueba")
     for sid, v in pose.items():

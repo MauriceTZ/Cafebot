@@ -85,13 +85,15 @@ class ConfigServo:
     centro_pasos: int = 2048  # paso que corresponde a 0 rad (cero ortogonal)
 
 
-# IDs y ceros de legacy/codigo_brazo/main.py (OFFSETS_ORTOGONAL / config_giro)
+# IDs y sentidos de legacy/codigo_brazo/main.py (config_giro). Ceros = pasos con el brazo RECTO hacia arriba:
+# 29 oct, brazo rearmado, leídos con el programa antiguo (antes: base 3088, hombro 1042, codo1 3074, codo2 1546).
+# El perfil del brazo (pi/brazos/<nombre>.json, `tools.brazo cero`) manda sobre estos valores.
 BRAZO = [
-    ConfigServo(9, invertir=False, centro_pasos=3088),   # base (yaw)
-    ConfigServo(8, invertir=True, centro_pasos=1042),    # hombro
-    ConfigServo(11, invertir=True, centro_pasos=3074),   # codo1
-    ConfigServo(7, invertir=True, centro_pasos=1546),    # codo2
-    ConfigServo(5, invertir=True, centro_pasos=1014),    # muñeca
+    ConfigServo(9, invertir=False, centro_pasos=3085),   # base (yaw)      29 oct: lectura -1011 (= 3085 + vueltas)
+    ConfigServo(8, invertir=True, centro_pasos=2045),    # hombro          29 oct (88° distinto del de antes)
+    ConfigServo(11, invertir=True, centro_pasos=3143),   # codo1           29 oct
+    ConfigServo(7, invertir=True, centro_pasos=1532),    # codo2           29 oct
+    ConfigServo(5, invertir=True, centro_pasos=1014),    # muñeca          [CONFIRMAR] 29 oct no respondió
 ]
 GARRA = ConfigServo(4, p=600, i=0, d=1000, pwm_limit=300, centro_pasos=336)  # ~34 % de PWM
 

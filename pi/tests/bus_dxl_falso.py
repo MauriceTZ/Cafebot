@@ -9,7 +9,7 @@ import types
 ADDR_ID, ADDR_BAUD, ADDR_GOAL, ADDR_PRESENT = 7, 8, 116, 132
 SIN_RESPUESTA = -3001          # COMM_RX_TIMEOUT del SDK
 BAUD = {0: 9_600, 1: 57_600, 2: 115_200, 3: 1_000_000, 4: 2_000_000, 5: 3_000_000, 6: 4_000_000, 7: 4_500_000}
-POSICION_TRABAJO = {9: 3074, 8: 1400, 11: 2423, 7: 194, 5: 1587, 4: 336}   # "trabajo" del código antiguo
+POSICION_TRABAJO = {9: 3071, 8: 2403, 11: 2492, 7: 180, 5: 1587, 4: 336}   # "trabajo" (cafebot/arm/brazo.py)
 
 
 class Memoria:

@@ -90,6 +90,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   árbol (C) o con el brazo (M + N), agarre y canasta por categoría (postura opcional `transporte`). Probado con fotos
   sintéticas, la foto real del taller (`tests/datos/`) y una sesión simulada (`tests.test_cosecha`). La misión todavía
   clasifica con `VisionCamara` (zonas fijas): pasarla a `granos.analizar` cuando se pruebe en el robot.
+- 29 oct: brazo rearmado: ceros nuevos con el brazo recto (base 3085, hombro 2045 —88° distinto—, codo1 3143,
+  codo2 1532) en `arm/dxl.py` y en `legacy/codigo_brazo/main.py`; posturas `trabajo`/`descanso` con los mismos ángulos
+  de antes. La MUÑECA (id 5) no respondió: revisar con `tools.brazo escanear` y medir su cero.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (re-montarla ~28° hacia arriba, `tools.camara intrinseca`, `tools.cosecha` C y referencias de color); medir el

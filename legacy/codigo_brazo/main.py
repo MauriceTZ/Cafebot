@@ -16,31 +16,33 @@ from dynamixel_sdk import (
 # 1. TABLAS DE CALIBRACIÓN Y POSTURAS FIJAS (EN PASOS DE ENCODER)
 # ==========================================
 # Cero mecánico real (0 rad en el URDF: brazo recto vertical)
+# 29 oct: brazo rearmado, leído con el brazo recto (antes 9: 3088, 8: 1042, 11: 3074, 7: 1546). Muñeca (5): no respondió.
 OFFSETS_ORTOGONAL = {
-    9: 3088,
-    8: 1042,
-    11: 3074,
-    7: 1546,
+    9: 3085,
+    8: 2045,
+    11: 3143,
+    7: 1532,
     5: 1014,
     4: 336
 }
 
 # Posición por defecto al iniciar el programa
+# (29 oct: mismos ÁNGULOS que antes, con los ceros nuevos)
 OFFSETS_PRENDERSE = {
-    9: 3074,
-    8: 1400,
-    11: 2423,
-    7: 194,
+    9: 3071,
+    8: 2403,
+    11: 2492,
+    7: 180,
     5: 1587,
     4: 336
 }
 
 # Posición de descanso antes de cortar el torque al salir
 OFFSETS_APAGARSE = {
-    9: 3085,
-    8: 1787,
-    11: 1719,
-    7: 78,
+    9: 3082,
+    8: 2790,
+    11: 1788,
+    7: 64,
     5: 1801,
     4: 336
 }

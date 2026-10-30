@@ -74,8 +74,10 @@ _LEGADO = {"base": dxl.BRAZO[0], "hombro": dxl.BRAZO[1], "codo1": dxl.BRAZO[2], 
 _LIMITES = {"base": (-150.0, 150.0), "hombro": (-100.0, 100.0), "codo1": (-150.0, 150.0),
             "codo2": (-130.0, 130.0),          # tope de descanso del codo2: +129° (paso 78 en el código antiguo)
             "muneca": (-120.0, 120.0), "garra": (-10.0, 90.0)}
-_POSTURAS_LEGADO = {"trabajo": {9: 3074, 8: 1400, 11: 2423, 7: 194, 5: 1587},     # OFFSETS_PRENDERSE
-                    "descanso": {9: 3085, 8: 1787, 11: 1719, 7: 78, 5: 1801}}     # OFFSETS_APAGARSE
+# Posturas del código antiguo (OFFSETS_PRENDERSE / OFFSETS_APAGARSE) pasadas a los ceros del 29 oct conservando los
+# ÁNGULOS de cada articulación (pasos + cero nuevo − cero antiguo)
+_POSTURAS_LEGADO = {"trabajo": {9: 3071, 8: 2403, 11: 2492, 7: 180, 5: 1587},
+                    "descanso": {9: 3082, 8: 2790, 11: 1788, 7: 64, 5: 1801}}
 
 
 def nombre_articulacion(texto: str) -> str:

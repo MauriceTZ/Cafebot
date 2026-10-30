@@ -58,7 +58,7 @@ def main():
                 assert min(r) >= cfg.brazo.r_min_m - 1e-6, (fila, dy, r)
 
     # 4) Grabar posturas de depósito (quedan en el perfil) y agarrar
-    bus.mem[(9, 132)] = 3088 + 2048                     # base girada 180° (como si mirara la tolva)
+    bus.mem[(9, 132)] = mod_brazo.dxl.BRAZO[0].centro_pasos + 2048   # base girada 180° (como si mirara la tolva)
     b.grabar_postura("deposito_maduro")
     assert "deposito_maduro" in json.loads(b.perfil.ruta.read_text())["posturas"]
     b.bus.torque(True)

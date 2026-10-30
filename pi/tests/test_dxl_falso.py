@@ -70,9 +70,10 @@ b.configurar()
 assert not b.perfil_tiempo and bus.mem[(8, dxl.ADDR_DRIVE_MODE)] == 0
 b.mover({8: 1.0}, 1.0)
 assert 1 <= bus.mem[(8, dxl.ADDR_PROFILE_VEL)] <= 200, bus.mem[(8, dxl.ADDR_PROFILE_VEL)]
-# Cero normalizado: el hombro (cero 1042) encendido leyendo 1042 + 4096 - 10 -> cero efectivo 5128
-bus.mem[(8, dxl.ADDR_PRESENT_POSITION)] = 1042 + 4096 - 10
+# Cero normalizado: el hombro encendido leyendo su cero + 4096 - 10 -> cero efectivo = cero + 4096
+c8 = dxl.BRAZO[1].centro_pasos
+bus.mem[(8, dxl.ADDR_PRESENT_POSITION)] = c8 + 4096 - 10
 b.normalizar_centros()
-assert b.centro[8] == 1042 + 4096, b.centro[8]
+assert b.centro[8] == c8 + 4096, b.centro[8]
 assert abs(b.angulos([8])[8] - (-1) * (-10) * 2 * 3.141592653589793 / 4096) < 1e-9
 print("OK: dxl contra bus falso")
