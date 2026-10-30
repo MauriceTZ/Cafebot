@@ -387,6 +387,30 @@ def color_en(imgs: list, clasif: cl.Clasificador | None, u, v, r):
 
 
 # ---------------------------------------------------------------------------- todo junto
+def buscar_inclinacion(dets: list, modelo: ModeloArbol, cam: CamaraPinhole, prior, sig, rango_deg: float = 30.0):
+    """Búsqueda gruesa de la inclinación de la cámara SIN su prior (y, si el árbol no lo midió el LiDAR, de su
+    distancia): para una cámara montada a otro ángulo del que dice la config. -> (dpitch rad, dx, dy, n asignadas)."""
+    if len(dets) < 3:
+        return 0.0, 0.0, 0.0, 0
+    sin_lidar = sig[0] >= 0.015                    # con el LiDAR, la posición del árbol no se toca
+    dxs = np.arange(-4, 4.01) * 0.05 if sin_lidar else np.array([0.0])          # sin LiDAR: ±20 cm
+    dys = np.arange(-3, 3.01) * min(max(sig[1], 0.01), 0.04) if sin_lidar else np.array([0.0])
+    mejor = None
+    for dp in np.radians(np.arange(-rango_deg, rango_deg + 0.01, 2.0)):
+        c = cam.con(pitch=cam.pitch + dp)
+        for dx in dxs:
+            for dy in dys:
+                proy = proyectar_soportes(c, modelo, (prior[0] + dx, prior[1] + dy, prior[2]))
+                a = asignar(dets, proy, gate=0.6)
+                if not a:
+                    continue
+                err = sum(math.hypot(dets[i].u - proy[k][0], dets[i].v - proy[k][1]) / proy[k][2] for k, i in a.items())
+                puntaje = len(a) - 0.3 * err - 0.02 * abs(math.degrees(dp)) - 2.0 * (abs(dx) + abs(dy))
+                if mejor is None or puntaje > mejor[0]:
+                    mejor = (puntaje, float(dp), float(dx), float(dy), len(a))
+    return (0.0, 0.0, 0.0, 0) if mejor is None else mejor[1:]
+
+
 def analizar(imgs: list, cam: CamaraPinhole, modelo: ModeloArbol, prior, sig, clasif: cl.Clasificador | None = None,
              lidar: MedidaPie | None = None, sat_min=130, val_min=60, buscar=True, confianza_matiz=0.6,
              sig_cam=None) -> Analisis:
@@ -399,11 +423,28 @@ def analizar(imgs: list, cam: CamaraPinhole, modelo: ModeloArbol, prior, sig, cl
     proy0 = proyectar_soportes(cam, modelo, prior)
     radios = [p[2] for p in proy0.values()] or [cam.f * modelo.radio_grano_m / 0.6]
     dets = detectar(img, 0.5 * min(radios), 1.6 * max(radios), sat_min, val_min)
+    mensajes = []
+    dp0 = 0.0
+    if buscar and sig_cam is None:
+        # Cámara sin calibrar: ¿está inclinada distinto de lo que dice la config? (búsqueda amplia, ±30°)
+        dp, dx, dy, n = buscar_inclinacion(dets, modelo, cam, prior, sig)
+        n0 = len(asignar(dets, proyectar_soportes(cam, modelo, prior), gate=0.6))
+        if n >= 3 and n > n0 and (sig[0] >= 0.015 or abs(dp) > math.radians(5)):
+            dp0 = dp
+            cam = cam.con(pitch=cam.pitch + dp)
+            prior = (prior[0] + dx, prior[1] + dy, prior[2])
+            if abs(dp) > math.radians(5):
+                mensajes.append(f"la cámara está inclinada ~{math.degrees(cam.pitch):.0f}° y la config dice "
+                                f"{math.degrees(cam.pitch - dp):.0f}°: se usó ~{math.degrees(cam.pitch):.0f}° (para no "
+                                f"depender de esto: --inclinacion {math.degrees(cam.pitch):.0f} o calibrar con C)")
+            if abs(dx) >= 0.05:
+                mensajes.append(f"el árbol está ~{100 * dx:+.0f} cm más {'lejos' if dx > 0 else 'cerca'} de lo esperado "
+                                "(¿--frente bien medido?)")
     theta, asig = ajustar_pose(dets, modelo, cam, prior, sig, buscar=buscar, sig_cam=sig_cam)
     pose, dcam = tuple(float(x) for x in theta[:3]), tuple(float(x) for x in theta[3:])
     cam_aj = camara_corregida(cam, dcam)
+    dcam = (dcam[0] + dp0, dcam[1], dcam[2])          # corrección total respecto de la cámara de la config
     proy = proyectar_soportes(cam_aj, modelo, pose)
-    mensajes = []
     sigs = completar_sigmas(sig, sig_cam)
     lejos = [n for n, a, b, s_ in zip(("x", "y", "ángulo"), pose, prior, sigs) if abs(a - b) > 3 * s_]
     if lejos and asig:

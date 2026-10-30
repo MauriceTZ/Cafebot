@@ -411,7 +411,7 @@ class Cosecha:
         if len(asig) < 3:
             self.log(f"hacen falta ≥ 3 granos detectados (hay {len(asig)})")
             return None
-        base = self.cam.escalada(a.cam.ancho, a.cam.alto)
+        base = self.cam.escalada(a.cam.ancho, a.cam.alto).con(pitch=a.cam.pitch)   # parte de la inclinación hallada
         cam, rms = G.calibrar_camara(a.detecciones, asig, self.modelo, ref, base)
         self.calibs.append((cam.pitch, cam.yaw, cam.roll))
         p, y, r = np.mean(self.calibs, axis=0)
@@ -973,6 +973,10 @@ def armar(cfg, a, log):
         lidar = LD06(a.lidar or cfg.puertos.lidar, cfg.geometria.config_ld06())
         lidar.iniciar()
         cerrar.append(lidar.detener)
+        if lidar.esperar_scan(2.5) is None:
+            e = lidar.estadisticas()
+            log(f"[AVISO] el LiDAR ({lidar.puerto}) no entrega vueltas: {e['ok']} paquetes buenos, {e['crc_malos']} con "
+                "error. ¿Gira? ¿Es ese el puerto del LD06? (ls -l /dev/cafebot-* ; python3 -m tools.visor_lidar)")
     except Exception as e:
         lidar = None
         log(f"[AVISO] sin LiDAR ({e}): el árbol sale de --frente/--lateral")

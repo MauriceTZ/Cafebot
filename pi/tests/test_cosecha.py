@@ -133,6 +133,21 @@ def prueba_lidar_con_basura(m):
     assert medir_pie(np.vstack([pts, basura]), m).x_cara < 0.25      # sin x_min se habría quedado con la basura
 
 
+def prueba_inclinacion_equivocada(m):
+    print("2c) Cámara montada a otro ángulo del que dice la config y árbol a otra distancia de --frente (sin LiDAR)")
+    col = {"baja-1": "AMARILLO", "baja-3": "ROJO", "baja-5": "AMARILLO", "media-1": "AMARILLO", "alta-3": "AZUL",
+           "alta-5": "VERDE", "alta-1": "ROJO"}
+    for incl, frente in ((22, 0.78), (15, 0.65), (28, 0.60), (0, 0.60)):
+        img = foto_arbol(CamaraPinhole(pitch=math.radians(incl)), m, (0.15 + frente, 0.0, 0.0), col,
+                         np.random.default_rng(1))
+        a = G.analizar([img], CamaraPinhole(pitch=0.0), m, (0.15 + 0.80, 0.0, 0.0), (0.02, 0.02, math.radians(3)))
+        vistas = {ModeloArbol.nombre_de(d.clave): d.clase for d in a.detecciones if d.clave}
+        esperadas = {k: v for k, v in col.items() if a.granos[ModeloArbol.clave_de(k)].categoria != "FUERA"}
+        print(f"  real {incl:2d}° a {frente:.2f} m (config 0°, --frente 0.80): halló {math.degrees(a.dcam[0]):.1f}° a "
+              f"{a.pose[0] - 0.15:.2f} m, {len(vistas)} pelotas en su soporte")
+        assert vistas == esperadas and abs(math.degrees(a.dcam[0]) - incl) < 1.5 and abs(a.pose[0] - 0.15 - frente) < 0.02
+
+
 def prueba_colores_con_referencias(m):
     print("4) Colores con referencias (Lab, como el clasificador de Pablo): también NEGRO y VACIO")
     rng = np.random.default_rng(11)
@@ -340,6 +355,7 @@ def main():
     prueba_deteccion(m)
     prueba_pose_y_calibracion(m)
     prueba_lidar_con_basura(m)
+    prueba_inclinacion_equivocada(m)
     prueba_colores_con_referencias(m)
     prueba_foto_real(m)
     prueba_intrinsecos()

@@ -19,7 +19,9 @@ calibración), `sintetica.py` (fotos y LiDAR simulados). Herramienta: `pi/tools/
 2. **Asignar y ajustar.** Cada mancha va al soporte cuya proyección queda más cerca, y se ajustan por mínimos
    cuadrados la pose del árbol (x, y, ángulo) y una corrección de la cámara (inclinación, yaw, roll) con la medida
    del LiDAR como "prior": eso es la fusión cámara + LiDAR. Sin calibrar, la cámara puede corregirse ±3–4° (manda
-   el LiDAR en lo que la foto no distingue, p. ej. árbol corrido vs cámara girada); calibrada, ±0,6°.
+   el LiDAR en lo que la foto no distingue, p. ej. árbol corrido vs cámara girada); calibrada, ±0,6°. Sin calibrar,
+   antes se busca la inclinación en ±30° (y, sin LiDAR, la distancia en ±20 cm de `--frente`): si la cámara está
+   montada a otro ángulo del que dice la config, lo avisa y usa el que calza ("la cámara está inclinada ~22°...").
 3. **Proyección inversa.** Rayo de cada pelota ∩ plano vertical de los granos (`p_rayo`). La posición final de cada
    grano es la de su soporte en el árbol ajustado, corregida hacia lo que se vio de esa pelota (sirve para un árbol
    de prueba que no calza exacto con su modelo). Se guarda en el marco del ÁRBOL: si el robot se acerca, el LiDAR
