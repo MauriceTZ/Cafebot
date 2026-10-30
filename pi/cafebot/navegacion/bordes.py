@@ -3,10 +3,11 @@
 Primitivas (clase `Bordes`):
     hasta_linea(mover, máscara)   mover con el freno activo SOLO en esos sensores: el Mega frena en el mismo ciclo
                                   en que uno ve la línea y avisa ABORT ... BORDE
-    tocar(...)                    tocar un borde con un PAR de sensores (atrás TI/TD, derecha DD/TD, adelante DI/DD):
-                                  si toca uno primero, sigue despacio hasta que toca el otro; la distancia extra
-                                  dice cuán torcido está el robot respecto del borde
-    alinear(...)                  tocar, y si está torcido: despegarse, girar y volver a tocar
+    tocar(...)                    tocar un borde con un PAR de sensores (atrás TI/TD, derecha DD/TD, adelante DI/DD).
+                                  NUNCA avanza después del primer toque (la rueda ya está sobre la huincha): si
+                                  tocó uno solo, se despega 3 cm, gira hacia el otro y vuelve a tocar (bisección)
+                                  hasta que tocan juntos: así queda paralelo al borde sin salirse de la cancha
+    alinear(...)                  = tocar(..., enderezar=True)
 
 Rutinas:
     buscar_bordes(...)            (tools.ir borde) borde de atrás + borde derecho, midiendo blanco/negro y umbrales
@@ -161,49 +162,68 @@ class Bordes:
         self.revisar()
         return r
 
-    def tocar(self, lado: str, max_mm: float, vel: float, nombre: str = "", borde=None,
-              extra_mm: float = 100.0) -> ResultadoToque | None:
-        """Ir hacia `lado` hasta tocar un borde con su par de sensores (ver arriba). None si no lo encontró."""
+    def tocar(self, lado: str, max_mm: float, vel: float, nombre: str = "", borde=None, enderezar: bool = True,
+              tol_deg: float = 0.7, despegar_mm: float = 30.0, paso_deg: float = 6.0,
+              max_giro_deg: float = 35.0) -> ResultadoToque | None:
+        """Ir hacia `lado` hasta tocar un borde con su par de sensores. None si no lo encontró.
+
+        NUNCA sigue avanzando después del primer toque: el sensor está junto a la rueda, así que en ese momento la
+        rueda ya está sobre la huincha (19 mm) y un poco más la saca de la cancha. Si toca uno solo y `enderezar`:
+        se despega `despegar_mm`, gira hacia el lado del sensor que NO tocó y vuelve a tocar despacio; cuando toca
+        primero el otro, se pasó: vuelve con la mitad del giro (bisección), hasta que los dos tocan juntos o el giro
+        que falta es menor que `tol_deg`. giro_deg = lo que giró en total (YA aplicado)."""
         nombre = nombre or f"borde de {lado}"
         a, b = PARES[lado]
-        r, toque = self.hasta_linea(self.mov(lado, max_mm, vel), (1 << a) | (1 << b))
+        mascara = (1 << a) | (1 << b)
+        r, toque = self.hasta_linea(self.mov(lado, max_mm, vel), mascara)
         if r.ok or r.motivo != "BORDE":
             self.log(f"  {nombre}: NO se encontró ({'recorrió todo sin ver línea' if r.ok else r.motivo})")
             return None
         sep = float(np.linalg.norm(self.sensores[a] - self.sensores[b]))
-        if len(toque) == 2 or not toque:
-            self._registrar(toque, borde)
+        self._registrar(toque, borde)
+        if len(toque) != 1:                                  # los dos juntos: ya está derecho
             return ResultadoToque(None, 0.0, sep, 0.0, toque)
         primero = next(iter(toque))
-        otro = b if primero == a else a
-        r2, toque2 = self.hasta_linea(self.mov(lado, extra_mm, max(30.0, vel / 2)), 1 << otro)
-        if otro not in toque2:
-            self.log(f"  {nombre}: {NOMBRES_IR[otro]} no lo tocó ({r2.motivo or 'fin del recorrido'}): muy torcido o "
-                     "ese sensor no ve la línea (revisar su umbral)")
-            self._registrar(toque, borde)
+        if not enderezar:
             return ResultadoToque(primero, None, sep, None, toque)
-        toque.update(toque2)
-        self._registrar(toque, borde)
-        e1, e2 = toque[primero], toque2[otro]
-        extra = float(np.hypot(e2.x - e1.x, e2.y - e1.y))
-        giro = SIGNOS[lado][primero] * math.degrees(math.atan2(extra, sep))
-        return ResultadoToque(primero, extra, sep, giro, toque)
-
-    def alinear(self, lado: str, max_mm: float, vel: float, despegar_mm: float, nombre: str = "", borde=None,
-                tol_deg: float = 0.7) -> ResultadoToque | None:
-        """Tocar el borde y, si quedó torcido más de tol_deg, despegarse, girar y volver a tocarlo despacio."""
-        res = self.tocar(lado, max_mm, vel, nombre, borde)
-        if res is None or res.giro_deg is None or abs(res.giro_deg) <= tol_deg:
-            return res
         opuesto = {"atras": "adelante", "adelante": "atras", "derecha": "izquierda", "izquierda": "derecha"}[lado]
-        self.mover(opuesto, despegar_mm)
-        self.log(f"  {nombre or lado}: torcido {abs(res.giro_deg):.1f}°, giro {res.giro_deg:+.1f}° y vuelvo a tocarlo")
-        self.revisar()
-        self.mega.girar(res.giro_deg, timeout=10)
-        res2 = self.tocar(lado, despegar_mm + 150, 40.0, nombre, borde, extra_mm=60.0)
-        if res2 is not None:
-            res2.giro_deg = res2.giro_deg if res2.giro_deg is not None else res.giro_deg
-        return res2
+        signo, paso, total, ultimo, acotado = SIGNOS[lado][primero], paso_deg, 0.0, primero, False
+        for _ in range(12):
+            self.mover(opuesto, despegar_mm, 40)
+            self.revisar()
+            g = signo * paso                                 # hacia el sensor que no tocó
+            self.mega.girar(g, timeout=10)
+            total += g
+            r, toque = self.hasta_linea(self.mov(lado, despegar_mm + 50, 30), mascara)
+            if r.ok or r.motivo != "BORDE":
+                self.log(f"  {nombre}: perdí el borde al enderezar ({'no lo tocó' if r.ok else r.motivo})")
+                return None
+            self._registrar(toque, borde)
+            if len(toque) != 1:
+                break                                        # los dos juntos
+            k = next(iter(toque))
+            if k != ultimo:                                  # se pasó: volver con la mitad
+                signo, acotado = SIGNOS[lado][k], True
+                paso /= 2
+            elif acotado:
+                paso /= 2
+            else:
+                paso = min(paso * 1.5, 12.0)                 # muy torcido: pasos más largos (la rueda no llega
+            ultimo = k                                       # a la línea: se despegó 3 cm antes de girar)
+            if acotado and paso < tol_deg:
+                break
+            if abs(total) > max_giro_deg:
+                self.log(f"  {nombre}: más de {max_giro_deg:.0f}° torcido: no sigo enderezando")
+                break
+        if abs(total) > 0.05:
+            self.log(f"  {nombre}: estaba torcido {abs(total):.1f}° (giré {total:+.1f}°)")
+        return ResultadoToque(primero, None, sep, total, toque)
+
+    def alinear(self, lado: str, max_mm: float, vel: float, despegar_mm: float = 30.0, nombre: str = "",
+                borde=None, tol_deg: float = 0.7) -> ResultadoToque | None:
+        """Tocar el borde y quedar paralelo a él (ver tocar)."""
+        return self.tocar(lado, max_mm, vel, nombre, borde, enderezar=True, tol_deg=tol_deg,
+                          despegar_mm=min(despegar_mm, 40.0))
 
 
 # ---------------------------------------------------------------------------- tools.ir borde
@@ -233,51 +253,42 @@ def _buscar_bordes(b, mega, vel, max_mm, despegar_mm, alinear, log) -> dict:
     log("Blanco (al partir): " + "  ".join(f"{NOMBRES_IR[k]} {blanco[k]:.0f}" for k in range(4))
         + f"   | umbrales {est.umbrales}, histéresis {est.histeresis}")
 
+    def negro_de(par, avance):
+        """Con los sensores recién llegados al borde: entrar 8 mm (al medio de la huincha) y leer los que
+        están sobre negro (si el robot quedó torcido, el otro sensor sigue sobre la madera)."""
+        b.mover(avance, 8, 30)
+        v, est = b.lecturas(), mega.ir_estado()
+        for k in par:
+            if est.mascara & (1 << k):
+                negro[k] = v[k] if negro[k] is None else (negro[k] + v[k]) / 2
+        log("  sobre el borde: " + "  ".join(f"{NOMBRES_IR[k]} {v[k]:.0f}" + ("" if est.mascara & (1 << k) else
+                                                                           " (no está sobre la línea)") for k in par))
+
     # 1) Atrás
     log("1) Retrocediendo hasta el borde de ATRÁS...")
-    res = b.tocar("atras", max_mm, vel, "borde de atrás")
+    res = b.tocar("atras", max_mm, vel, "borde de atrás", enderezar=alinear)
     if res is None:
         out["error"] = "no encontró el borde de atrás"
         return out
-    out["atras_inicial"], out["torcido_inicial_deg"] = res, res.giro_deg
-    out["torcido_atras_deg"] = res.giro_deg
-    if res.giro_deg is not None:
-        log(f"  torcido {abs(res.giro_deg):.1f}° respecto del borde de atrás")
-    if alinear and res.giro_deg is not None and abs(res.giro_deg) > 0.7:
-        b.mover("adelante", despegar_mm)
-        log(f"  enderezando: giro {res.giro_deg:+.1f}° y vuelvo a buscar el borde")
-        mega.girar(res.giro_deg, timeout=10)
-        res = b.tocar("atras", despegar_mm + 150, max(30.0, vel / 2), "borde de atrás (2ª vez)", extra_mm=60)
-        if res is None:
-            out["error"] = "perdió el borde de atrás al enderezar"
-            return out
-        out["torcido_atras_deg"] = res.giro_deg
-        if res.giro_deg is not None:
-            log(f"  después de enderezar: torcido {abs(res.giro_deg):.1f}°")
-    out["atras"] = res
-    b.mover("atras", 8, 30)                       # los sensores al medio de la huincha (19 mm)
-    v = b.lecturas()
-    negro[TI], negro[TD] = v[TI], v[TD]
-    log(f"  sobre el borde: TI {v[TI]:.0f}  TD {v[TD]:.0f}")
+    out["atras_inicial"] = out["atras"] = res
+    out["torcido_inicial_deg"] = out["torcido_atras_deg"] = res.giro_deg
+    if res.primero is not None:
+        log(f"  tocó primero {NOMBRES_IR[res.primero]}"
+            + (f"; enderezado girando {res.giro_deg:+.1f}°" if res.giro_deg is not None else " (sin enderezar)"))
+    negro_de((TI, TD), "atras")
     b.mover("adelante", despegar_mm + 8)
 
     # 2) Derecha (cangrejo a −90°)
     log("2) Cangrejo a la DERECHA hasta el borde derecho...")
-    res = b.tocar("derecha", max_mm, vel, "borde derecho")
+    res = b.tocar("derecha", max_mm, vel, "borde derecho", enderezar=False)     # sin girar: ya está derecho
     if res is None:
         out["error"] = "no encontró el borde derecho"
     else:
         out["derecha"] = res
-        out["torcido_derecha_deg"] = g = res.giro_deg
-        if g is not None:
-            log(f"  torcido {abs(g):.1f}° respecto del borde derecho"
-                + (" (ya enderezado con el de atrás: si da varios grados, el cangrejo se desvía o los bordes no son "
-                   "perpendiculares)" if alinear and abs(g) > 1.5 else ""))
-        b.mover("derecha", 8, 30)
-        v = b.lecturas()
-        negro[DD] = v[DD]
-        negro[TD] = v[TD] if negro[TD] is None else (negro[TD] + v[TD]) / 2
-        log(f"  sobre el borde: DD {v[DD]:.0f}  TD {v[TD]:.0f}")
+        if res.primero is not None:
+            log(f"  tocó primero {NOMBRES_IR[res.primero]} (ya enderezado con el de atrás: si pasa siempre, el "
+                "cangrejo se desvía o los bordes no son perpendiculares)")
+        negro_de((DD, TD), "derecha")
         b.mover("izquierda", despegar_mm + 8)
 
     # 3) Umbrales: punto medio entre el blanco y el negro medidos
@@ -400,13 +411,10 @@ class RecorridoBorde(Bordes):
         """Tocar el lado k (a la derecha), separarse sep_m y (si `corregir`) enderezarse con él.
         False si no lo encontró. En las esquinas no se corrige: manda el borde de adelante, que es el que
         se sigue después del giro."""
-        res = self.tocar("derecha", max_mm, self.vel_toque, nombre, borde=k)
+        res = self.tocar("derecha", max_mm, self.vel_toque, nombre, borde=k, enderezar=corregir)
         if res is None:
             return False
         self.mover("izquierda", self.sep_mm)
-        if corregir and res.giro_deg is not None and abs(res.giro_deg) > 0.7:
-            self.revisar()
-            self.mega.girar(res.giro_deg, timeout=10)
         return True
 
     # ------------------------------------------------------------------ rutina

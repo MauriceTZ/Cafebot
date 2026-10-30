@@ -6,6 +6,7 @@ pista de taller (rectángulo de huincha dentro de una sala).   python3 -m tests.
      vuelve: mide el rectángulo con los toques y el error de cierre de la odometría y de la pose fusionada.
 """
 import math
+import threading
 import time
 
 import numpy as np
@@ -53,6 +54,18 @@ def prueba_recorrido(cfg):
             nav.actualizar()
             time.sleep(0.02)
         rb = RecorridoBorde(mega, cfg, pose_mapa_fn=nav.pose, log=log.append, vel=150, sep_m=0.10, tramo_m=0.6)
+        # Cuánto entra cada sensor (= su rueda) más allá del borde interior de la huincha (19 mm): < 19 = no sale
+        afuera = {"max": 0.0, "seguir": True}
+
+        def vigilar():
+            while afuera["seguir"]:
+                x, y, th = lidar.pose_real_ahora(pose_mega_extrapolada(mega))
+                c, s = math.cos(th), math.sin(th)
+                for px, py in cfg.ir.posiciones:
+                    sx, sy = x + c * px - s * py, y + s * px + c * py
+                    afuera["max"] = max(afuera["max"], -sx, sx - LARGO, -sy, sy - ANCHO)
+                time.sleep(0.003)
+        threading.Thread(target=vigilar, daemon=True).start()
         rb.iniciar()
         t0 = time.monotonic()
         reales = []
@@ -61,6 +74,9 @@ def prueba_recorrido(cfg):
             if len(rb.esquinas) > len(reales):
                 reales.append(lidar.pose_real_ahora(pose_mega_extrapolada(mega)))
             time.sleep(0.02)
+        afuera["seguir"] = False
+        print(f"  lo más que entró una rueda en la huincha: {1000 * afuera['max']:.1f} mm (ancho 19 mm)")
+        assert afuera["max"] < 0.015, afuera
         while len(reales) < len(rb.esquinas):          # la última esquina: el robot ya no se mueve
             reales.append(lidar.pose_real_ahora(pose_mega_extrapolada(mega)))
         print("  " + "\n  ".join(l for l in log if "[borde]" in l))
