@@ -25,7 +25,11 @@
 | LD06 | CP2102 (`10c4`) | `/dev/ttyUSB0` | `/dev/cafebot-lidar` |
 | U2D2 (brazo) | FTDI (`0403`) | otro `/dev/ttyUSB*` | `/dev/cafebot-u2d2` |
 
-Los números `ttyUSB` dependen del orden en que se conectan: con las reglas instaladas no importa.
+Los números `ttyUSB` dependen del orden en que se conectan: con las reglas instaladas no importa. Sin ellas (o si
+un chip no calza con su regla), los drivers buscan el puerto por el fabricante del chip USB y avisan cuál usaron
+(`cafebot/drivers/puertos.py`). 29 oct: no apareció `/dev/cafebot-u2d2` (la regla pedía el producto `6014`; ahora
+basta el fabricante `0403`): reinstalar las reglas con
+`sudo cp pi/system/99-cafebot.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger`.
 
 ## Pines del Mega (`firmware/mega_cafebot/config.h`)
 

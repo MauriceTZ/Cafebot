@@ -126,6 +126,8 @@ class Mega:
         """Abre el puerto y espera "READY" (el Mega se reinicia al abrir el USB)."""
         if serial_obj is None:
             import serial
+            from cafebot.drivers.puertos import resolver
+            self.puerto = resolver(self.puerto, "mega")
             serial_obj = serial.Serial(self.puerto, self.baudios, timeout=0.05)
         self._serial = serial_obj
         self._corriendo = True

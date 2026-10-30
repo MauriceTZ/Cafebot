@@ -213,6 +213,8 @@ class LD06:
     def iniciar(self) -> None:
         import serial  # pyserial
 
+        from cafebot.drivers.puertos import resolver
+        self.puerto = resolver(self.puerto, "lidar")
         self._serial = serial.Serial(self.puerto, BAUDIOS, timeout=0.05)
         self._corriendo = True
         self._hilo = threading.Thread(target=self._bucle, name="ld06", daemon=True)

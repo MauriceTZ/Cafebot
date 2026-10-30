@@ -11,5 +11,6 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0042", SYMLINK+="c
 SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="cafebot-mega"
 # LD06 con su adaptador USB (CP2102) -> /dev/cafebot-lidar          [CONFIRMAR IDs]
 SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="cafebot-lidar"
-# U2D2 de Dynamixel (FTDI FT232H) -> /dev/cafebot-u2d2; latencia 1 ms para el bus
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6014", SYMLINK+="cafebot-u2d2", RUN+="/bin/sh -c 'echo 1 > /sys/bus/usb-serial/devices/%k/latency_timer'"
+# U2D2 de Dynamixel (chip FTDI: 6014 = FT232H, algunos 6001/6010) -> /dev/cafebot-u2d2; latencia 1 ms para el bus.
+# Se reconoce solo por el fabricante (0403): es el único aparato FTDI del robot.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", SYMLINK+="cafebot-u2d2", RUN+="/bin/sh -c 'echo 1 > /sys/bus/usb-serial/devices/%k/latency_timer'"

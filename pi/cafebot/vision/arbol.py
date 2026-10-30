@@ -156,18 +156,21 @@ class MedidaPie:
         return (self.x_cara, self.y_centro, self.ang)
 
 
-def medir_pie(pts_xy: np.ndarray, modelo: ModeloArbol, esperado=None, x_max: float = 1.6) -> MedidaPie | None:
+def medir_pie(pts_xy: np.ndarray, modelo: ModeloArbol, esperado=None, x_max: float = 1.6,
+              x_min: float = 0.05) -> MedidaPie | None:
     """La cara del pie del árbol en un barrido del LiDAR (puntos (N,2) en el robot).
     esperado = (x, y) donde debería estar el centro de la cara (de la navegación), o None: el objeto más cercano
-    delante del robot (±0,5 m de lado)."""
+    delante del robot (±0,5 m de lado), más allá de x_min (lo que el LiDAR ve pegado a él suele ser el piso, un
+    cable o una pieza del robot: no el árbol). Se ignoran los grupos de menos de 3 cm de ancho."""
     pts = np.asarray(pts_xy, float)
     if len(pts) == 0:
         return None
     x, y = pts[:, 0], pts[:, 1]
     if esperado is not None:
-        m = (x > 0.05) & (x < esperado[0] + 0.30) & (np.abs(y - esperado[1]) < max(0.30, modelo.pie_ancho_m))
+        m = ((x > max(0.05, esperado[0] - 0.30)) & (x < esperado[0] + 0.30)
+             & (np.abs(y - esperado[1]) < max(0.30, modelo.pie_ancho_m)))
     else:
-        m = (x > 0.05) & (x < x_max) & (np.abs(y) < 0.5)
+        m = (x > x_min) & (x < x_max) & (np.abs(y) < 0.5)
     if m.sum() < 5:
         return None
     x, y = x[m], y[m]
@@ -175,7 +178,8 @@ def medir_pie(pts_xy: np.ndarray, modelo: ModeloArbol, esperado=None, x_max: flo
     orden = np.argsort(np.arctan2(y, x))
     x, y = x[orden], y[orden]
     cortes = np.where(np.hypot(np.diff(x), np.diff(y)) > 0.04)[0] + 1
-    grupos = [g for g in np.split(np.arange(len(x)), cortes) if len(g) >= 4]
+    grupos = [g for g in np.split(np.arange(len(x)), cortes)
+              if len(g) >= 4 and np.hypot(np.ptp(x[g]), np.ptp(y[g])) >= 0.03]
     if not grupos:
         return None
     if esperado is not None:

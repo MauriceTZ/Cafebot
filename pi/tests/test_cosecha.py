@@ -121,6 +121,18 @@ def prueba_pose_y_calibracion(m):
                 assert g.categoria not in ("MADURO", "SOBREMADURO"), (g.nombre, g.clase, real_c)
 
 
+def prueba_lidar_con_basura(m):
+    print("2b) LiDAR con basura pegada al robot (piso, cables): el pie se busca desde 10 cm delante del LiDAR")
+    rng = np.random.default_rng(4)
+    pose = pose_a(0.62, 0.03, 2.0, m)
+    pts = LidarPie(m, lambda: pose, rng=rng).puntos()
+    basura = np.column_stack((rng.uniform(0.18, 0.22, 25), rng.uniform(-0.12, 0.12, 25)))   # 2–7 cm delante del frente
+    med = medir_pie(np.vstack([pts, basura]), m, x_min=0.16 + 0.10)
+    print(f"  pie medido a x {med.x_cara:.3f} y {med.y_centro:+.3f} (real {pose[0]:.3f} {pose[1]:+.3f})")
+    assert abs(med.x_cara - pose[0]) < 0.01 and abs(med.y_centro - pose[1]) < 0.015, med
+    assert medir_pie(np.vstack([pts, basura]), m).x_cara < 0.25      # sin x_min se habría quedado con la basura
+
+
 def prueba_colores_con_referencias(m):
     print("4) Colores con referencias (Lab, como el clasificador de Pablo): también NEGRO y VACIO")
     rng = np.random.default_rng(11)
@@ -327,6 +339,7 @@ def main():
     m = ModeloArbol()
     prueba_deteccion(m)
     prueba_pose_y_calibracion(m)
+    prueba_lidar_con_basura(m)
     prueba_colores_con_referencias(m)
     prueba_foto_real(m)
     prueba_intrinsecos()

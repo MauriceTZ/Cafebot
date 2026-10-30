@@ -267,6 +267,8 @@ class BrazoXL430(Brazo):
     def conectar(self) -> dict:
         """Abre el bus, verifica que estén los 6 servos y escribe la configuración cuidadosa."""
         if self.bus is None:
+            from cafebot.drivers.puertos import resolver
+            self.puerto = resolver(self.puerto, "u2d2", self.log)
             self.bus = dxl.BusDXL(self.puerto, self.perfil.baudios, self.perfil.servos())
         vivos = self.bus.ping()
         faltan = [s for s in self.IDS + [self.ID_GARRA] if s not in vivos]

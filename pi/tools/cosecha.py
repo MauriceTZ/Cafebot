@@ -186,6 +186,8 @@ class Cosecha:
         def correr():
             try:
                 f(*args)
+            except RuntimeError as e:          # avisos esperables (no ve el árbol, demasiado cerca...): sin traza
+                self.log(f"[{nombre}] {e}")
             except Exception as e:
                 self.log(f"[{nombre}] error: {e}")
                 traceback.print_exc()
@@ -213,11 +215,29 @@ class Cosecha:
             return None
         x, y = s.xy()
         self.scan_xy = np.column_stack((x, y))
-        esperado = None if self.pose_pie is None else self.pose_pie[:2]
-        med = medir_pie(self.scan_xy, self.modelo, esperado)
+        if self.pose_pie is not None:
+            esperado = self.pose_pie[:2]
+        elif self.prior_fijo is not None:              # --frente / --lateral: dónde buscarlo
+            esperado = self.prior_fijo[0][:2]
+        else:
+            esperado = None
+        # Sin saber dónde está, el árbol se busca desde 10 cm delante del LiDAR: lo que ve pegado a él suele ser el
+        # piso (va muy bajo), un cable o una pieza del robot
+        x_min = self.cfg.geometria.lidar_x + 0.10
+        med = medir_pie(self.scan_xy, self.modelo, esperado, x_min=x_min)
         if med is None and esperado is not None:
-            med = medir_pie(self.scan_xy, self.modelo)
+            med = medir_pie(self.scan_xy, self.modelo, x_min=x_min)
         self.medida = med
+        if med is None:
+            delante = self.scan_xy[(self.scan_xy[:, 0] > 0.05) & (np.abs(self.scan_xy[:, 1]) < 0.4)]
+            cerca = (f"; lo más cercano delante está a {100 * (delante[:, 0].min() - self.cfg.geometria.largo / 2):.0f} cm "
+                     "del frente" if len(delante) else "; no ve nada delante")
+            self.log(f"LiDAR: no encuentro el pie del árbol{cerca}")
+        else:
+            self.log(f"LiDAR: pie a {100 * (med.x_cara - self.cfg.geometria.largo / 2):.1f} cm del frente, "
+                     f"{100 * med.y_centro:+.1f} cm de lado, {math.degrees(med.ang):+.1f}°, ancho {100 * med.ancho:.0f} cm "
+                     f"({med.n} puntos)" + ("" if med.centro_medido else
+                                            f" | el modelo dice {100 * self.modelo.pie_ancho_m:.0f} cm de ancho"))
         return med
 
     def prior(self):
@@ -236,6 +256,12 @@ class Cosecha:
         pose0, sig, med = self.prior()
         d = pose0[0] - self.modelo.grano_delante_m - self.cam.pos[0]
         if d < 0.30:
+            if self.analisis is None:
+                raise RuntimeError(
+                    f"el pie del árbol quedaría a {100 * (pose0[0] - self.cfg.geometria.largo / 2):.0f} cm del frente "
+                    f"(los granos a {100 * d:.0f} cm de la cámara): si el robot está a ~60 cm, lo que se midió no es el "
+                    "árbol (¿el LiDAR ve el piso o una pieza del robot? mirar la vista desde arriba o "
+                    "python3 -m tools.visor_lidar). Mientras: --frente 0.60 dice dónde buscarlo")
             raise RuntimeError(f"los granos están a {100 * d:.0f} cm de la cámara: demasiado cerca para la foto "
                                f"(R vuelve a {100 * self.cfg.mision.distancia_foto_m:.0f} cm); lo ya medido sigue valiendo")
         if fotos_nuevas or not self.imgs:
