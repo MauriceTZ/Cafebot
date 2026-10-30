@@ -14,6 +14,12 @@ del árbol, como lo deja la misión; si no, decir --lateral):
     python3 -m tools.camara revisar                          # 5. ¿se distinguen las clases? (pares peligrosos)
     python3 -m tools.camara clasificar --frente 0.50         # 6. foto nueva + los 16 resultados (y la imagen marcada)
     python3 -m tools.camara caja --dist 0.6                  # color de una caja puesta delante (cámara hacia abajo)
+    python3 -m tools.camara intrinseca --tablero 9x6 --cuadro 0.025
+                                                             # fx, fy, cx, cy y distorsión con un tablero de ajedrez
+                                                             # impreso (esquinas INTERIORES; ENTER = foto, q = calcular)
+
+La cosecha de prueba con detección de pelotas, pose del árbol (cámara + LiDAR) y brazo está en tools.cosecha
+(docs/cosecha.md); ahí también se calibran la inclinación, el yaw y el roll de la cámara.
 
 Agregar --mega /dev/ttyUSB1 para que la herramienta incline la cámara (X 2) como en la misión.
 Las fotos quedan en pi/capturas/ con un .json al lado (frente, lateral) para no repetir esos datos.
@@ -232,6 +238,77 @@ def cmd_caja(a):
         cam.cerrar()
 
 
+def esquinas_tablero(img, cols: int, filas: int):
+    """Esquinas interiores del tablero de ajedrez (subpíxel) o None."""
+    import cv2
+    gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    ok, esq = cv2.findChessboardCorners(gris, (cols, filas), cv2.CALIB_CB_ADAPTIVE_THRESH | cv2.CALIB_CB_NORMALIZE_IMAGE)
+    if not ok:
+        return None
+    return cv2.cornerSubPix(gris, esq, (5, 5), (-1, -1), (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 40, 0.01))
+
+
+def calibrar_intrinsecos(imgs, cols: int, filas: int, cuadro_m: float, ancho_trabajo: int, alto_trabajo: int):
+    """(valores para robot_local.json en el tamaño de trabajo, error RMS en px, fotos usadas)."""
+    import cv2
+    import numpy as np
+    obj = np.zeros((cols * filas, 3), np.float32)
+    obj[:, :2] = np.mgrid[0:cols, 0:filas].T.reshape(-1, 2) * cuadro_m
+    po, pi_, tam = [], [], None
+    for img in imgs:
+        esq = esquinas_tablero(img, cols, filas)
+        if esq is not None:
+            po.append(obj)
+            pi_.append(esq)
+            tam = (img.shape[1], img.shape[0])
+    if len(pi_) < 6:
+        raise SystemExit(f"el tablero se encontró en {len(pi_)} foto(s): hacen falta ≥ 6 (mejor 12-20)")
+    rms, K, dist, _, _ = cv2.calibrateCamera(po, pi_, tam, None, None)
+    kx, ky = ancho_trabajo / tam[0], alto_trabajo / tam[1]
+    vals = {"fx_px": round(float(K[0, 0] * kx), 1), "fy_px": round(float(K[1, 1] * ky), 1),
+            "cx_px": round(float(K[0, 2] * kx), 1), "cy_px": round(float(K[1, 2] * ky), 1),
+            "dist": [round(float(x), 5) for x in dist.ravel()[:5]]}
+    return vals, float(rms), len(pi_)
+
+
+def cmd_intrinseca(a):
+    import math
+    import cv2
+    cfg = cargar()
+    cols, filas = (int(x) for x in a.tablero.lower().split("x"))
+    imgs = [cv2.imread(r) for r in a.imagen] if a.imagen else []
+    if any(i is None for i in imgs):
+        raise SystemExit("no se pudo leer alguna foto")
+    if not a.imagen:
+        cam = _camara(0.5)
+        os.makedirs(cl.CARPETA_CAPTURAS, exist_ok=True)
+        print(f"Tablero de {cols}×{filas} esquinas INTERIORES, cuadros de {1000 * a.cuadro:.0f} mm, pegado sobre algo "
+              "plano. Mostrarlo a 30-80 cm en 12-20 posiciones: centro, esquinas y bordes de la imagen, inclinado "
+              "±30° hacia los lados y arriba/abajo.")
+        try:
+            while True:
+                if input(f"[{len(imgs)} fotos] ENTER = foto, q = calcular: ").strip().lower() == "q":
+                    break
+                img = cam.capturar()
+                if esquinas_tablero(img, cols, filas) is None:
+                    print("   no se encontró el tablero (¿entero en la foto? ¿bien iluminado? ¿--tablero correcto?)")
+                    continue
+                imgs.append(img)
+                cv2.imwrite(os.path.join(cl.CARPETA_CAPTURAS, time.strftime(f"intrinseca_%H%M%S_{len(imgs)}.jpg")), img)
+                print("   ok")
+        finally:
+            cam.cerrar()
+    vals, rms, n = calibrar_intrinsecos(imgs, cols, filas, a.cuadro, cfg.camara.ancho_px, cfg.camara.alto_px)
+    campo = 2 * math.degrees(math.atan(cfg.camara.ancho_px / 2 / vals["fx_px"]))
+    print(f"{n} fotos, error {rms:.2f} px: fx {vals['fx_px']} fy {vals['fy_px']} cx {vals['cx_px']} cy {vals['cy_px']} "
+          f"(campo horizontal {campo:.1f}°; de fábrica 66° = fx 1183) dist {vals['dist']}")
+    if rms > 1.0:
+        print("[AVISO] error alto: tablero doblado, fotos movidas o --tablero/--cuadro equivocados")
+    if campo < 55:
+        print("[AVISO] campo angosto: la cámara está en el modo recortado del sensor (ver vision/camara.py)")
+    print(f"Guardado en {guardar_local('camara', vals)}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mega", default=None, help="puerto del Mega para inclinar la cámara (X 2)")
@@ -270,6 +347,11 @@ def main():
     s.add_argument("--lateral-caja", type=float, default=0.0)
     s.add_argument("--imagen", nargs="*", default=None)
     s.set_defaults(f=cmd_caja)
+    s = sub.add_parser("intrinseca")
+    s.add_argument("--tablero", default="9x6", help="esquinas INTERIORES: columnas x filas")
+    s.add_argument("--cuadro", type=float, default=0.025, help="lado de cada cuadro (m)")
+    s.add_argument("--imagen", nargs="*", default=None, help="fotos ya tomadas (sin esto, las saca)")
+    s.set_defaults(f=cmd_intrinseca)
     a = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     a.f(a)

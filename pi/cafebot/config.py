@@ -117,7 +117,9 @@ class ConfigMision:
     brazo_y: float = 0.0
     brazo_z: float = 0.36
     # Árbol: distancias entre el FRENTE del robot y la cara del tablero
-    distancia_foto_m: float = 0.50     # para la foto de los 16 soportes (la cámara se centra en el árbol).
+    distancia_foto_m: float = 0.55     # para la foto de los 16 soportes (la cámara se centra en el árbol). Con la
+                                       # cámara al frente, a 25 cm del suelo e inclinada 25–32°: 16/16 desde 55 cm
+                                       # (a 50 cm la fila alta casi no asoma sobre sus soportes; simulado, 29 oct).
                                        # Más lejos el robot quedaría encima de una alberca detrás.  [AJUSTAR]
     desplazamiento_foto_m: float = 0.10  # si algún soporte queda fuera de la foto: cangrejo y otra foto
     holgura_agarre_m: float = 0.06     # para recoger: con la base del brazo a 36 cm, a 8 cm la fila alta ya no
@@ -173,18 +175,33 @@ class ConfigBrazo:
 
 @dataclass
 class ConfigCamara:
-    """Cámara fija sobre un servo de inclinación (X 2). Se calibra con `tools.camara zonas`: se ajustan estos
-    números hasta que los círculos dibujados caen sobre los granos de una foto tomada a distancia conocida."""
-    x: float = 0.12                 # posición del LENTE en el sistema del robot (m)                 [MEDIR]
-    y: float = -0.06                # al lado de la base del brazo                                   [MEDIR]
-    z: float = 0.35                 # altura del lente sobre el suelo                                [MEDIR]
-    inclinacion_arbol_deg: float = 20.0    # hacia ARRIBA, con X 2 = mision.camara_arbol_deg       [AJUSTAR: zonas]
-    inclinacion_cajas_deg: float = -25.0   # hacia ABAJO, con X 2 = mision.camara_cajas_deg        [AJUSTAR]
+    """Pi Camera Module 3 (estándar: 66° × 41°). Modelo completo en cafebot/vision/camara_modelo.py.
+    29 oct: FIJA al frente del brazo, en el eje de su base, a 25 cm del suelo (pegada con silicona, casi
+    horizontal: a 55 cm del árbol solo se ve la fila baja). Recomendado: inclinarla ~28° hacia arriba.
+    La pose se calibra con el árbol (python3 -m tools.cosecha, tecla C) y los intrínsecos con un tablero de
+    ajedrez (python3 -m tools.camara intrinseca); los dos quedan en robot_local.json."""
+    x: float = 0.15                 # posición del LENTE en el sistema del robot (m)                 [MEDIR]
+    y: float = 0.0                  # en el eje de la base del brazo                                 [MEDIR]
+    z: float = 0.25                 # 29 oct: 25 cm del suelo
+    inclinacion_arbol_deg: float = 28.0    # hacia ARRIBA (pitch). Hoy ~0°: re-montarla a ~28°     [AJUSTAR: tecla C]
+    inclinacion_cajas_deg: float = -25.0   # hacia ABAJO (con los servos de la cámara, cuando estén) [AJUSTAR]
+    yaw_deg: float = 0.0            # + = mirando hacia la izquierda                                 [AJUSTAR: tecla C]
+    roll_deg: float = 0.0           #                                                                [AJUSTAR: tecla C]
     ancho_px: int = 1536
     alto_px: int = 864
-    fx_px: float = 1180.0           # 768 / tan(33°): Camera Module 3 estándar a 1536×864             [AJUSTAR: zonas]
+    fx_px: float = 1183.0           # 768 / tan(33°): Camera Module 3 estándar a 1536×864     [AJUSTAR: intrinseca]
+    fy_px: float = 0.0              # 0 = igual a fx
+    cx_px: float = 0.0              # 0 = centro de la imagen
+    cy_px: float = 0.0
+    dist: list = field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0, 0.0])   # k1 k2 p1 p2 k3 (OpenCV)
+    foco_m: float = 0.6             # foco FIJO (el autofoco cambia la distancia focal): LensPosition = 1/foco_m
+    arbol: str = "competencia"      # forma del árbol: "competencia" (Apéndice B) o pi/arboles/<nombre>.json
+    sat_min: int = 130              # pelota = saturación HSV > sat_min (0..255). 29 oct, foto del taller:
+    val_min: int = 60               #   madera 85–110, pelotas roja/verde 150–190
     fotos: int = 3                  # se clasifica con varias fotos: un soporte que cambia entre fotos = NO_SE
     guardar_fotos: bool = True      # en pi/capturas/, con lo clasificado dibujado (para revisar después)
+    calibrada: str = ""             # cuándo y cómo se calibró la pose (tools.cosecha C / N). Vacío = sin calibrar:
+                                    # el ajuste de cada foto deja moverse inclinación/yaw/roll ±3–4° (manda el LiDAR)
 
 
 @dataclass

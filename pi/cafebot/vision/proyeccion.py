@@ -40,30 +40,40 @@ def soportes_en_robot(arbol: int, tablero) -> dict:
 
 
 class ModeloCamara:
+    """Envoltorio de CamaraPinhole (camara_modelo.py: intrínsecos, distorsión y pose completa) con la interfaz de
+    siempre: proyectar(p) -> (u, v, profundidad), posiciones_soportes(...), rect_en_imagen(...)."""
+
     def __init__(self, cc, incl_deg: float | None = None):
-        self.c = np.array([cc.x, cc.y, cc.z])
-        self.incl = math.radians(cc.inclinacion_arbol_deg if incl_deg is None else incl_deg)
-        self.fx = cc.fx_px
-        self.cx, self.cy = cc.ancho_px / 2, cc.alto_px / 2
-        self.ancho, self.alto = cc.ancho_px, cc.alto_px
+        from cafebot.vision.camara_modelo import CamaraPinhole
+        self.cam = CamaraPinhole.desde_config(cc, incl_deg)
+        self.c = self.cam.pos
+        self.incl = self.cam.pitch
+        self.fx = self.cam.fx
+        self.cx, self.cy = self.cam.cx, self.cam.cy
+        self.ancho, self.alto = self.cam.ancho, self.cam.alto
 
     def a_camara(self, p_robot) -> np.ndarray:
-        """(adelante, izquierda, arriba) en el sistema de la cámara inclinada."""
-        d = np.asarray(p_robot, float) - self.c
-        ca, sa = math.cos(self.incl), math.sin(self.incl)
-        return np.array([ca * d[0] + sa * d[2], d[1], -sa * d[0] + ca * d[2]])
+        """(adelante, izquierda, arriba) en el sistema de la cámara."""
+        x, y, z = self.cam.a_camara(p_robot)[0]
+        return np.array([z, -x, -y])
 
     def proyectar(self, p_robot) -> tuple[float, float, float] | None:
         """(u, v, profundidad) en píxeles; None si queda detrás de la cámara."""
-        x, y, z = self.a_camara(p_robot)
-        if x <= 0.02:
+        uv, z = self.cam.proyectar(np.asarray(p_robot, float)[None, :])
+        if z[0] <= 0.02 or not np.all(np.isfinite(uv)):
             return None
-        return self.cx - self.fx * y / x, self.cy - self.fx * z / x, x
+        return float(uv[0, 0]), float(uv[0, 1]), float(z[0])
 
-    def posiciones_soportes(self, arbol: int, tablero, fraccion_radio: float = 1.0) -> dict:
-        """{"alta-1": [u, v, radio], ...} con los nombres del clasificador (de izquierda a derecha en la imagen)."""
+    def posiciones_soportes(self, arbol: int, tablero, fraccion_radio: float = 1.0, modelo=None) -> dict:
+        """{"alta-1": [u, v, radio], ...} con los nombres del clasificador (de izquierda a derecha en la imagen).
+        modelo: ModeloArbol (cafebot/vision/arbol.py) para un árbol que no es el de la competencia; entonces
+        `tablero` es la pose de la cara del pie (x, y, ang)."""
         pos = {}
-        for (a, fila, col), p in soportes_en_robot(arbol, tablero).items():
+        if modelo is not None:
+            puntos = {(arbol, f, c): p for (f, c), p in modelo.en_robot(tablero).items()}
+        else:
+            puntos = soportes_en_robot(arbol, tablero)
+        for (a, fila, col), p in puntos.items():
             q = self.proyectar(p)
             if q is None:
                 continue

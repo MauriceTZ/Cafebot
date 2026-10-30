@@ -23,6 +23,10 @@ Posturas con nombre (ángulos articulares, se ENSEÑAN moviendo el brazo a mano 
     descanso              plegado para navegar (por defecto: la de apagado del código antiguo)
     deposito_maduro       sobre la tolva de los maduros          ┐ hay que grabarlas:
     deposito_sobremaduro  sobre la tolva de los sobremaduros     ┘ python3 -m tools.brazo leer  (tecla G)
+    transporte            (opcional) brazo PLEGADO y alto para girar la base con un grano sin barrer la cámara
+                          ni lo que haya sobre el robot. Si existe, para ir a un depósito (y volver) el brazo
+                          primero se pliega SIN girar la base, después gira la base plegado y recién ahí se
+                          estira a la postura de destino (solo cuenta la forma: el ángulo de la base no se usa).
 
 Secuencia de agarre (`recoger`):
     abrir → 6 cm antes del grano (en la dirección del brazo) → entrar en 2 pasos → cerrar
@@ -30,6 +34,7 @@ Secuencia de agarre (`recoger`):
     → depósito de su categoría → abrir → postura de espera (descanso: plegado detrás del frente)
 En cada paso se revisa que las articulaciones lleguen (error < error_max_deg) y que la carga no se dispare:
 si algo choca, se abre la garra, se retrocede y se informa el fallo (la misión sigue con el siguiente).
+`brazo.parar.set()` (ESC en las herramientas) detiene la secuencia después del movimiento en curso.
 """
 from __future__ import annotations
 
@@ -37,6 +42,7 @@ import datetime
 import json
 import math
 import pathlib
+import threading
 import time
 import unicodedata
 from dataclasses import dataclass, field
@@ -239,6 +245,7 @@ class BrazoXL430(Brazo):
         self.depositos = {cancha.MADURO: 0, cancha.SOBREMADURO: 0, cancha.VERDE: 0}
         self.listo = False
         self.ultimo_motivo = ""
+        self.parar = threading.Event()   # ESC: no se manda ningún movimiento más hasta la próxima orden
         self._salud = []           # última lectura (estado() NO toca el bus: lo llama la interfaz desde otro hilo)
         self._actualizar_perfil()
 
@@ -298,7 +305,7 @@ class BrazoXL430(Brazo):
             self._salud = self.bus.salud()
             self.bus.torque(True)
             self.garra(abrir=True, esperar=False)
-            self.ir(self.cb.postura_espera)
+            self.ir_plegado(self.cb.postura_espera)
             self.listo = True
             return True
         except Exception as e:
@@ -376,6 +383,25 @@ class BrazoXL430(Brazo):
             raise KeyError(f"no existe la postura '{nombre}' (grábala con: python3 -m tools.brazo leer, tecla G)")
         obj = {self.id[n]: math.radians(v) for n, v in self.posturas[nombre].items()}
         return self._mover(obj, t or self.cb.t_mov_s, f"postura {nombre}")
+
+    def ir_plegado(self, nombre: str) -> bool:
+        """A una postura pasando por 'transporte' si está grabada: 1) se pliega con la base donde está, 2) gira la
+        base plegado, 3) se estira a la postura. Sin 'transporte' (o si la base casi no gira): directo."""
+        if "transporte" not in self.posturas or nombre == "transporte":
+            return self.ir(nombre)
+        fin = self.posturas[nombre]
+        base_ahora = math.degrees(self.bus.angulos([self.id["base"]])[self.id["base"]])
+        if abs(fin["base"] - base_ahora) < 20:
+            return self.ir(nombre)
+        plegado = {self.id[n]: math.radians(v) for n, v in self.posturas["transporte"].items() if n != "base"}
+        plegado[self.id["base"]] = math.radians(base_ahora)
+        if not self._mover(plegado, self.cb.t_mov_s, "plegar (transporte)"):
+            return False
+        plegado[self.id["base"]] = math.radians(fin["base"])
+        t_giro = self.cb.t_mov_s * max(1.0, abs(fin["base"] - base_ahora) / 120)
+        if not self._mover(plegado, t_giro, "girar plegado (transporte)"):
+            return False
+        return self.ir(nombre)
 
     def garra(self, abrir: bool | None = None, angulo_deg: float | None = None, esperar: bool = True) -> float:
         """Abre / cierra (o va a un ángulo). Devuelve el ángulo alcanzado (°): con un grano entre los dedos
@@ -468,6 +494,8 @@ class BrazoXL430(Brazo):
 
     # ------------------------------------------------------------------ movimiento vigilado
     def _mover(self, obj: dict, t: float, que: str) -> bool:
+        if self.parar.is_set():
+            raise RuntimeError(f"detenido antes de: {que}")
         self.bus.mover(obj, t)
         time.sleep(t)
         self.bus.esperar_quietos(1.5)
@@ -496,10 +524,10 @@ class BrazoXL430(Brazo):
             rt = max(0.0, min(self.cb.retirar_m, self.a_plano(p)[1] - self.cb.r_min_m))   # sin cruzar el eje de la base
             atras = p - rt * np.array([math.cos(direccion), math.sin(direccion), 0.0])
             s = self.ik(atras, pitch) or self.ik(atras)
-            if s is not None:
+            if s is not None and not self.parar.is_set():
                 self.bus.mover(s[0], self.cb.t_mov_s)
                 time.sleep(self.cb.t_mov_s)
-            self.ir(self.cb.postura_espera)
+            self.ir_plegado(self.cb.postura_espera)
         except Exception as e:
             self.log(f"[brazo] al abortar: {e}")
         self.ultimo_motivo = motivo
@@ -547,11 +575,14 @@ class BrazoXL430(Brazo):
                     break                      # igual se intenta llevarlo al depósito
             if not depositar:
                 return True
-            self.ir(destino)
+            if not self.ir_plegado(destino) and not self.ir(destino):
+                # como antes: casi siempre quedó cerca de la tolva (error o carga algo sobre el límite); guardarlo en
+                # la garra sería peor (se soltaría al abrir para el próximo grano, delante del árbol)
+                self.log(f"[brazo] {self.ultimo_motivo} (yendo al depósito con el grano): se suelta igual")
             self.garra(abrir=True)
             time.sleep(0.3)                    # que el grano caiga antes de mover el brazo
             self.depositos[categoria] = self.depositos.get(categoria, 0) + 1
-            self.ir(self.cb.postura_espera)
+            self.ir_plegado(self.cb.postura_espera)
             return True
         except Exception as e:           # bus caído, servo apagado por protección...
             self.ultimo_motivo = str(e)
@@ -566,7 +597,7 @@ class BrazoXL430(Brazo):
         if self.bus is None:
             return
         try:
-            self.ir("descanso")
+            self.ir_plegado("descanso")
             if self.cb.descanso_sin_torque:
                 time.sleep(0.3)
                 self.bus.torque(False, self.IDS)

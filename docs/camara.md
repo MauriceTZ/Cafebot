@@ -1,5 +1,12 @@
 # ¿Dónde va la cámara?
 
+> **29 oct:** la cámara quedó FIJA al frente del brazo, a 25 cm del suelo. La prueba de cosecha (detectar las
+> pelotas, pose del árbol con cámara + LiDAR, posición 3D de cada grano, brazo y canastas) está en
+> **docs/cosecha.md** (`python3 -m tools.cosecha`); ahí se calibran también la inclinación, el yaw y el roll.
+> Intrínsecos: `python3 -m tools.camara intrinseca` con un tablero de ajedrez (fx ≈ 1183 a 1536×864, campo de 66°).
+> El driver pide el modo del sensor de campo COMPLETO (2304×1296): sin eso, a 1536×864 libcamera elige un recorte
+> del centro (~49° de campo, fx ≈ 1690) y nada calzaría. Lo de abajo es el método anterior (zonas fijas).
+
 ## Probar la cámara en el robot (`python3 -m tools.camara`, en `pi/`)
 
 Código: `pi/cafebot/vision/` — `camara.py` y `clasificador.py` (de Pablo, portados), `proyeccion.py` (dónde cae cada

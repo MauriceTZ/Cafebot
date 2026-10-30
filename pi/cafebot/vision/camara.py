@@ -28,6 +28,10 @@ RAIZ_PI = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file
 ARCHIVO_AJUSTES = os.path.join(RAIZ_PI, "calibracion", "camara.json")
 CARPETA_CAPTURAS = os.path.join(RAIZ_PI, "capturas")
 RESOLUCION = (1536, 864)
+# Modo del sensor (IMX708): 2304×1296 = binning 2×2 de TODO el sensor (campo de 66° × 41°). Sin pedirlo, para una
+# salida de 1536×864 libcamera elige el modo 1536×864, que es un RECORTE del centro (3072×1728): campo de ~49° × 29° y
+# una distancia focal 1,43 veces mayor (fx ≈ 1690 en vez de 1183): la proyección de los soportes no calzaría.
+MODO_SENSOR = (2304, 1296)
 
 
 class Camara:
@@ -36,11 +40,23 @@ class Camara:
         from libcamera import controls
         self._controls = controls
         self.cam = Picamera2()
-        config = self.cam.create_still_configuration(
-            main={"size": RESOLUCION, "format": "RGB888"})  # OpenCV lo recibe como BGR
+        try:
+            config = self.cam.create_still_configuration(
+                main={"size": RESOLUCION, "format": "RGB888"},  # OpenCV lo recibe como BGR
+                raw={"size": MODO_SENSOR})                      # campo completo (ver MODO_SENSOR)
+        except Exception:
+            config = self.cam.create_still_configuration(main={"size": RESOLUCION, "format": "RGB888"})
         self.cam.configure(config)
         self.cam.start()
         self.enfocar(dist_m)
+        self.recorte = None
+        try:
+            self.recorte = tuple(self.cam.capture_metadata().get("ScalerCrop", ()))   # (x, y, ancho, alto) del sensor
+            if self.recorte and self.recorte[2] < 4000:
+                print(f"[cámara] OJO: la imagen usa solo {self.recorte[2]}×{self.recorte[3]} px del sensor (campo "
+                      "reducido): fx no es 1183. Calibrar con python3 -m tools.camara intrinseca")
+        except Exception:
+            pass
 
     def enfocar(self, dist_m: float):
         self.cam.set_controls({"AfMode": self._controls.AfModeEnum.Manual,

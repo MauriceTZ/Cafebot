@@ -21,8 +21,10 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Arduino Mega + shield 4Motor&9Servo: control de ruedas, dirección, odometría, sensores de línea.
 - Raspberry Pi 5: decisiones. LD06 al frente, por fuera de la base y centrado, a ~5 mm del suelo (29 oct); se
   descarta lo que ve en el cuadrado de 45 cm detrás de él (`geometria.lidar_caja_m`).
-  Cámara Pi Module 3 **estándar** fija a ~35 cm sobre un servo de inclinación (`X 2 <ángulo>`).
-- Brazo 5 GDL + garra con Dynamixel XL430 (U2D2), base a 36 cm del suelo. El hombro se
+  Cámara Pi Module 3 **estándar** (29 oct) FIJA al frente del brazo, en el eje de su base, a 25 cm del suelo, casi
+  horizontal (pegada con silicona; recomendado ~28° hacia arriba). Después: pan/tilt con 2 Dynamixel.
+- Brazo 5 GDL + garra (abre 6,5 cm) con Dynamixel XL430 (U2D2), base a ~25 cm del suelo (29 oct, por confirmar;
+  la config dice 36 cm): con 25 cm la fila alta queda fuera de alcance (docs/cosecha.md). El hombro se
   sobrecarga si el brazo queda estirado en horizontal (ver `docs/brazo.md`). Ids, ceros, sentidos, límites y
   posturas de cada brazo: su perfil `pi/brazos/<nombre>.json` (`tools.brazo`, la misión usa `brazo.perfil`).
 - Puertos en la Pi (28 oct): Mega = clon con CH340 (1a86) → `/dev/ttyUSB1`; LD06 (CP2102) → `/dev/ttyUSB0`;
@@ -37,7 +39,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   `L` (cangrejo: las 4 ruedas al mismo ángulo), `G` (waypoint), watchdog, freno por borde.
   Protocolo de texto: `docs/protocolo_mega.md`.
 - **Pi = decisiones** (`pi/cafebot`): drivers (`mega.py`, `ld06.py`, `imu.py`), brazo (`arm/`: `BrazoXL430`),
-  visión (`vision/`: `VisionCamara`, clasificador Lab de Pablo + proyección de los soportes), mapa de la
+  visión (`vision/`: `VisionCamara`, clasificador Lab de Pablo + proyección de los soportes; cosecha: modelo de
+  cámara `camara_modelo.py`, árbol `arbol.py`, detección + fusión cámara/LiDAR + proyección inversa `granos.py`), mapa de la
   cancha y simulador (`mundo/`), localización inicial con LiDAR (`localizacion/`),
   navegación modular (`navegacion/`: SLAM, EKF, landmarks, seguimiento, A*, ejecutor; ver `docs/navegacion.md`),
   misión de la ronda (`mision/`: N1→N2→N3; brazo, visión, compuertas y botón detrás de interfaces; ver `docs/mision.md`).
@@ -51,10 +54,10 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - `firmware/test_host/correr.sh`: el firmware real compilado en el PC con una planta simulada.
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
     test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
-    test_navegacion, test_mision, test_ir, test_borde).
+    test_navegacion, test_mision, test_ir, test_borde, test_cosecha).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
-    `tools.mision` (todo junto).
+    `tools.cosecha` (cámara + LiDAR + brazo frente a un árbol, docs/cosecha.md), `tools.mision` (todo junto).
 - Lo que no se ha medido en el robot se marca `[CONFIRMAR]` / `[MEDIR]` / `[AJUSTAR]` en el código.
 - Commits pequeños y descriptivos en español. Cuando el equipo prueba algo en el robot, anotar el
   resultado (fecha + qué se midió) en el comentario de la constante que se ajustó.
@@ -79,8 +82,17 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   Arreglado: el retiro del agarre quedaba detrás del eje de la base y la hacía girar 180° (ahora `brazo.r_min_m`).
 - 29 oct: recorrido del borde (`tools.navegacion`, tecla F; `navegacion/bordes.py`): desde una esquina da la vuelta
   al rectángulo tocando los bordes con los IR y vuelve; mide la cancha y el error de cierre de odometría y LiDAR.
-  Simulado con `--sim --taller 2.4x1.8` y `tests.test_borde`.
+  Simulado con `--sim --taller 2.4x1.8` y `tests.test_borde`. Al tocar un borde ya no sigue de largo: después del
+  primer toque se endereza retrocediendo y girando hacia el sensor que falta (bisección); entra ≤ 13 mm en la huincha.
+- 29 oct: cosecha de prueba (`tools.cosecha`, docs/cosecha.md): pelotas detectadas por color (círculo ajustado al arco
+  que deja ver el soporte), pose del árbol + corrección de la cámara fusionando con el LiDAR, posición 3D de cada grano
+  (en el marco del árbol, se sigue al acercarse), color por matiz o con referencias, calibración de la cámara con el
+  árbol (C) o con el brazo (M + N), agarre y canasta por categoría (postura opcional `transporte`). Probado con fotos
+  sintéticas, la foto real del taller (`tests/datos/`) y una sesión simulada (`tests.test_cosecha`). La misión todavía
+  clasifica con `VisionCamara` (zonas fijas): pasarla a `granos.analizar` cuando se pruebe en el robot.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
-  cámara (inclinación, fx, referencias de color); recorrido inicial con las líneas; servicio systemd + botón GPIO.
+  cámara (re-montarla ~28° hacia arriba, `tools.camara intrinseca`, `tools.cosecha` C y referencias de color); medir el
+  árbol de prueba (`tools.cosecha --arbol taller --crear-arbol`); recorrido inicial con las líneas; servicio systemd +
+  botón GPIO.
 - Por medir para la misión: base del brazo, grano delante del tablero, compuertas, GPIO del botón (`docs/mision.md`).
