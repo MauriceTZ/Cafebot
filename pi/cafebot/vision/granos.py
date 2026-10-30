@@ -498,6 +498,12 @@ def analizar(imgs: list, cam: CamaraPinhole, modelo: ModeloArbol, prior, sig, cl
             continue
         cu, cv_, cr = d.zona if d is not None and d.zona else zona_modelo(cam_aj, modelo, pose, p, (u, v), r)
         clase, distancia, lab, matiz = color_en(imgs, clasif, cu, cv_, cr)
+        if d is None and clase not in ("NEGRO", "VACIO", cl.NO_SE):
+            # Sin mancha de color solo puede ser una pelota NEGRA (poco saturada) o el soporte vacío: un grano de
+            # color saturado el detector lo habría visto. Si el color dice otra cosa (la madera se parece al
+            # amarillo, 30 oct), es el soporte: VACIO. Así el brazo nunca va a un soporte sin pelota.
+            granos[clave] = Grano(clave, nombre, p, q, "VACIO", "VACIO", 0.5, None, (u, v), r)
+            continue
         if d is not None:
             d.clase, d.distancia, d.lab, d.por_matiz = clase, distancia, lab, matiz
         if matiz:
