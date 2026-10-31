@@ -302,7 +302,7 @@ void ejecutar_linea(char* s) {
             return;
         case 'X':
             if (n < 2 || v[0] < 0 || v[0] >= N_SERVOS_AUX) { Serial.println(F("ERR X k angulo")); return; }
-            servo_aux((uint8_t)v[0], (int)v[1]);
+            if (!servo_aux((uint8_t)v[0], (int)v[1])) { Serial.println(F("ERR X servo desactivado (AUX_ACTIVO)")); return; }
             Serial.println(F("OK X"));
             return;
         case 'J':

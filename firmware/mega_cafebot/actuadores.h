@@ -166,12 +166,15 @@ void angulos_postura(Postura p, float ang_cangrejo, float out[4]) {
 
 Servo servos_aux[N_SERVOS_AUX];
 
-void servo_aux(uint8_t k, int grados) {
-    if (k < N_SERVOS_AUX) servos_aux[k].write(constrain(grados, 0, 180));
+bool servo_aux(uint8_t k, int grados) {
+    if (k >= N_SERVOS_AUX || !AUX_ACTIVO[k]) return false;   // desactivado: sin pulso (no se mueve)
+    servos_aux[k].write(constrain(grados, 0, 180));
+    return true;
 }
 
 void actuadores_begin() {
     for (uint8_t k = 0; k < N_SERVOS_AUX; k++) {
+        if (!AUX_ACTIVO[k]) continue;
         servos_aux[k].attach(PIN_SERVO_AUX[k]);
         servos_aux[k].write(AUX_INICIAL_DEG[k]);
     }

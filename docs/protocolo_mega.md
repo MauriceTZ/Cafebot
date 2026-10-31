@@ -58,7 +58,7 @@ Si no llega otra `V`/`K` en 500 ms, el Mega se detiene y emite `EVT STOP WATCHDO
 | `IH v` | Histéresis común (cuentas). |
 | `IG` / `ID` | Guarda la calibración IR en EEPROM / vuelve a los valores de fábrica de `config.h` (sin guardar). |
 | `IS 0\|1 [mascara]` | Freno de borde: con 1, al detectar una línea NUEVA mientras se mueve → `ABORT ... BORDE`. `mascara` elige los sensores (15 = todos, 3 = solo delanteros). |
-| `X k ang` | Servo auxiliar k: 0 = compuerta maduros, 1 = compuerta sobremaduros, 2 = inclinación de la cámara. |
+| `X k ang` | Servo auxiliar k (pines en `config.h`): 0 = compuerta maduros (46), 1 = compuerta sobremaduros (11), 2 = inclinación de la cámara (SG90, pin 44 = PL5; a 90° mira un poco hacia arriba), 3 = giro de la cámara (SG90, pin 4 = PG5; **desactivado** en `AUX_ACTIVO` porque falla: responde `ERR X servo desactivado`). |
 | `J kp ki kff` | Ganancias del PI de rueda (sin argumentos: muestra las actuales). |
 | `H` / `?` | Ayuda. |
 

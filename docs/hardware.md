@@ -41,9 +41,26 @@ basta el fabricante `0403`): reinstalar las reglas con
 | M4 | trasera izq | 2 | A1 | 5 | A4 | A5 | 45 | 90 |
 
 Sensores de línea: 4 × QTR-1A analógicos en **A8, A9, A10, A11** (DI, DD, TI, TD) por el conector *Analog IO*
-del shield (S/V/G); **A1, A4 y A5 los usa el motor M4**: ver `docs/ir.md`. Pines provisorios, **por confirmar**:
-compuertas 44/46, inclinación de cámara 11. Los pines 20/21 (SDA/SCL) también tienen
-interrupción y están libres si no se usa I2C en el Mega.
+del shield (S/V/G); **A1, A4 y A5 los usa el motor M4**: ver `docs/ir.md`. Cabezal de la cámara (31 oct): 2 × SG90,
+**inclinación en el pin 44 (PL5)** = `X 2`, **giro en el pin 4 (PG5)** = `X 3` (desactivado en `AUX_ACTIVO`: falla).
+Compuertas, por confirmar: 46 y 11 (`X 0`, `X 1`; en el modelo de Fusion son Dynamixel). Los pines 20/21 (SDA/SCL)
+también tienen interrupción y están libres si no se usa I2C en el Mega.
+
+## Geometría del modelo de Fusion (31 oct, `description/fusion/exportar_geometria.py`)
+Sistema del robot: x adelante, y a la izquierda, z arriba, origen en el centro de la base sobre el suelo. Alturas
+corregidas −0,57 cm porque el modelo tiene ruedas de 64 mm (las de verdad dan 52,6 mm). **[CONFIRMAR con huincha]**
+
+| Qué | x | y | z | En la config |
+|---|---|---|---|---|
+| Lente de la cámara (X 2 = 90, mirando adelante) | 11,1 cm | −5,3 cm (derecha) | 36,7 cm | `camara.x/y/z` |
+| Eje de inclinación de la cámara (SG90, horizontal) | 8,4 cm | | 36,9 cm | `camara.eje_pitch_x/z` |
+| Eje de giro de la cámara (SG90, vertical) | 9,1 cm | −6,8 cm | | `camara.eje_yaw_x/y` |
+| Eje de la base del brazo (placa de la base) | 7,65 cm | +6,3 cm (izquierda) | 31,3 cm | `mision.brazo_x/y/z` |
+| LiDAR | 15,75 cm | 0 | ~5 cm | `geometria.lidar_x/z` |
+
+Ojo con izquierda/derecha: en el modelo, la pieza "Compuerta trasera izquierda" queda del lado que con x adelante
+es la DERECHA. Si en el robot la cámara está a la izquierda del brazo, cambiar el signo de `camara.y`, `eje_yaw_y` y
+`mision.brazo_y`.
 
 ## Medidas de la base
 Ruedas Ø53 mm, trocha 217 mm, entre ejes 223 mm, 800 pulsos/vuelta de rueda en el flanco

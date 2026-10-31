@@ -22,7 +22,7 @@ class GeometriaRobot:
     largo: float = 0.30            # base, a lo largo de x
     ancho: float = 0.23            # base, a lo largo de y
     margen: float = 0.03           # holgura del filtro de huella (cables, ruedas, vibración)
-    lidar_x: float = 0.16          # LD06 al frente, por FUERA de la base, centrado      [MEDIR]
+    lidar_x: float = 0.1575        # LD06 al frente, por FUERA de la base, centrado. 31 oct: modelo de Fusion
     lidar_z: float = 0.05          # 29 oct: a ~5 cm del suelo, confirmado (solo informativo)
     lidar_y: float = 0.0
     lidar_yaw_deg: float = 0.0     # hacia dónde mira el 0° del LD06 (0 = adelante)    [MEDIR]
@@ -113,21 +113,24 @@ class ConfigMision:
     confianza_min: float = 0.70    # bajo esto la visión cuenta como NO_SE (no tocar)
     # Brazo: eje de giro de la base en el sistema del robot; z = altura de la BASE del brazo sobre
     # el SUELO (el hombro está 6,7 cm más arriba). Se comprueba con `tools.brazo leer`.        [MEDIR]
-    brazo_x: float = 0.10
-    brazo_y: float = 0.0
-    brazo_z: float = 0.36
+    # 31 oct, modelo de Fusion (OPEN_CAFEBOT): eje de la base 7,65 cm delante del centro y 6,34 cm a la IZQUIERDA;
+    # la placa de la base del brazo a 31,9 cm en el modelo (ruedas de 64 mm) -> 31,3 cm con las de 52,6 mm. Con
+    # eso la fila alta queda fuera de alcance por ~1 cm (docs/cosecha.md).                       [CONFIRMAR con huincha]
+    brazo_x: float = 0.0765
+    brazo_y: float = 0.0634
+    brazo_z: float = 0.313
     # Árbol: distancias entre el FRENTE del robot y la cara del tablero
     distancia_foto_m: float = 0.55     # para la foto de los 16 soportes (la cámara se centra en el árbol). Con la
-                                       # cámara al frente, a 25 cm del suelo e inclinada 25–32°: 16/16 desde 55 cm
-                                       # (a 50 cm la fila alta casi no asoma sobre sus soportes; simulado, 29 oct).
+                                       # cámara en el cabezal a ~37 cm del suelo e inclinada 15–20°: 16/16 desde
+                                       # 55–65 cm (simulado, 31 oct; con la de 25 cm hacían falta 25–32°).
                                        # Más lejos el robot quedaría encima de una alberca detrás.  [AJUSTAR]
     desplazamiento_foto_m: float = 0.10  # si algún soporte queda fuera de la foto: cangrejo y otra foto
     holgura_agarre_m: float = 0.06     # para recoger: con la base del brazo a 36 cm, a 8 cm la fila alta ya no
                                        # se alcanza (docs/brazo.md). Nada del robot sobre 38 cm en el frente. [AJUSTAR]
     estaciones_y: tuple = (0.24, 0.12, 0.0, -0.12, -0.24)   # posiciones laterales del brazo frente al árbol
     orden_filas: tuple = ("alta", "media", "baja")
-    camara_arbol_deg: float = 25.0     # X 2: inclinación de la cámara para la foto del árbol   [AJUSTAR]
-    camara_cajas_deg: float = 0.0      # X 2: para ver las cajas                                 [AJUSTAR]
+    camara_arbol_deg: float = 25.0     # OBSOLETO (31 oct): el ángulo del servo (X 2) sale de camara.inclinacion_arbol_deg
+    camara_cajas_deg: float = 0.0      # OBSOLETO: ídem con camara.inclinacion_cajas_deg (ConfigCamara.servo_de_pitch)
     # Color de las cajas: la cámara mira adelante, así que antes de entregar se para frente a una caja
     x_vista_cajas: float = 1.25        # centro del robot, mirando hacia el beneficiadero (θ = 180°)
     # Entrega (de reversa: las compuertas están atrás)
@@ -176,17 +179,29 @@ class ConfigBrazo:
 @dataclass
 class ConfigCamara:
     """Pi Camera Module 3 (estándar: 66° × 41°). Modelo completo en cafebot/vision/camara_modelo.py.
-    29 oct: FIJA al frente del brazo, en el eje de su base, a 25 cm del suelo (pegada con silicona, casi
-    horizontal: a 55 cm del árbol solo se ve la fila baja). Recomendado: inclinarla ~28° hacia arriba.
+    31 oct: sobre un CABEZAL de 2 SG90 en la tapa de la base, a la DERECHA del brazo: inclinación con `X 2` (pin 44),
+    giro con `X 3` (pin 4, desactivado: falla; la cámara mira adelante). Medidas del modelo de Fusion
+    (description/fusion; alturas corregidas −0,57 cm por las ruedas de 52,6 mm en vez de 64)  [CONFIRMAR con huincha].
     La pose se calibra con el árbol (python3 -m tools.cosecha, tecla C) y los intrínsecos con un tablero de
     ajedrez (python3 -m tools.camara intrinseca); los dos quedan en robot_local.json."""
-    x: float = 0.15                 # posición del LENTE en el sistema del robot (m)                 [MEDIR]
-    y: float = 0.0                  # en el eje de la base del brazo                                 [MEDIR]
-    z: float = 0.25                 # 29 oct: 25 cm del suelo
-    inclinacion_arbol_deg: float = 28.0    # hacia ARRIBA (pitch). Hoy ~0°: re-montarla a ~28°     [AJUSTAR: tecla C]
-    inclinacion_cajas_deg: float = -25.0   # hacia ABAJO (con los servos de la cámara, cuando estén) [AJUSTAR]
-    yaw_deg: float = 0.0            # + = mirando hacia la izquierda                                 [AJUSTAR: tecla C]
+    x: float = 0.1111               # LENTE en el sistema del robot (m) con el servo de inclinación a 90° y mirando
+    y: float = -0.0529              # adelante (el cubo_camara del modelo): 5,3 cm a la DERECHA del centro
+    z: float = 0.3673
+    inclinacion_arbol_deg: float = 18.0    # inclinación (pitch, + = hacia ARRIBA) para la foto del árbol: con la cámara
+                                           # a 37 cm, 16/16 soportes desde 55–65 cm con 15–20° (simulado, 31 oct)
+    inclinacion_cajas_deg: float = -25.0   # hacia ABAJO para ver las cajas                                 [AJUSTAR]
+    yaw_deg: float = 0.0            # error de montaje: + = mirando hacia la izquierda                 [AJUSTAR: tecla C]
     roll_deg: float = 0.0           #                                                                [AJUSTAR: tecla C]
+    cabezal: bool = True            # la posición del lente cambia al inclinar/girar (False = cámara fija en x, y, z)
+    eje_pitch_x: float = 0.0840     # eje de INCLINACIÓN (horizontal, paralelo a y): su x y su z (eje del SG90)
+    eje_pitch_z: float = 0.3690
+    eje_yaw_x: float = 0.0907       # eje de GIRO (vertical): su x e y
+    eje_yaw_y: float = -0.0678
+    pitch_servo_90_deg: float = 5.0  # inclinación de la cámara con X 2 = 90°: "un poquito hacia arriba" (31 oct)
+                                     #                                                          [AJUSTAR: tecla C]
+    pitch_por_grado: float = 1.0     # grados de cámara por grado de servo; NEGATIVO si al subir el ángulo de X 2 la
+                                     # cámara baja                                              [CONFIRMAR: X 2 70 / X 2 110]
+    yaw_cabezal_deg: float = 0.0     # giro del cabezal (X 3 desactivado): 0 = mirando adelante
     ancho_px: int = 1536
     alto_px: int = 864
     fx_px: float = 1183.0           # 768 / tan(33°): Camera Module 3 estándar a 1536×864     [AJUSTAR: intrinseca]
@@ -202,6 +217,13 @@ class ConfigCamara:
     guardar_fotos: bool = True      # en pi/capturas/, con lo clasificado dibujado (para revisar después)
     calibrada: str = ""             # cuándo y cómo se calibró la pose (tools.cosecha C / N). Vacío = sin calibrar:
                                     # el ajuste de cada foto deja moverse inclinación/yaw/roll ±3–4° (manda el LiDAR)
+
+    def servo_de_pitch(self, pitch_deg: float) -> int:
+        """Ángulo para X 2 (0..180) que deja la cámara con esa inclinación."""
+        return int(round(min(180.0, max(0.0, 90.0 + (pitch_deg - self.pitch_servo_90_deg) / self.pitch_por_grado))))
+
+    def pitch_de_servo(self, servo_deg: float) -> float:
+        return self.pitch_servo_90_deg + self.pitch_por_grado * (servo_deg - 90.0)
 
 
 @dataclass

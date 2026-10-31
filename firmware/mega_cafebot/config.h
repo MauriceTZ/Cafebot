@@ -84,14 +84,19 @@ const uint8_t IR_PINES[IR_N] = { A8, A9, A10, A11 };   // [CONFIRMAR]
 #define IR_PERIODO_US 1000        // cada cuánto se lee UN sensor (round-robin)
 
 // ---------------------------------------------------------------------
-// 1c. SERVOS AUXILIARES (compuertas de los depósitos)        [CONFIRMAR pines]
+// 1c. SERVOS AUXILIARES: compuertas de los depósitos y cabezal de la cámara
 // ---------------------------------------------------------------------
 // Comando "X k ángulo". La librería Servo del Mega usa el Timer5: los pines 44/45/46
 // pierden su PWM, pero sirven igual como salida de servo.
-#define N_SERVOS_AUX 3
-// 0 = compuerta maduros (roja), 1 = compuerta sobremaduros (azul), 2 = inclinación de la cámara
-const uint8_t PIN_SERVO_AUX[N_SERVOS_AUX] = { 44, 46, 11 };
-const uint8_t AUX_INICIAL_DEG[N_SERVOS_AUX] = { 90, 90, 90 };  // compuertas cerradas, cámara horizontal [AJUSTAR]
+// 31 oct: cabezal de la cámara con 2 SG90: inclinación (pitch) en PL5 = pin 44, giro (yaw) en PG5 = pin 4.
+//   A 90° el pitch deja la cámara mirando un poco hacia ARRIBA. El yaw FALLA: queda desactivado (no se le
+//   manda pulso; la cámara mira adelante). Las compuertas eran 44/46 y nunca se confirmaron (en el modelo de
+//   Fusion son Dynamixel): quedan en 46 y 11                                        [CONFIRMAR compuertas]
+#define N_SERVOS_AUX 4
+// 0 = compuerta maduros (roja), 1 = compuerta sobremaduros (azul), 2 = inclinación de la cámara, 3 = giro de la cámara
+const uint8_t PIN_SERVO_AUX[N_SERVOS_AUX] = { 46, 11, 44, 4 };
+const uint8_t AUX_INICIAL_DEG[N_SERVOS_AUX] = { 90, 90, 90, 90 };   // compuertas cerradas, cámara al frente [AJUSTAR]
+const bool AUX_ACTIVO[N_SERVOS_AUX] = { true, true, true, false };  // 3: el yaw de la cámara falla (31 oct)
 
 // ---------------------------------------------------------------------
 // 2. PARÁMETROS CINEMÁTICOS  -- sin cambios respecto a v0

@@ -39,7 +39,7 @@ calibración), `sintetica.py` (fotos y LiDAR simulados). Herramienta: `pi/tools/
 
 | Qué | Cómo |
 |---|---|
-| Cámara inclinada ~28° hacia arriba | Hoy está casi horizontal: a 55 cm solo se ve la fila baja. A 25 cm del suelo y ~28°, desde 0,55–0,80 m entran los 16 soportes; bajo 0,6 m la fila alta se ve como casquetes finos (sirven, pero mejor ≥ 0,6 m). Con ~20°, sacar la foto desde ~0,8 m. |
+| Cabezal de la cámara (31 oct) | La cámara va en un cabezal de 2 SG90: inclinación con `X 2` (pin 44), giro con `X 3` (desactivado: falla, mira adelante). Con el lente a ~37 cm y ~18° hacia arriba entran los 16 soportes desde 0,55–0,65 m (simulado). El modelo (`camara.cabezal`) mueve el lente con la inclinación alrededor del eje del servo. **Antes:** comprobar el sentido con `X 2 70` y `X 2 110` en la consola del Mega; si con 110 la cámara mira hacia ABAJO, poner `camara.pitch_por_grado` = −1 en `robot_local.json`. |
 | Intrínsecos (recomendado) | `python3 -m tools.camara intrinseca --tablero 9x6 --cuadro 0.025` con un tablero de ajedrez impreso: debe dar fx ≈ 1183 a 1536×864. Si da ~1690, la cámara está en el modo recortado del sensor (el driver ahora pide el campo completo, `MODO_SENSOR`). |
 | Medidas en `pi/robot_local.json` | `camara.x/y/z` (lente), `mision.brazo_x/y/z` (eje de la base del brazo; z = base sobre el suelo), `geometria.lidar_x`. |
 | Árbol de prueba | `python3 -m tools.cosecha --arbol taller --crear-arbol` y editar `pi/arboles/taller.json` (abajo). |
@@ -52,7 +52,7 @@ calibración), `sintetica.py` (fotos y LiDAR simulados). Herramienta: `pi/tools/
 |---|---|---|
 | 1. Robot frente al árbol, el frente a ~60 cm del pie | | |
 | 2. Medir | ESPACIO | Círculos sobre las pelotas, "error" < 2 px. Mensajes: "la foto y el LiDAR no coinciden", "OJO: calza igual corrido una columna". |
-| 3. Calibrar la cámara | C | En 3–4 posiciones del robot (moverlo ±10 cm, ESPACIO + C cada vez): se promedia y se guarda en `robot_local.json`. |
+| 3. Calibrar la cámara | C | En 3–4 posiciones del robot (moverlo ±10 cm, ESPACIO + C cada vez): se promedia y se guarda en `robot_local.json`. Con el Mega conectado, hacer al menos una C con otro ángulo del servo (I o K 4–5 veces = 8–10°, ESPACIO + C): así se mide cuántos grados gira la cámara por grado de `X 2` y la misión puede pedir cualquier inclinación (`camara.servo_de_pitch`). I/K mueven el servo de a 2°; sin el Mega solo cambian el modelo. |
 | 4. Enseñar colores | clic + 1..7 | Todas las clases, también NEGRO (6) y VACIO (7, un soporte sin grano). Se guardan en `pi/calibracion/referencias.json`. |
 | 5. Acercarse | A | El frente queda a `mision.holgura_agarre_m` (6 cm) del pie; el LiDAR vuelve a ubicar el árbol. |
 | 6. Probar sin agarrar | clic + P | La garra queda 6 cm antes del grano: ¿apunta a él? (V vuelve.) |
@@ -77,11 +77,12 @@ círculo blanco = mancha detectada y su zona de color, cruz magenta = mancha que
 | Base del brazo | Holgura 6 cm: alta / media / baja |
 |---|---|
 | 25 cm (montaje del 29 oct) | ninguno / los 2 del centro / los 5 |
-| 30–33 cm | ninguno / 4 del centro / los 5 |
+| 30–33 cm (31,3 cm según el modelo de Fusion, 31 oct) | ninguno / 4 del centro / los 5 |
 | 36 cm | solo el del centro / 4 del centro / los 5 |
 
 El brazo mide 31 cm desde el hombro (6,7 cm sobre la base) y la fila alta (centro del grano a 70,7 cm) queda 39 cm
-sobre el hombro con la base a 25 cm: **para la fila alta hay que subir la base del brazo a ≥ 36 cm**. Los de los
+sobre el hombro con la base a 25 cm (33 cm con la base a 31,3): **para la fila alta hay que subir la base del brazo a
+≥ 36 cm** (un suplemento de ~5 cm bajo la base, si el modelo de Fusion calza con el robot). Los de los
 costados se alcanzan corriéndose de lado (cangrejo, como `mision.estaciones_y`).
 
 ## Árbol de prueba (`pi/arboles/<nombre>.json`)

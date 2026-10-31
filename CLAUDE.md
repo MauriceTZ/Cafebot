@@ -21,10 +21,13 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Arduino Mega + shield 4Motor&9Servo: control de ruedas, dirección, odometría, sensores de línea.
 - Raspberry Pi 5: decisiones. LD06 al frente, por fuera de la base y centrado, a ~5 cm del suelo (29 oct, confirmado); se
   descarta lo que ve en el cuadrado de 45 cm detrás de él (`geometria.lidar_caja_m`).
-  Cámara Pi Module 3 **estándar** (29 oct) FIJA al frente del brazo, en el eje de su base, a 25 cm del suelo, casi
-  horizontal (pegada con silicona; recomendado ~28° hacia arriba). Después: pan/tilt con 2 Dynamixel.
-- Brazo 5 GDL + garra (abre 6,5 cm) con Dynamixel XL430 (U2D2), base a ~25 cm del suelo (29 oct, por confirmar;
-  la config dice 36 cm): con 25 cm la fila alta queda fuera de alcance (docs/cosecha.md). El hombro se
+  Cámara Pi Module 3 **estándar** (29 oct) sobre un cabezal de 2 SG90 (31 oct) en la tapa de la base, a la derecha del
+  brazo: inclinación con `X 2` (pin 44 = PL5; 90° = "un poquito hacia arriba"), giro con `X 3` (pin 4 = PG5,
+  DESACTIVADO: falla, la cámara mira adelante). Lente a ~37 cm del suelo según el modelo de Fusion
+  (`description/fusion`, `camara.cabezal` en la config) [CONFIRMAR con huincha].
+- Brazo 5 GDL + garra (abre 6,5 cm) con Dynamixel XL430 (U2D2). Según el modelo de Fusion (31 oct) el eje de la base
+  está 7,7 cm delante del centro, 6,3 cm a la izquierda y a ~31,3 cm del suelo [CONFIRMAR]: así la fila alta queda
+  ~4 cm fuera de alcance (hace falta la base a ≥ 36 cm; docs/cosecha.md). El hombro se
   sobrecarga si el brazo queda estirado en horizontal (ver `docs/brazo.md`). Ids, ceros, sentidos, límites y
   posturas de cada brazo: su perfil `pi/brazos/<nombre>.json` (`tools.brazo`, la misión usa `brazo.perfil`).
 - Puertos en la Pi (28 oct): Mega = clon con CH340 (1a86) → `/dev/ttyUSB1`; LD06 (CP2102) → `/dev/ttyUSB0`;
@@ -32,7 +35,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Sensores de línea: 4 × QTR-1A analógicos en A8–A11 (DI, DD, TI, TD), conector Analog IO del shield; A1/A4/A5
   son del motor M4. Montados en las 4 esquinas, a 45°, junto a cada rueda (posición = centro de la rueda,
   ±111,5 / ±108,5 mm). Calibración y umbrales: `docs/ir.md` (`python3 -m tools.ir`).
-- Pendiente de confirmar: compuertas (44/46).
+- Pendiente de confirmar: compuertas (en el firmware, `X 0`/`X 1` en 46/11; en el modelo de Fusion son Dynamixel).
 
 ## Arquitectura
 - **Mega = reflejos** (`firmware/mega_cafebot`): PI por rueda, primitivas `A` (avanzar), `W` (girar),
@@ -93,9 +96,17 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - 29 oct: brazo rearmado: ceros nuevos con el brazo recto (base 3085, hombro 2045 —88° distinto—, codo1 3143,
   codo2 1532) en `arm/dxl.py` y en `legacy/codigo_brazo/main.py`; posturas `trabajo`/`descanso` con los mismos ángulos
   de antes. La MUÑECA (id 5) no respondió: revisar con `tools.brazo escanear` y medir su cero.
+- 31 oct: modelo de Fusion del robot (`description/fusion/exportar_geometria.py` exporta posiciones y ejes): cámara en el
+  cabezal (lente 11,1 cm delante, 5,3 a la derecha, ~37 cm; se mueve con la inclinación alrededor del eje del SG90),
+  base del brazo (7,65 / +6,34 / 31,3 cm), LiDAR (x 15,75 cm). `X 2` sale de la inclinación pedida con
+  `camara.servo_de_pitch` (misión, `tools.camara`); en `tools.cosecha` I/K mueven el servo y C con 2+ ángulos mide la
+  relación servo → inclinación (`pitch_servo_90_deg`, `pitch_por_grado`). Firmware: servos aux 46/11/44/4, el 4 (giro)
+  desactivado (`AUX_ACTIVO`): RECARGAR el Mega. Con esa altura del brazo la misión simulada baja a 14 puntos (semilla 1)
+  porque la fila alta no se alcanza.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
-  cámara (re-montarla ~28° hacia arriba, `tools.camara intrinseca`, `tools.cosecha` C y referencias de color); medir el
+  cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de
+  color); medir con huincha la cámara y la base del brazo (¿calza el modelo de Fusion? ¿izquierda/derecha?); medir el
   árbol de prueba (`tools.cosecha --arbol taller --crear-arbol`); recorrido inicial con las líneas; servicio systemd +
   botón GPIO.
 - Por medir para la misión: base del brazo, grano delante del tablero, compuertas, GPIO del botón (`docs/mision.md`).

@@ -381,6 +381,7 @@ def prueba_segundo_brazo(cfg):
 def main():
     cfg = cargar()
     cfg.brazo.t_mov_s = cfg.brazo.t_fino_s = 0.01          # sin esperas en la prueba
+    cfg.mision.brazo_x, cfg.mision.brazo_y, cfg.mision.brazo_z = 0.10, 0.0, 0.36   # geometría fija de la prueba
     print("Calibración del brazo (bus falso)")
     prueba_perfil()
     prueba_cero_y_sentido()

@@ -40,15 +40,15 @@ from cafebot.vision.proyeccion import ModeloCamara, tablero_frente
 
 
 def _inclinar(a, cfg, que: str):
+    cc = cfg.camara
+    ang = cc.servo_de_pitch(cc.inclinacion_arbol_deg if que == "arbol" else cc.inclinacion_cajas_deg)
     if not a.mega:
-        ang = cfg.mision.camara_arbol_deg if que == "arbol" else cfg.mision.camara_cajas_deg
-        print(f"(Recuerda inclinar la cámara como en la misión: X 2 {ang:.0f} en la consola del Mega)")
+        print(f"(Recuerda inclinar la cámara como en la misión: X 2 {ang} en la consola del Mega)")
         return
     from cafebot.drivers.mega import Mega
     m = Mega(a.mega)
     m.conectar()
-    ang = cfg.mision.camara_arbol_deg if que == "arbol" else cfg.mision.camara_cajas_deg
-    print(m.comando(f"X 2 {ang:.0f}"))
+    print(m.comando(f"X 2 {ang}"))
     time.sleep(0.6)
     m.cerrar()
 

@@ -25,7 +25,9 @@ Ratón: clic sobre un soporte = elegirlo.
 Teclas:
   ESPACIO  LiDAR + fotos + análisis               L  vista en vivo (sin análisis) sí/no      S  guardar fotos + análisis
   1..7     enseñar el color del soporte elegido: 1 ROJO 2 NARANJO 3 AMARILLO 4 VERDE 5 AZUL 6 NEGRO 7 VACIO
-  I / K    inclinación de la cámara ±0,5° (prueba)   C  calibrar la cámara con el árbol + LiDAR (se promedia, se guarda)
+  I / K    inclinar la cámara: con el Mega mueve el servo (X 2 ±2°); sin él, solo el modelo ±0,5° (prueba)
+  C        calibrar la cámara con el árbol + LiDAR (se promedia y se guarda; hecho con 2+ ángulos de X 2 distintos
+           también mide cuántos grados de cámara da cada grado del servo)
   O        soltar / sujetar el brazo                 M  marcar: la garra (movida a mano) está en el grano elegido
   N        calibrar la cámara con las marcas del brazo (≥ 4, en distintas filas y columnas) y guardar
   P        garra al punto "antes" del grano elegido (6 cm antes, sin agarrar)     V  brazo a la postura de espera
@@ -39,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import copy
 import json
 import math
 import os
@@ -58,7 +61,7 @@ from cafebot.navegacion.geometria import componer, relativo
 from cafebot.vision import clasificador as cl
 from cafebot.vision import granos as G
 from cafebot.vision.arbol import ModeloArbol, medir_pie
-from cafebot.vision.camara_modelo import CamaraPinhole
+from cafebot.vision.camara_modelo import CamaraPinhole, lente_cabezal, lente_de_referencia
 
 TECLAS_CLASE = ("ROJO", "NARANJO", "AMARILLO", "VERDE", "AZUL", "NEGRO", "VACIO")   # teclas 1..7
 COLOR_CAT = {"MADURO": (60, 70, 255), "SOBREMADURO": (255, 130, 60), "VERDE": (70, 210, 70),
@@ -96,14 +99,29 @@ class MundoSim:
             clases = ["ROJO", "NARANJO", "AMARILLO", "VERDE", "AZUL", "NEGRO", None]
             colores = {ModeloArbol.nombre_de(c): clases[int(rng.integers(len(clases)))] for c, _, _ in modelo.soportes()}
         self.colores = colores
+        self.cc = copy.copy(cfg.camara)            # la cámara de verdad no cambia cuando se calibra la config
         c = CamaraPinhole.desde_config(cfg.camara)
+        self.err_pitch, self.err_pos, self.err_pendiente = 0.0, np.zeros(3), 0.0
         if error_camara:
-            c = c.con(pitch=c.pitch + math.radians(rng.uniform(-2.5, 2.5)), yaw=c.yaw + math.radians(rng.uniform(-1.5, 1.5)),
+            self.err_pitch = rng.uniform(-2.5, 2.5)
+            c = c.con(pitch=c.pitch + math.radians(self.err_pitch), yaw=c.yaw + math.radians(rng.uniform(-1.5, 1.5)),
                       roll=c.roll + math.radians(rng.uniform(-1.2, 1.2)), pos=c.pos + rng.normal(0, 0.004, 3))
+            self.err_pos = c.pos - CamaraPinhole.desde_config(cfg.camara).pos
+            self.err_pendiente = np.random.default_rng(None if semilla is None else semilla + 7).uniform(-0.08, 0.08)
         self.cam_real = c
         self.camara = CamaraSintetica(c, modelo, self.pose_pie, self.colores, semilla)
         self.lidar = LidarPie(modelo, self.pose_pie, rng=rng)
         self.errores_agarre = []
+        if getattr(self.cc, "cabezal", False):
+            self.servo_camara(self.cc.servo_de_pitch(self.cc.inclinacion_arbol_deg))
+
+    def servo_camara(self, servo: float):
+        """X 2 <servo> en la simulación: la inclinación real tiene un error fijo y la pendiente del servo otro."""
+        cc = self.cc
+        nominal = cc.pitch_servo_90_deg + cc.pitch_por_grado * (1 + self.err_pendiente) * (servo - 90)
+        self.cam_real = self.cam_real.con(pitch=math.radians(nominal + self.err_pitch),
+                                          pos=lente_cabezal(cc, nominal) + self.err_pos)
+        self.camara.cam_real = self.cam_real
 
     def pose_robot(self) -> np.ndarray:
         if self.mega is None:
@@ -170,6 +188,9 @@ class Cosecha:
         self.version = 0                            # cambia cuando hay algo nuevo que dibujar
         self._hilo = None
         self.mensajes = collections.deque(maxlen=14)
+        self.servo_pitch = None                     # ángulo de X 2 (None = sin cabezal o sin Mega: no se sabe)
+        if mega is not None and getattr(cfg.camara, "cabezal", False):
+            self.servo_camara(cfg.camara.servo_de_pitch(cfg.camara.inclinacion_arbol_deg))
 
     def log(self, txt: str):
         self.mensajes.append(txt)
@@ -380,18 +401,34 @@ class Cosecha:
         return " ".join(f"{k[:3]} {c.get(k, 0)}" for k in cl.CLASES)
 
     # ------------------------------------------------------------------ calibrar la cámara
-    def _guardar_camara(self, cam: CamaraPinhole, como: str, posicion: bool = False):
-        self.cam = self.cam.con(pitch=cam.pitch, yaw=cam.yaw, roll=cam.roll, pos=np.array(cam.pos, float))
-        vals = {"inclinacion_arbol_deg": round(math.degrees(cam.pitch), 2), "yaw_deg": round(math.degrees(cam.yaw), 2),
+    def _guardar_camara(self, cam: CamaraPinhole, como: str, posicion: bool = False, mapa=None):
+        """Guarda la pose (cam, con la inclinación de AHORA). Con el cabezal: la relación servo -> inclinación
+        (`mapa`, o la pendiente de la config por el ángulo actual de X 2) y el lente llevado a X 2 = 90."""
+        cc = self.cfg.camara
+        yaw_c = getattr(cc, "yaw_cabezal_deg", 0.0)
+        pitch = math.degrees(cam.pitch)
+        vals = {"inclinacion_arbol_deg": round(pitch, 2), "yaw_deg": round(math.degrees(cam.yaw) - yaw_c, 2),
                 "roll_deg": round(math.degrees(cam.roll), 2), "calibrada": time.strftime("%Y-%m-%d %H:%M ") + como}
+        if getattr(cc, "cabezal", False):
+            if self.servo_pitch is None:
+                self.log("[AVISO] sin Mega no sé en qué ángulo está X 2: se guarda la inclinación, no la relación "
+                         "servo -> inclinación (conectar el Mega y repetir C)")
+            else:
+                a, b = mapa or (pitch - cc.pitch_por_grado * (self.servo_pitch - 90), cc.pitch_por_grado)
+                vals.update(pitch_servo_90_deg=round(a, 2), pitch_por_grado=round(b, 3))
+                cc.pitch_servo_90_deg, cc.pitch_por_grado = vals["pitch_servo_90_deg"], vals["pitch_por_grado"]
         if posicion:
-            vals.update(x=round(float(cam.pos[0]), 4), y=round(float(cam.pos[1]), 4), z=round(float(cam.pos[2]), 4))
+            ref = lente_de_referencia(cc, cam.pos, pitch, yaw_c)
+            vals.update(x=round(float(ref[0]), 4), y=round(float(ref[1]), 4), z=round(float(ref[2]), 4))
         for k, v in vals.items():
-            setattr(self.cfg.camara, k, v)
+            setattr(cc, k, v)
+        self.cam = self.cam.con(pitch=cam.pitch, yaw=cam.yaw, roll=cam.roll, pos=np.array(cam.pos, float))
         ruta = guardar_local("camara", vals, self.ruta_local)
         self.log(f"cámara calibrada ({como}): incl {vals['inclinacion_arbol_deg']:+.2f}° yaw {vals['yaw_deg']:+.2f}° "
                  f"roll {vals['roll_deg']:+.2f}°" + (" lente en ({:.3f}, {:+.3f}, {:.3f})".format(*cam.pos) if posicion
-                                                     else "") + f" -> {ruta}")
+                                                     else "")
+                 + (f" | X 2 = 90 -> {vals['pitch_servo_90_deg']:+.1f}°, {vals['pitch_por_grado']:+.2f}°/°"
+                    if "pitch_servo_90_deg" in vals else "") + f" -> {ruta}")
 
     def calibrar_con_arbol(self):
         """C: la cámara que mejor proyecta los granos detectados con el árbol donde lo midió el LiDAR (o --frente)."""
@@ -413,13 +450,33 @@ class Cosecha:
             return None
         base = self.cam.escalada(a.cam.ancho, a.cam.alto).con(pitch=a.cam.pitch)   # parte de la inclinación hallada
         cam, rms = G.calibrar_camara(a.detecciones, asig, self.modelo, ref, base)
-        self.calibs.append((cam.pitch, cam.yaw, cam.roll))
-        p, y, r = np.mean(self.calibs, axis=0)
-        self._guardar_camara(self.cam.con(pitch=p, yaw=y, roll=r), f"árbol+LiDAR, {len(self.calibs)} foto(s), "
-                                                                    f"{rms:.1f} px")
+        self.calibs.append((self.servo_pitch, math.degrees(cam.pitch), math.degrees(cam.yaw), math.degrees(cam.roll)))
+        y, r = np.mean([c[2:] for c in self.calibs], axis=0)
+        mapa = self._mapa_servo()
+        p = (mapa[0] + mapa[1] * (self.servo_pitch - 90)) if mapa else float(np.mean([c[1] for c in self.calibs]))
+        cam = self.cam.con(pitch=math.radians(p), yaw=math.radians(y), roll=math.radians(r))
+        self._guardar_camara(cam, f"árbol+LiDAR, {len(self.calibs)} foto(s), {rms:.1f} px", mapa=mapa)
         if len(self.calibs) == 1:
-            self.log("  mejor: repetir (ESPACIO + C) en 3-4 posiciones del robot; se promedian")
+            self.log("  mejor: repetir (ESPACIO + C) en 3-4 posiciones del robot; se promedian"
+                     + (" (y con otro ángulo del servo, I/K: mide su pendiente)" if self.servo_pitch is not None else ""))
         return self.cam, rms
+
+    def _mapa_servo(self):
+        """(inclinación con X 2 = 90, grados de cámara por grado de servo) con las C hechas con el servo conocido. Con
+        ángulos del servo distintos (≥ 8° de diferencia) se ajusta también la pendiente; si no, la de la config."""
+        cc = self.cfg.camara
+        pts = np.array([(c[0] - 90.0, c[1]) for c in self.calibs if c[0] is not None], float)
+        if not getattr(cc, "cabezal", False) or not len(pts):
+            return None
+        b = cc.pitch_por_grado
+        if np.ptp(pts[:, 0]) >= 8:
+            (a, b2), *_ = np.linalg.lstsq(np.c_[np.ones(len(pts)), pts[:, 0]], pts[:, 1], rcond=None)
+            if 0.6 <= abs(b2) <= 1.5:
+                b = float(b2)
+            else:
+                self.log(f"[AVISO] la pendiente del servo sale {b2:.2f}°/° (esperable ~±1): se deja {b:.2f}; ¿se movió "
+                         "la cámara en su soporte?")
+        return float(np.mean(pts[:, 1] - b * pts[:, 0])), b
 
     def marcar(self):
         """M: la garra (movida a mano, brazo suelto) está en el grano elegido: su posición por la cinemática directa
@@ -449,8 +506,41 @@ class Cosecha:
         self._guardar_camara(cam, f"brazo, {len(self.marcas)} marcas, {rms:.1f} px", posicion=True)
         return cam, rms
 
+    def _poner_pitch(self, pitch_deg: float):
+        """El modelo de la cámara con otra inclinación (con el cabezal, el lente también se mueve)."""
+        cc = self.cfg.camara
+        self.cam = self.cam.con(pitch=math.radians(pitch_deg),
+                                pos=lente_cabezal(cc, pitch_deg, getattr(cc, "yaw_cabezal_deg", 0.0)))
+
+    def servo_camara(self, servo: float) -> bool:
+        """X 2 <servo>: inclina la cámara de verdad; el modelo sigue la relación servo -> inclinación de la config."""
+        servo = int(min(180, max(0, round(servo))))
+        try:
+            r = self.mega.comando(f"X 2 {servo}")
+        except Exception as e:
+            r = f"ERR {e}"
+        if not r.startswith("OK"):
+            self.log(f"X 2 {servo} -> {r} (¿firmware sin el servo de la cámara? recargarlo)")
+            return False
+        if self.marcas and servo != self.servo_pitch:
+            self.log(f"las {len(self.marcas)} marca(s) del brazo eran con la cámara en otra inclinación: se borran")
+            self.marcas = []
+        self.servo_pitch = servo
+        if self.mundo is not None:
+            self.mundo.servo_camara(servo)
+        self._poner_pitch(self.cfg.camara.pitch_de_servo(servo))
+        return True
+
     def inclinar(self, d_deg: float):
-        self.cam = self.cam.con(pitch=self.cam.pitch + math.radians(d_deg))
+        """I / K: con el Mega mueve el servo 2° (hacia arriba si d_deg > 0); sin él, solo el modelo (prueba)."""
+        if self.mega is not None and getattr(self.cfg.camara, "cabezal", False):
+            ppg = self.cfg.camara.pitch_por_grado or 1.0
+            actual = self.servo_pitch if self.servo_pitch is not None else 90
+            if self.servo_camara(actual + math.copysign(2, d_deg / ppg)):
+                self.log(f"X 2 {self.servo_pitch}: cámara a ~{math.degrees(self.cam.pitch):.1f}° (según la relación "
+                         "guardada; C la mide)")
+            return
+        self._poner_pitch(math.degrees(self.cam.pitch) + d_deg)
         self.log(f"inclinación de prueba {math.degrees(self.cam.pitch):.1f}° (C la calibra y la guarda)")
 
     # ------------------------------------------------------------------ brazo
@@ -602,7 +692,8 @@ class Cosecha:
     def resumen(self) -> dict:
         a = self.analisis
         d = {"camara": {"pitch_deg": math.degrees(self.cam.pitch), "yaw_deg": math.degrees(self.cam.yaw),
-                        "roll_deg": math.degrees(self.cam.roll), "pos": [float(x) for x in self.cam.pos]},
+                        "roll_deg": math.degrees(self.cam.roll), "pos": [float(x) for x in self.cam.pos],
+                        "servo_x2": self.servo_pitch},
              "arbol": self.modelo.nombre}
         if a is None:
             return d
@@ -783,7 +874,8 @@ def _panel(win, ses: Cosecha, fuente, negrita, rect):
         y += 18 if f is negrita else 17
 
     linea(f"COSECHA  árbol: {ses.modelo.nombre}", (255, 230, 120), negrita)
-    linea("cámara: incl {:.1f}° yaw {:+.1f}° roll {:+.1f}°".format(*np.degrees([ses.cam.pitch, ses.cam.yaw, ses.cam.roll])))
+    linea("cámara: incl {:.1f}° yaw {:+.1f}° roll {:+.1f}°".format(*np.degrees([ses.cam.pitch, ses.cam.yaw, ses.cam.roll]))
+          + ("" if ses.servo_pitch is None else f"  (X 2 = {ses.servo_pitch})"))
     linea("  " + (f"calibrada {cc.calibrada}" if cc.calibrada else "SIN CALIBRAR (C, o M + N con el brazo)"),
           (150, 220, 150) if cc.calibrada else (255, 190, 90))
     m = ses.medida

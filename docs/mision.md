@@ -29,7 +29,7 @@ python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0 --brazo --c
 | Ubicarse | `estimar_inicio` con 3 barridos (sector, x, y, θ, albercas, sectores con caja). El mapa del SLAM tiene origen en la partida, así que con eso se pasa del mapa a la cancha. | N1 |
 | Cajas | Sectores con caja: LiDAR al partir **y** el mapa después (desde la partida una caja puede tapar a la otra). Color: la cámara mira adelante, así que antes de entregar se para frente a una caja (`x_vista_cajas`, mirando al beneficiadero) y `Vision.color_caja` dice ROJA/AZUL; si hay dos cajas, la otra es del otro color. | N2 |
 | Ir al árbol | El más cercano en y (si la partida es dudosa, el que el LiDAR ve; ver abajo). A* hasta quedar con el frente a `distancia_foto_m` (50 cm) del tablero, mirando +x y con la **cámara** centrada en el árbol. Si el destino estaba tapado por una alberca, al llegar se replanifica. | N1 |
-| Foto | `X 2 camara_arbol_deg` → el LiDAR mide el tablero → `Vision.clasificar_arbol` (16 lecturas; dónde cae cada soporte en la imagen sale de esa medida). Soportes FUERA de la foto: cangrejo 10 cm hacia ese lado y otra foto. Solo se recogen las categorías de `recoger` con confianza ≥ `confianza_min`. **NO_SE = no tocar.** | N1 |
+| Foto | `X 2` con el ángulo que da `camara.inclinacion_arbol_deg` (`camara.servo_de_pitch`) → el LiDAR mide el tablero → `Vision.clasificar_arbol` (16 lecturas; dónde cae cada soporte en la imagen sale de esa medida). Soportes FUERA de la foto: cangrejo 10 cm hacia ese lado y otra foto. Solo se recogen las categorías de `recoger` con confianza ≥ `confianza_min`. **NO_SE = no tocar.** | N1 |
 | Acercarse | `A` recto, midiendo la cara del tablero con el LiDAR, hasta `holgura_agarre_m`. | N1 |
 | Recoger | 5 estaciones laterales (`estaciones_y`, con `L` cangrejo); en cada una, los granos más cercanos, fila alta → baja. La posición de cada grano se calcula **desde el tablero medido por el LiDAR** (cara + bordes + ángulo), no desde la pose global: así un error de 2–3 cm de la pose no importa. 2 intentos por grano. | N1 |
 | Entregar | A* hasta `x_aproximacion_entrega` frente a la caja, mirando +x; **reversa** hasta `x_entrega`; `X 0` abre la compuerta de maduros `t_vaciado_s`, la cierra y sale. N3 hace lo mismo con la azul (`X 1`). | N2 |
@@ -72,7 +72,7 @@ hipótesis) y, ya pasadas las albercas, repite la localización con **todo el ma
 | Posición de la base del brazo en el robot | `mision.brazo_x/y/z` |
 | Centro del grano delante del tablero; desplazamiento lateral de la copa respecto del pie | `cancha.GRANO_DELANTE_M`, `cancha.COPA_DESPLAZADA_M` |
 | Holgura de agarre que permite llegar a la fila alta (el brazo llega poco: `docs/brazo.md`) | `mision.holgura_agarre_m` |
-| Distancia e inclinación de la cámara para ver los 16 soportes | `mision.distancia_foto_m`, `camara_arbol_deg` |
+| Distancia e inclinación de la cámara para ver los 16 soportes | `mision.distancia_foto_m`, `camara.inclinacion_arbol_deg` (+ `pitch_servo_90_deg` / `pitch_por_grado`, medidos con `tools.cosecha` C) |
 | Ángulos de las compuertas, dónde caen los granos, a qué x retroceder | `compuerta_*_deg`, `salida_x`, `x_entrega` |
 | GPIO del botón | `mision.pin_boton` |
 | ¿Hay líneas negras en las posiciones de alberca vacías? Si las hay, el A* debe evitarlas (hoy solo evita las albercas que ve). | reglamento Apéndice A |

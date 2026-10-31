@@ -19,10 +19,24 @@ from cafebot.config import cargar  # noqa: E402
 from cafebot.mundo import cancha  # noqa: E402
 
 
+def alcance_config(cfg):
+    """Solo informa: qué filas alcanza el brazo de frente con la base donde dice la config."""
+    b = BrazoXL430(cfg, "falso", log=lambda t: None)
+    x = cfg.geometria.largo / 2 + cfg.mision.holgura_agarre_m - cancha.GRANO_DELANTE_M
+    filas = [f for f in cancha.FILAS
+             if b.plan_agarre([x, cfg.mision.brazo_y, cancha.ALTURA_SOPORTE[f] + cancha.CENTRO_SOBRE_SOPORTE])]
+    print(f"  con la base de la config ({cfg.mision.brazo_x:.3f}, {cfg.mision.brazo_y:+.3f}, {cfg.mision.brazo_z:.3f} m) "
+          f"alcanza de frente las filas: {filas or 'ninguna'}")
+
+
 def main():
     cfg = cargar()
     cfg.brazo.t_mov_s = cfg.brazo.t_fino_s = 0.01          # sin esperas en la prueba
     mod_brazo.RAIZ_PI = pathlib.Path(tempfile.mkdtemp())   # el perfil se escribe en una carpeta temporal
+    alcance_config(cfg)
+    # La prueba usa la base del brazo centrada y a 36 cm (la altura que hace falta para la fila alta), no la de la
+    # config: con la del modelo de Fusion (31,3 cm, 31 oct) la fila alta no se alcanza (ver docs/cosecha.md)
+    cfg.mision.brazo_x, cfg.mision.brazo_y, cfg.mision.brazo_z = 0.10, 0.0, 0.36
     b = BrazoXL430(cfg, "falso", log=lambda t: None)
     b.conectar()
 

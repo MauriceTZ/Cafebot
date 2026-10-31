@@ -8,6 +8,8 @@
   6) Intrínsecos (fx, fy, cx, cy) con fotos sintéticas de un tablero de ajedrez
   7) Sesión completa simulada (tools.cosecha): medir, calibrar, acercarse, agarrar todo lo seguro, cada grano a la
      canasta de su categoría, el camino por la postura 'transporte' y ESC
+  7b) Cabezal de la cámara (servo X 2): I/K mueve el servo, el lente se mueve con la inclinación y C hecho con dos
+      ángulos del servo mide la relación servo -> inclinación (la que usa la misión)
   8) LiDAR mal montado (corrido 1,5 cm): con la cámara calibrada con el brazo (M + N) igual se agarra bien
 """
 import math
@@ -301,6 +303,53 @@ def prueba_sesion_simulada():
         mega.cerrar()
 
 
+def prueba_cabezal():
+    print("7b) Cabezal de la cámara: X 2 con I/K, y C con dos ángulos del servo")
+    import json
+    from cafebot.drivers.mega import Mega
+    from cafebot.vision.camara_modelo import lente_cabezal, lente_de_referencia
+    from tests.sim_serial import SerialSimulado
+    from tools.cosecha import Cosecha, MundoSim
+    cfg = cargar()
+    cfg.camara.calibrada = ""
+    cc = cfg.camara
+    assert cc.cabezal
+    for p in (-25.0, 5.0, 18.0, 30.0):                          # ida y vuelta del lente
+        assert np.allclose(lente_de_referencia(cc, lente_cabezal(cc, p, 7.0), p, 7.0), [cc.x, cc.y, cc.z])
+        assert abs(cc.pitch_de_servo(cc.servo_de_pitch(p)) - p) <= 0.5 * abs(cc.pitch_por_grado)
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    mega = Mega("sim")
+    mega.conectar(serial_obj=SerialSimulado())
+    mega.telemetria(20)
+    m = ModeloArbol()
+    mundo = MundoSim(cfg, m, mega, 0.60, 0.0, 1.0, semilla=5, colores=colores_todos(m), bus_falso=memoria)
+    ses = Cosecha(cfg, m, mundo.camara, mundo.lidar, mega, None, mundo, cl.Clasificador(),
+                  ruta_local=str(tmp / "local.json"), ruta_referencias=str(tmp / "ref.json"), log=lambda t: None)
+    try:
+        s0 = ses.servo_pitch
+        assert s0 == cc.servo_de_pitch(cc.inclinacion_arbol_deg), s0
+        ses.analizar()
+        ses.calibrar_con_arbol()
+        for _ in range(4):                                       # I x4: el servo sube 8°
+            ses.inclinar(+0.5)
+        assert ses.servo_pitch == s0 + 8, ses.servo_pitch
+        ses.analizar()
+        ses.calibrar_con_arbol()
+        real_90 = mundo.cc.pitch_servo_90_deg + mundo.err_pitch
+        real_b = mundo.cc.pitch_por_grado * (1 + mundo.err_pendiente)
+        e_inc = math.degrees(ses.cam.pitch - mundo.cam_real.pitch)
+        e_pos = 1000 * np.linalg.norm(ses.cam.pos - mundo.cam_real.pos)
+        print(f"  X 2 {s0} -> {ses.servo_pitch}: X 2 = 90 -> {cc.pitch_servo_90_deg:+.2f}° (real {real_90:+.2f}), "
+              f"{cc.pitch_por_grado:.3f}°/° (real {real_b:.3f}) | inclinación a {e_inc:+.2f}°, lente a {e_pos:.1f} mm")
+        assert abs(cc.pitch_por_grado - real_b) < 0.06 and abs(cc.pitch_servo_90_deg - real_90) < 0.6
+        assert abs(e_inc) < 0.3 and e_pos < 8
+        guardado = json.loads((tmp / "local.json").read_text())["camara"]
+        assert {"pitch_servo_90_deg", "pitch_por_grado", "inclinacion_arbol_deg"} <= set(guardado)
+        assert cc.servo_de_pitch(guardado["inclinacion_arbol_deg"]) == ses.servo_pitch   # la misión vuelve a este X 2
+    finally:
+        mega.cerrar()
+
+
 def prueba_lidar_corrido():
     print("8) LiDAR corrido 1,5 cm de lado y 1 cm hacia adelante; cámara calibrada con el brazo (M + N)")
     from cafebot.arm import brazo as mod_brazo
@@ -360,6 +409,7 @@ def main():
     prueba_foto_real(m)
     prueba_intrinsecos()
     prueba_sesion_simulada()
+    prueba_cabezal()
     prueba_lidar_corrido()
     print("OK: cosecha")
 

@@ -222,7 +222,7 @@ class Mision:
                     self.zonas_caja.add(z)
         sin_color = sorted(z for z in self.zonas_caja if z not in self.cajas.values())
         if sin_color:
-            self.mega.comando(f"X 2 {self.c.camara_cajas_deg:.0f}")
+            self.mega.comando(f"X 2 {self.cfg.camara.servo_de_pitch(self.cfg.camara.inclinacion_cajas_deg)}")
             for z, color in self.vision.color_cajas(sin_color, self.pose_cancha()).items():
                 self.cajas.setdefault(color, z)
         resto = [z for z in self.zonas_caja if z not in self.cajas.values()]
@@ -323,7 +323,7 @@ class Mision:
             self._ir((x_foto, y_foto), 0.0, f"ir al árbol {arbol}", max_s=30)
 
         # Foto y clasificación de los 16 soportes
-        self.mega.comando(f"X 2 {self.c.camara_arbol_deg:.0f}")
+        self.mega.comando(f"X 2 {self.cfg.camara.servo_de_pitch(self.cfg.camara.inclinacion_arbol_deg)}")
         self.vision.preparar_arbol()
         time.sleep(0.4)
         lect = {l.clave: l for l in self._foto_arbol(arbol, yt)}
@@ -446,7 +446,7 @@ class Mision:
             yb = cancha.centros_zonas_beneficiadero()[z - 1]
             self.log(f"miro de qué color es la caja del sector {z}")
             self._ir((self.c.x_vista_cajas, yb), math.pi, f"mirar la caja {z}", max_s=60)
-            self.mega.comando(f"X 2 {self.c.camara_cajas_deg:.0f}")
+            self.mega.comando(f"X 2 {self.cfg.camara.servo_de_pitch(self.cfg.camara.inclinacion_cajas_deg)}")
             time.sleep(0.5)
             color = self.vision.color_caja(z, self.pose_cancha())
             self.log(f"caja del sector {z}: {color or 'no sé'}")

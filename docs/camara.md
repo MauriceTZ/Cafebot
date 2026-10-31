@@ -1,5 +1,9 @@
 # ¿Dónde va la cámara?
 
+> **31 oct:** la cámara va en un cabezal de 2 SG90 (inclinación `X 2`, giro `X 3` desactivado), a ~37 cm del suelo,
+> a la derecha del brazo (modelo de Fusion; `camara.cabezal` en la config). El ángulo de `X 2` sale de la inclinación
+> pedida (`camara.servo_de_pitch`); la relación se mide con `tools.cosecha` (C con dos ángulos del servo).
+>
 > **29 oct:** la cámara quedó FIJA al frente del brazo, a 25 cm del suelo. La prueba de cosecha (detectar las
 > pelotas, pose del árbol con cámara + LiDAR, posición 3D de cada grano, brazo y canastas) está en
 > **docs/cosecha.md** (`python3 -m tools.cosecha`); ahí se calibran también la inclinación, el yaw y el roll.

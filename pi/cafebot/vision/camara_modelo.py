@@ -29,6 +29,41 @@ CAMPO_H_DEG = 66.0           # Camera Module 3 estándar (la Wide: 102°)
 CAMPO_V_DEG = 41.0
 
 
+def lente_cabezal(cc, pitch_deg: float, yaw_cabezal_deg: float = 0.0) -> np.ndarray:
+    """Posición del lente en el robot. (cc.x, cc.y, cc.z) es el lente con el servo de inclinación a 90° (cámara a
+    cc.pitch_servo_90_deg) y el cabezal mirando adelante; al inclinar gira alrededor del eje de pitch (horizontal,
+    paralelo a y) y al girar el cabezal, alrededor del eje de yaw (vertical). Sin cabezal: (x, y, z) fijo."""
+    p = np.array([cc.x, cc.y, cc.z], float)
+    if not getattr(cc, "cabezal", False):
+        return p
+    d = math.radians(pitch_deg - cc.pitch_servo_90_deg)        # + = hacia arriba: el lente (delante del eje) sube
+    vx, vz = p[0] - cc.eje_pitch_x, p[2] - cc.eje_pitch_z
+    p = np.array([cc.eje_pitch_x + vx * math.cos(d) - vz * math.sin(d), p[1],
+                  cc.eje_pitch_z + vx * math.sin(d) + vz * math.cos(d)])
+    g = math.radians(yaw_cabezal_deg)
+    if g:
+        vx, vy = p[0] - cc.eje_yaw_x, p[1] - cc.eje_yaw_y
+        p[0] = cc.eje_yaw_x + vx * math.cos(g) - vy * math.sin(g)
+        p[1] = cc.eje_yaw_y + vx * math.sin(g) + vy * math.cos(g)
+    return p
+
+
+def lente_de_referencia(cc, pos, pitch_deg: float, yaw_cabezal_deg: float = 0.0) -> np.ndarray:
+    """Inversa de lente_cabezal: el (x, y, z) de la config que deja el lente en `pos` con esa inclinación y giro."""
+    p = np.array(pos, float)
+    if not getattr(cc, "cabezal", False):
+        return p
+    g = -math.radians(yaw_cabezal_deg)
+    if g:
+        vx, vy = p[0] - cc.eje_yaw_x, p[1] - cc.eje_yaw_y
+        p[0] = cc.eje_yaw_x + vx * math.cos(g) - vy * math.sin(g)
+        p[1] = cc.eje_yaw_y + vx * math.sin(g) + vy * math.cos(g)
+    d = -math.radians(pitch_deg - cc.pitch_servo_90_deg)
+    vx, vz = p[0] - cc.eje_pitch_x, p[2] - cc.eje_pitch_z
+    return np.array([cc.eje_pitch_x + vx * math.cos(d) - vz * math.sin(d), p[1],
+                     cc.eje_pitch_z + vx * math.sin(d) + vz * math.cos(d)])
+
+
 def rot_x(a):
     c, s = math.cos(a), math.sin(a)
     return np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
@@ -60,16 +95,18 @@ class CamaraPinhole:
 
     # ------------------------------------------------------------------ construcción
     @staticmethod
-    def desde_config(cc, inclinacion_deg: float | None = None) -> "CamaraPinhole":
-        """Desde ConfigCamara (pi/cafebot/config.py + robot_local.json)."""
+    def desde_config(cc, inclinacion_deg: float | None = None, yaw_cabezal_deg: float | None = None) -> "CamaraPinhole":
+        """Desde ConfigCamara (pi/cafebot/config.py + robot_local.json), con la cámara inclinada `inclinacion_deg`
+        (por defecto la de la foto del árbol). Con cabezal, el lente se mueve con la inclinación y el giro."""
         fx = float(cc.fx_px)
+        pitch = cc.inclinacion_arbol_deg if inclinacion_deg is None else inclinacion_deg
+        yaw_c = getattr(cc, "yaw_cabezal_deg", 0.0) if yaw_cabezal_deg is None else yaw_cabezal_deg
         return CamaraPinhole(
             ancho=int(cc.ancho_px), alto=int(cc.alto_px), fx=fx, fy=float(cc.fy_px or fx),
             cx=float(cc.cx_px or cc.ancho_px / 2), cy=float(cc.cy_px or cc.alto_px / 2),
             dist=np.array(list(cc.dist) + [0.0] * (5 - len(cc.dist)), float)[:5],
-            pos=np.array([cc.x, cc.y, cc.z], float),
-            pitch=math.radians(cc.inclinacion_arbol_deg if inclinacion_deg is None else inclinacion_deg),
-            yaw=math.radians(cc.yaw_deg), roll=math.radians(cc.roll_deg))
+            pos=lente_cabezal(cc, pitch, yaw_c),
+            pitch=math.radians(pitch), yaw=math.radians(cc.yaw_deg + yaw_c), roll=math.radians(cc.roll_deg))
 
     def con(self, **cambios) -> "CamaraPinhole":
         """Copia con algunos valores cambiados (p. ej. con(pitch=...))."""
