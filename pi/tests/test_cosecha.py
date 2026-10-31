@@ -4,12 +4,14 @@
   2) Pose del árbol + corrección de la cámara (fusión con el LiDAR) y proyección inversa: error 3D de cada grano
   3) Calibración de la cámara: con el árbol + LiDAR, y con el brazo (cinemática directa = PnP)
   4) Colores: por matiz y con referencias (negro y vacío incluidos)
+  4b) Soporte vacío cuya madera el clasificador confunde con AMARILLO (30 oct): sin pelota detectada sale VACIO
   5) Foto REAL del árbol del taller (29 oct): la roja y la verde en su soporte; la rueda rosada del piso, en ninguno
   6) Intrínsecos (fx, fy, cx, cy) con fotos sintéticas de un tablero de ajedrez
   7) Sesión completa simulada (tools.cosecha): medir, calibrar, acercarse, agarrar todo lo seguro, cada grano a la
      canasta de su categoría, el camino por la postura 'transporte' y ESC
   7b) Cabezal de la cámara (servo X 2): I/K mueve el servo, el lente se mueve con la inclinación y C hecho con dos
       ángulos del servo mide la relación servo -> inclinación (la que usa la misión)
+  7c) Sin Mega: A pide acercar el árbol a mano; con un error de 1,5 cm, U lo vuelve a ubicar con el LiDAR
   8) LiDAR mal montado (corrido 1,5 cm): con la cámara calibrada con el brazo (M + N) igual se agarra bien
 """
 import math
@@ -177,6 +179,41 @@ def prueba_colores_con_referencias(m):
     print(f"  {n - len(mal)}/{n} soportes con la clase correcta" + (f" | distintos: {mal}" if mal else ""))
     assert not mal, mal
     assert all(g.confianza > 0.7 for g in a.granos.values() if g.categoria in ("MADURO", "SOBREMADURO"))
+
+
+def prueba_soporte_sin_pelota(m):
+    print("4b) Soporte vacío con madera 'amarilla' (30 oct): sin pelota detectada es NEGRO o VACIO, nunca un color")
+    from tools.cosecha import lab_zona
+    cam = CamaraPinhole(pitch=math.radians(25))
+    pose = pose_a(0.65, 0.0, 0.0, m)
+    nombres = [ModeloArbol.nombre_de(c) for c, _, _ in m.soportes()]
+    col = {n: ["ROJO", "AZUL", "NARANJO", None][i % 4] for i, n in enumerate(nombres)}
+    vacios = [n for n in nombres if col[n] is None]
+    a0 = G.analizar([foto_arbol(cam, m, pose, col, np.random.default_rng(1))], cam, m, pose, (0.01, 0.01, 0.03))
+    zonas = {g.nombre: G.zona_modelo(a0.cam, m, a0.pose, g.p, g.uv, g.r_px) for g in a0.granos.values()
+             if g.nombre in vacios}
+    madera = (95, 160, 190)                 # BGR: amarillo apagado, saturación < sat_min (el detector no lo ve)
+    imgs = []
+    for s in (1, 2, 3):
+        img = foto_arbol(cam, m, pose, col, np.random.default_rng(s))
+        for u, v, r in zonas.values():
+            cv2.circle(img, (int(u), int(v)), int(r), madera, -1)
+        imgs.append(img)
+    clasif = cl.Clasificador()              # referencias: la madera quedó enseñada como AMARILLO (el caso del 30 oct)
+    u, v, r = zonas[vacios[0]]
+    clasif.agregar("AMARILLO", lab_zona(imgs[0], u, v, r, clasif.config), vacios[0])
+    for nombre, clase in (("baja-1", "ROJO"), ("baja-2", "AZUL")):
+        g = a0.granos[next(k for k in a0.granos if a0.granos[k].nombre == nombre)]
+        assert g.det is not None and col[nombre] == clase
+        clasif.agregar(clase, lab_zona(imgs[0], *g.det.zona, clasif.config), nombre)
+    crudo = {n: G.color_en(imgs, clasif, *zonas[n])[0] for n in vacios}
+    assert all(c == "AMARILLO" for c in crudo.values()), crudo      # sin la regla, el brazo iría a buscarlos
+    a = G.analizar(imgs, cam, m, pose, (0.01, 0.01, 0.03), clasif)
+    final = {g.nombre: g.categoria for g in a.granos.values() if g.nombre in vacios}
+    print(f"  {len(vacios)} soportes vacíos: el color dice {set(crudo.values())}, el análisis {set(final.values())}")
+    assert set(final.values()) == {"VACIO"}, final
+    assert all(g.categoria in ("MADURO", "SOBREMADURO") for g in a.granos.values() if g.nombre in col
+               and col[g.nombre] in ("ROJO", "AZUL") and g.det is not None)
 
 
 def prueba_foto_real(m):
@@ -350,6 +387,33 @@ def prueba_cabezal():
         mega.cerrar()
 
 
+def prueba_a_mano():
+    print("7c) Sin Mega: el árbol se acerca a mano (1,5 cm menos de lo pedido) y U lo ubica con el LiDAR")
+    from tools.cosecha import Cosecha, MundoSim
+    cfg = cargar()
+    cfg.camara.calibrada = ""
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    m = ModeloArbol()
+    mundo = MundoSim(cfg, m, None, 0.60, 0.01, 1.5, semilla=4, colores=colores_todos(m))
+    ses = Cosecha(cfg, m, mundo.camara, mundo.lidar, None, None, mundo, cl.Clasificador(),
+                  ruta_local=str(tmp / "local.json"), ruta_referencias=str(tmp / "ref.json"), log=lambda t: None)
+    ses.analizar()
+    x0 = ses.pose_pie[0]
+    assert ses.acercar()
+    pedido = x0 - ses.pose_pie[0]
+    mundo.pie_mundo[0] -= pedido - 0.015                       # a mano quedó 1,5 cm más lejos de lo pedido
+
+    def error():
+        verdad = m.en_robot(mundo.pose_pie())
+        return max(np.linalg.norm(ses.p_robot(g) - verdad[k]) for k, g in ses.analisis.granos.items()
+                   if g.categoria != "FUERA")
+    e0 = error()
+    assert ses.reubicar()
+    e1 = error()
+    print(f"  pedido acercar {100 * pedido:.1f} cm; error de los granos {1000 * e0:.1f} mm -> con U {1000 * e1:.1f} mm")
+    assert e0 > 0.012 and e1 < 0.006, (e0, e1)
+
+
 def prueba_lidar_corrido():
     print("8) LiDAR corrido 1,5 cm de lado y 1 cm hacia adelante; cámara calibrada con el brazo (M + N)")
     from cafebot.arm import brazo as mod_brazo
@@ -406,10 +470,12 @@ def main():
     prueba_lidar_con_basura(m)
     prueba_inclinacion_equivocada(m)
     prueba_colores_con_referencias(m)
+    prueba_soporte_sin_pelota(m)
     prueba_foto_real(m)
     prueba_intrinsecos()
     prueba_sesion_simulada()
     prueba_cabezal()
+    prueba_a_mano()
     prueba_lidar_corrido()
     print("OK: cosecha")
 

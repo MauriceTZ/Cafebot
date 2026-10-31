@@ -7,7 +7,12 @@
 > **29 oct:** la cámara quedó FIJA al frente del brazo, a 25 cm del suelo. La prueba de cosecha (detectar las
 > pelotas, pose del árbol con cámara + LiDAR, posición 3D de cada grano, brazo y canastas) está en
 > **docs/cosecha.md** (`python3 -m tools.cosecha`); ahí se calibran también la inclinación, el yaw y el roll.
-> Intrínsecos: `python3 -m tools.camara intrinseca` con un tablero de ajedrez (fx ≈ 1183 a 1536×864, campo de 66°).
+> Intrínsecos: `python3 -m tools.camara intrinseca` con un tablero de ajedrez (fx ≈ 1183 a 1536×864, campo de 66°),
+> o `python3 -m tools.ver_camara --tablero 9x6 --cuadro 0.025` (Pablo, 30 oct): la cámara en vivo en el NAVEGADOR
+> (`http://<ip-de-la-pi>:8000`, desde el PC o el celular, sin VNC), con las esquinas del tablero dibujadas, en azul lo
+> que ya cubren las fotos, y botones "Sacar foto" (solo si ve el tablero entero) y "Calcular" (las mismas funciones
+> que `tools.camara intrinseca`; guarda en `robot_local.json`). Sin `--tablero` es solo el video. 12–20 fotos a
+> 40–80 cm, cubriendo centro, esquinas y bordes e inclinando el tablero ±30°.
 > El driver pide el modo del sensor de campo COMPLETO (2304×1296): sin eso, a 1536×864 libcamera elige un recorte
 > del centro (~49° de campo, fx ≈ 1690) y nada calzaría. Lo de abajo es el método anterior (zonas fijas).
 

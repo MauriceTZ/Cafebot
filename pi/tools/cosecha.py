@@ -35,6 +35,7 @@ Teclas:
   T        agarrar todos los seguros y alcanzables (fila alta primero)
   A        acercarse (frente del robot a holgura_agarre_m del pie)   R  volver a la distancia de la foto
   ↑ / ↓    avanzar / retroceder 2 cm      ← / →  cangrejo 2 cm a la izquierda / derecha (granos de los costados)
+  U        volver a ubicar el árbol solo con el LiDAR (sin foto: sirve de cerca; p. ej. después de moverlo a mano)
   ESC      parar (base y brazo, después del movimiento en curso)      Q  salir
 """
 from __future__ import annotations
@@ -643,22 +644,48 @@ class Cosecha:
         p1 = self._pose_mega()
         if self.pose_pie is not None:                     # por odometría...
             self.pose_pie = tuple(float(v) for v in relativo(p1, componer(p0, np.array(self.pose_pie))))
-        med = self.medir_lidar()                          # ... y corregido con el LiDAR (con lo que la foto le
-        if med is not None and self.pose_pie is not None:  # corrigió en la última medida)
-            dx, dy = self.delta_lidar
-            y = self.pose_pie[1]
-            if med.centro_medido and abs(med.y_centro + dy - y) < 0.05:
-                y = med.y_centro + dy
-            elif med.centro_medido:
-                self.log(f"el LiDAR pone el pie {100 * (med.y_centro + dy - y):+.0f} cm de lado respecto de la "
-                         "odometría: me quedo con la odometría (¿otro objeto? ESPACIO vuelve a medir todo)")
-            self.pose_pie = (med.x_cara + dx, y, med.ang)
+        med = self._corregir_con_lidar("la odometría")    # ... y corregido con el LiDAR
         self._actualizar_alcance()
         frente = "" if self.pose_pie is None else f" | pie a {self.pose_pie[0] - self.cfg.geometria.largo / 2:.3f} m del frente"
         que = "base" if not cangrejo_deg else ("a la izquierda" if cangrejo_deg > 0 else "a la derecha")
         self.log(f"{que} {mm:+.0f} mm: {'ok' if r.ok else r.motivo}{frente}"
                  + ("" if med is not None else " (el LiDAR no vio el pie: solo odometría)"))
         return r.ok
+
+    def _corregir_con_lidar(self, contra: str):
+        """Vuelve a ubicar el pie con el LiDAR (más lo que la foto le corrigió en la última medida). El lado solo se
+        acepta si queda a < 5 cm de lo esperado (`contra`: la odometría o lo pedido a mano)."""
+        med = self.medir_lidar()
+        if med is None or self.pose_pie is None:
+            return None
+        dx, dy = self.delta_lidar
+        y = self.pose_pie[1]
+        if med.centro_medido and abs(med.y_centro + dy - y) < 0.05:
+            y = med.y_centro + dy
+        elif med.centro_medido:
+            self.log(f"el LiDAR pone el pie {100 * (med.y_centro + dy - y):+.0f} cm de lado respecto de {contra}: me "
+                     "quedo con eso (¿otro objeto? ESPACIO vuelve a medir todo)")
+        self.pose_pie = (med.x_cara + dx, y, med.ang)
+        return med
+
+    def reubicar(self) -> bool:
+        """U: vuelve a ubicar el árbol SOLO con el LiDAR (sin foto, así que sirve de cerca): después de mover el
+        árbol a mano (sin Mega), corrige lo que no quedó exacto."""
+        if self.pose_pie is None:
+            self.log("primero medir (ESPACIO)")
+            return False
+        if self.lidar is None:
+            self.log("sin LiDAR el árbol queda donde se dijo")
+            return False
+        x0, y0, _ = self.pose_pie
+        if self._corregir_con_lidar("lo esperado") is None:
+            return False
+        self._actualizar_alcance()
+        x, y, ang = self.pose_pie
+        self.log(f"árbol ubicado con el LiDAR: pie a {x - self.cfg.geometria.largo / 2:.3f} m del frente, "
+                 f"{100 * (x - x0):+.1f} cm más lejos y {100 * (y - y0):+.1f} cm a la izquierda de lo esperado, "
+                 f"{math.degrees(ang):+.1f}°")
+        return True
 
     def _mover_a_mano(self, mm: float, cangrejo_deg: float) -> bool:
         """Sin Mega: el ÁRBOL se mueve a mano (lo que el robot avanzaría) y aquí solo se corre la pose del pie.
@@ -678,8 +705,9 @@ class Cosecha:
             que = f"ACERCA el árbol {100 * dx:.1f} cm al robot" if dx > 0 else f"ALEJA el árbol {-100 * dx:.1f} cm del robot"
         else:
             que = f"corre el árbol {100 * abs(dy):.1f} cm a la {'DERECHA' if dy > 0 else 'IZQUIERDA'} (visto desde el robot)"
-        self.log(f"sin Mega, A MANO: {que} | pie a {self.pose_pie[0] - self.cfg.geometria.largo / 2:.3f} m del frente "
-                 "(no apretar ESPACIO: el LiDAR o la foto lo moverían de nuevo)")
+        self.log(f"sin Mega, A MANO: {que} | pie a {self.pose_pie[0] - self.cfg.geometria.largo / 2:.3f} m del frente"
+                 + (": cuando esté, U lo vuelve a ubicar con el LiDAR (corrige lo que no quedó exacto)"
+                    if self.lidar is not None else " (sin LiDAR queda donde se dijo: medir con huincha)"))
         return True
 
     def acercar(self):
@@ -689,15 +717,15 @@ class Cosecha:
         d = self.pose_pie[0] - self.cfg.geometria.largo / 2 - self.cfg.mision.holgura_agarre_m
         if d < 0.005:
             self.log("ya está a la distancia de agarre")
-            return
-        self.mover_base(min(d, 0.8) * 1000, 70)
+            return True
+        return self.mover_base(min(d, 0.8) * 1000, 70)
 
     def alejar(self):
         if self.pose_pie is None:
             self.log("primero medir (ESPACIO)")
             return
         d = self.pose_pie[0] - self.cfg.geometria.largo / 2 - self.cfg.mision.distancia_foto_m
-        self.mover_base(max(d, -0.8) * 1000, 80)
+        return self.mover_base(max(d, -0.8) * 1000, 80)
 
     def parar(self):
         if self.mega is not None:
@@ -848,6 +876,8 @@ def ventana(ses: Cosecha, titulo: str, en_vivo_posible: bool):
                 ses.en_fondo("acercarse", ses.acercar)
             elif k == pg.K_r:
                 ses.en_fondo("alejarse", ses.alejar)
+            elif k == pg.K_u:
+                ses.en_fondo("ubicar con el LiDAR", ses.reubicar)
             elif k in (pg.K_UP, pg.K_DOWN):
                 ses.en_fondo("mover", ses.mover_base, 20.0 if k == pg.K_UP else -20.0, 60.0)
             elif k in (pg.K_LEFT, pg.K_RIGHT):

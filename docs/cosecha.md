@@ -54,7 +54,7 @@ calibración), `sintetica.py` (fotos y LiDAR simulados). Herramienta: `pi/tools/
 | 2. Medir | ESPACIO | Círculos sobre las pelotas, "error" < 2 px. Mensajes: "la foto y el LiDAR no coinciden", "OJO: calza igual corrido una columna". |
 | 3. Calibrar la cámara | C | En 3–4 posiciones del robot (moverlo ±10 cm, ESPACIO + C cada vez): se promedia y se guarda en `robot_local.json`. Con el Mega conectado, hacer al menos una C con otro ángulo del servo (I o K 4–5 veces = 8–10°, ESPACIO + C): así se mide cuántos grados gira la cámara por grado de `X 2` y la misión puede pedir cualquier inclinación (`camara.servo_de_pitch`). I/K mueven el servo de a 2°; sin el Mega solo cambian el modelo. |
 | 4. Enseñar colores | clic + 1..7 | Todas las clases, también NEGRO (6) y VACIO (7, un soporte sin grano). Se guardan en `pi/calibracion/referencias.json`. |
-| 5. Acercarse | A | El frente queda a `mision.holgura_agarre_m` (6 cm) del pie; el LiDAR vuelve a ubicar el árbol. |
+| 5. Acercarse | A | El frente queda a `mision.holgura_agarre_m` (6 cm) del pie; el LiDAR vuelve a ubicar el árbol. Sin Mega (`--sin-mega`), A, R y las flechas dicen cuánto mover el ÁRBOL a mano; después, **U** lo vuelve a ubicar con el LiDAR (sin foto, sirve de cerca): un error de 1,5 cm a mano serían 1,5 cm de error en cada grano. |
 | 6. Probar sin agarrar | clic + P | La garra queda 6 cm antes del grano: ¿apunta a él? (V vuelve.) |
 | 7. Agarrar | G / T | G: el elegido o el seguro y alcanzable más cercano. T: todos (fila alta primero). ESC detiene. |
 | 8. Volver y revisar | R + ESPACIO | Los agarrados ya no están. S guarda fotos + análisis en `pi/capturas/`. |
