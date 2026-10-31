@@ -1,0 +1,81 @@
+{
+  "baudios": 1000000,
+  "puerto": "",
+  "articulaciones": {
+    "base": {
+      "id": 9,
+      "centro": 1039,
+      "invertir": false,
+      "min_deg": -76.3,
+      "max_deg": 352.8
+    },
+    "hombro": {
+      "id": 8,
+      "centro": 2038,
+      "invertir": true,
+      "min_deg": -118.0,
+      "max_deg": 88.1
+    },
+    "codo1": {
+      "id": 11,
+      "centro": 3059,
+      "invertir": true,
+      "min_deg": -112.7,
+      "max_deg": 122.0
+    },
+    "codo2": {
+      "id": 7,
+      "centro": 1535,
+      "invertir": true,
+      "min_deg": -123.3,
+      "max_deg": 127.2
+    },
+    "muneca": {
+      "id": 10,
+      "centro": 4054,
+      "invertir": true,
+      "min_deg": -109.3,
+      "max_deg": 108.5
+    },
+    "garra": {
+      "id": 4,
+      "centro": 337,
+      "invertir": true,
+      "min_deg": -10.8,
+      "max_deg": 59.4
+    }
+  },
+  "posturas": {
+    "trabajo": {
+      "base": -0.88,
+      "hombro": -32.08,
+      "codo1": 49.84,
+      "codo2": 119.09,
+      "muneca": -20.21
+    },
+    "descanso": {
+      "base": -11.25,
+      "hombro": -113.64,
+      "codo1": 117.86,
+      "codo2": 119.18,
+      "muneca": -52.56
+    },
+    "deposito_maduro": {
+      "base": 176.75,
+      "hombro": -74.27,
+      "codo1": 117.78,
+      "codo2": 116.89,
+      "muneca": -44.38
+    },
+    "deposito_sobremaduro": {
+      "base": 168.49,
+      "hombro": -112.06,
+      "codo1": 117.78,
+      "codo2": 116.72,
+      "muneca": -44.38
+    }
+  },
+  "historial": [
+    "2026-10-30 reconstruido desde el chat con Claude (última lectura del perfil en la Pi)"
+  ]
+}
