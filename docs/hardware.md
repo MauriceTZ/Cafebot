@@ -55,8 +55,11 @@ corregidas −0,57 cm porque el modelo tiene ruedas de 64 mm (las de verdad dan 
 | Lente de la cámara (X 2 = 90, mirando adelante) | 11,1 cm | −5,3 cm (derecha) | 36,7 cm | `camara.x/y/z` |
 | Eje de inclinación de la cámara (SG90, horizontal) | 8,4 cm | | 36,9 cm | `camara.eje_pitch_x/z` |
 | Eje de giro de la cámara (SG90, vertical) | 9,1 cm | −6,8 cm | | `camara.eje_yaw_x/y` |
-| Eje de la base del brazo (placa de la base) | 7,65 cm | +6,3 cm (izquierda) | 31,3 cm | `mision.brazo_x/y/z` |
+| Eje de la base del brazo (placa de la base) | 7,65 cm | +6,3 cm (izquierda) | 31,3 cm en el modelo; **35,2 medido** (31 oct: garra horizontal a 70 cm con el brazo vertical) | `mision.brazo_x/y/z` |
 | LiDAR | 15,75 cm | 0 | ~5 cm | `geometria.lidar_x/z` |
+
+Si la base del brazo está 4 cm más alta que en el modelo porque la tapa de la base lo está, la cámara (montada en
+la misma tapa) también: medir la altura del lente y corregir `camara.z` y `eje_pitch_z`.
 
 Ojo con izquierda/derecha: en el modelo, la pieza "Compuerta trasera izquierda" queda del lado que con x adelante
 es la DERECHA. Si en el robot la cámara está a la izquierda del brazo, cambiar el signo de `camara.y`, `eje_yaw_y` y

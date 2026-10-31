@@ -113,12 +113,14 @@ class ConfigMision:
     confianza_min: float = 0.70    # bajo esto la visión cuenta como NO_SE (no tocar)
     # Brazo: eje de giro de la base en el sistema del robot; z = altura de la BASE del brazo sobre
     # el SUELO (el hombro está 6,7 cm más arriba). Se comprueba con `tools.brazo leer`.        [MEDIR]
-    # 31 oct, modelo de Fusion (OPEN_CAFEBOT): eje de la base 7,65 cm delante del centro y 6,34 cm a la IZQUIERDA;
-    # la placa de la base del brazo a 31,9 cm en el modelo (ruedas de 64 mm) -> 31,3 cm con las de 52,6 mm. Con
-    # eso la fila alta queda fuera de alcance por ~1 cm (docs/cosecha.md).                       [CONFIRMAR con huincha]
+    # 31 oct, modelo de Fusion (OPEN_CAFEBOT): eje de la base 7,65 cm delante del centro y 6,34 cm a la IZQUIERDA.
+    # Altura: el modelo pone la placa de la base a 31,3 cm (31,9 con sus ruedas de 64 mm), pero en el robot (31 oct)
+    # la garra HORIZONTAL con el brazo vertical llega a 70 cm del suelo -> base = 70 − (6,71 + 10,7 + 10,7 + 6,7) =
+    # 35,2 cm. Con eso la fila alta (70,7 cm) queda justo fuera: hace falta ~37 cm (docs/cosecha.md).
+    #                                                  [CONFIRMAR: eje del hombro (id 8) a ~41,9 cm del suelo]
     brazo_x: float = 0.0765
     brazo_y: float = 0.0634
-    brazo_z: float = 0.313
+    brazo_z: float = 0.352
     # Árbol: distancias entre el FRENTE del robot y la cara del tablero
     distancia_foto_m: float = 0.55     # para la foto de los 16 soportes (la cámara se centra en el árbol). Con la
                                        # cámara en el cabezal a ~37 cm del suelo e inclinada 15–20°: 16/16 desde

@@ -26,8 +26,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   DESACTIVADO: falla, la cámara mira adelante). Lente a ~37 cm del suelo según el modelo de Fusion
   (`description/fusion`, `camara.cabezal` en la config) [CONFIRMAR con huincha].
 - Brazo 5 GDL + garra (abre 6,5 cm) con Dynamixel XL430 (U2D2). Según el modelo de Fusion (31 oct) el eje de la base
-  está 7,7 cm delante del centro, 6,3 cm a la izquierda y a ~31,3 cm del suelo [CONFIRMAR]: así la fila alta queda
-  ~4 cm fuera de alcance (hace falta la base a ≥ 36 cm; docs/cosecha.md). El hombro se
+  está 7,7 cm delante del centro y 6,3 cm a la izquierda. Altura: 31 oct, la garra horizontal con el brazo vertical
+  llega a 70 cm del suelo → base a ~35,2 cm (el modelo decía 31,3): la fila alta (70,7 cm) queda justo fuera;
+  con la base a ≥ 37 cm se alcanza (docs/cosecha.md). El hombro se
   sobrecarga si el brazo queda estirado en horizontal (ver `docs/brazo.md`). Ids, ceros, sentidos, límites y
   posturas de cada brazo: su perfil `pi/brazos/<nombre>.json` (`tools.brazo`, la misión usa `brazo.perfil`).
 - Puertos en la Pi (28 oct): Mega = clon con CH340 (1a86) → `/dev/ttyUSB1`; LD06 (CP2102) → `/dev/ttyUSB0`;
@@ -60,6 +61,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
     test_navegacion, test_mision, test_ir, test_borde, test_cosecha).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
+    `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
     `tools.cosecha` (cámara + LiDAR + brazo frente a un árbol, docs/cosecha.md), `tools.mision` (todo junto).
 - Lo que no se ha medido en el robot se marca `[CONFIRMAR]` / `[MEDIR]` / `[AJUSTAR]` en el código.
 - Commits pequeños y descriptivos en español. Cuando el equipo prueba algo en el robot, anotar el
@@ -101,8 +103,12 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   base del brazo (7,65 / +6,34 / 31,3 cm), LiDAR (x 15,75 cm). `X 2` sale de la inclinación pedida con
   `camara.servo_de_pitch` (misión, `tools.camara`); en `tools.cosecha` I/K mueven el servo y C con 2+ ángulos mide la
   relación servo → inclinación (`pitch_servo_90_deg`, `pitch_por_grado`). Firmware: servos aux 46/11/44/4, el 4 (giro)
-  desactivado (`AUX_ACTIVO`): RECARGAR el Mega. Con esa altura del brazo la misión simulada baja a 14 puntos (semilla 1)
-  porque la fila alta no se alcanza.
+  desactivado (`AUX_ACTIVO`): RECARGAR el Mega. Con la base del brazo a 31,3–35,2 cm la fila alta no se alcanza y la
+  misión simulada baja de 35 a 14 puntos (semilla 1); con 37 cm vuelve a 35. El brazo simulado de la misión ahora
+  usa la cinemática y el plan de agarre del brazo de verdad (antes, una esfera de 38 cm: era optimista).
+- 31 oct: integrada la rama de Pablo: soporte sin pelota detectada = NEGRO o VACIO (nunca un color: la madera se
+  confundía con AMARILLO; prueba 4b), `tools.ver_camara` (navegador) y, sin Mega, A/R/flechas dicen cuánto mover el
+  árbol a mano; encima, **U** lo vuelve a ubicar con el LiDAR (sin foto, sirve de cerca; prueba 7c).
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de

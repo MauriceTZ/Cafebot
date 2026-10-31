@@ -71,7 +71,14 @@ def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None):
     mega.ir_sim = IRSimulado(mega, cfg.ir.posiciones, cancha.lineas_cancha(),
                              lambda: lidar.pose_real_ahora(pose_mega_extrapolada(mega)), semilla=semilla).iniciar()
     c = cfg.mision
-    brazo = I.BrazoSimulado(esc, real, (c.brazo_x, c.brazo_y, c.brazo_z), t_agarre=t_agarre, rng=rng)
+    try:        # el alcance con la cinemática y el plan de agarre del brazo de verdad (sin bus: solo calcula)
+        from cafebot.arm.brazo import BrazoXL430
+        alcanzable = BrazoXL430(cfg, log=lambda t: None).alcanzable
+    except Exception as e:
+        print(f"[AVISO] alcance del brazo simulado aproximado (esfera de 38 cm): {e}")
+        alcanzable = None
+    brazo = I.BrazoSimulado(esc, real, (c.brazo_x, c.brazo_y, c.brazo_z), t_agarre=t_agarre, rng=rng,
+                            alcanzable_fn=alcanzable)
     # Como la cámara real: los soportes fuera de la foto salen FUERA y desde la partida no ve las cajas
     vision = I.VisionSimulada(esc, rng, cfg_camara=cfg.camara, ve_cajas_al_partir=False)
     depositos = I.DepositosSimulados(mega, c, brazo, esc, real)

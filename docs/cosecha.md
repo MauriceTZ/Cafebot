@@ -78,12 +78,17 @@ círculo blanco = mancha detectada y su zona de color, cruz magenta = mancha que
 |---|---|
 | 25 cm (montaje del 29 oct) | ninguno / los 2 del centro / los 5 |
 | 30–33 cm (31,3 cm según el modelo de Fusion, 31 oct) | ninguno / 4 del centro / los 5 |
-| 36 cm | solo el del centro / 4 del centro / los 5 |
+| **35,2 cm (medido en el robot, 31 oct)** | ninguno (ni con holgura 3 cm) / 4 del centro / los 5 |
+| 36 cm | solo el del centro (con holgura ≤ 4 cm) / 4 del centro / los 5 |
+| 37 cm o más | el que está frente al brazo / 4 del centro / los 5 |
 
-El brazo mide 31 cm desde el hombro (6,7 cm sobre la base) y la fila alta (centro del grano a 70,7 cm) queda 39 cm
-sobre el hombro con la base a 25 cm (33 cm con la base a 31,3): **para la fila alta hay que subir la base del brazo a
-≥ 36 cm** (un suplemento de ~5 cm bajo la base, si el modelo de Fusion calza con el robot). Los de los
-costados se alcanzan corriéndose de lado (cangrejo, como `mision.estaciones_y`).
+**Medida del 31 oct:** con el brazo vertical y la garra horizontal, la garra llega a 70 cm del suelo. Como del eje
+de la base a la garra hay 6,71 + 10,7 + 10,7 + 6,7 = 34,8 cm, la base está a ~35,2 cm (el modelo de Fusion dice
+31,3). La fila alta tiene el centro del grano a 70,7 cm: **la garra horizontal no llega ni justo encima de la base**,
+y el grano está 10 cm más adelante, además de tener que levantarlo 1–2 cm para sacarlo del soporte. Con un
+suplemento de ~2 cm (base a ≥ 37 cm) se alcanza la fila alta frente al brazo con la holgura de 6 cm; los de los
+costados, corriéndose de lado (cangrejo, como `mision.estaciones_y`). Ojo con el cubo de 45 cm al partir: el brazo
+plegado no puede subir más de ~8–10 cm sobre la base.
 
 ## Árbol de prueba (`pi/arboles/<nombre>.json`)
 

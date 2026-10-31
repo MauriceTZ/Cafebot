@@ -138,8 +138,9 @@ class BrazoSimulado(Brazo):
     categoría real del escenario va al depósito. Registra lo que queda dentro del robot."""
 
     def __init__(self, escenario: cancha.Escenario, pose_robot_fn, base_xyz=(0.10, 0.0, 0.36), alcance=0.38,
-                 t_agarre=4.0, p_falla=0.1, rng=None):
+                 t_agarre=4.0, p_falla=0.1, rng=None, alcanzable_fn=None):
         self.esc = escenario
+        self.alcanzable_fn = alcanzable_fn      # p. ej. BrazoXL430.alcanzable (la cinemática y el plan de verdad)
         self.pose_robot_fn = pose_robot_fn      # pose REAL del robot en la cancha (simulación)
         self.base = np.array(base_xyz)
         self.alcance = alcance
@@ -150,6 +151,8 @@ class BrazoSimulado(Brazo):
         self.botados = []
 
     def alcanzable(self, p_robot):
+        if self.alcanzable_fn is not None:
+            return bool(self.alcanzable_fn(p_robot))
         d = np.asarray(p_robot) - self.base
         return math.hypot(d[0], d[1]) < 0.20 and np.linalg.norm(d) < self.alcance
 
