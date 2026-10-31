@@ -76,4 +76,27 @@ bus.mem[(8, dxl.ADDR_PRESENT_POSITION)] = c8 + 4096 - 10
 b.normalizar_centros()
 assert b.centro[8] == c8 + 4096, b.centro[8]
 assert abs(b.angulos([8])[8] - (-1) * (-10) * 2 * 3.141592653589793 / 4096) < 1e-9
+# Base con rango −76..+202° (31 oct): al encender lee su posición dentro de UNA vuelta
+import math  # noqa: E402
+for inv in (False, True):
+    sb = dxl.ConfigServo(9, invertir=inv, centro_pasos=1039, rango_deg=(-76.3, 201.8))
+    b.servos = {9: sb}
+    s = -1 if inv else 1
+
+    def encendida_en(grados):          # lo que lee el servo al encender (0..4095), con la base en `grados`
+        bus.mem[(9, dxl.ADDR_PRESENT_POSITION)] = (1039 + s * round(grados * 4096 / 360)) % 4096
+        b.normalizar_centros()
+        return math.degrees(b.angulos([9])[9])
+    for g in (0.0, -70.0, 90.0, 176.75, 195.0):          # en la canasta (+177°) se lee +177°, no −183°
+        assert abs(encendida_en(g) - g) < 0.1 and not b.fuera_de_rango, (inv, g, b.fuera_de_rango)
+    a = encendida_en(240.0)                              # entre +212° y +284°: no se sabe la vuelta
+    assert 9 in b.fuera_de_rango, (inv, a)
+    try:
+        b.torque(True)
+        raise AssertionError("debía negarse a activar el torque")
+    except IOError as e:
+        assert "fuera de su rango" in str(e)
+    bus.mem[(9, dxl.ADDR_PRESENT_POSITION)] = (1039 + s * round(10 * 4096 / 360)) % 4096   # girada a mano a +10°
+    b.torque(True)
+    assert not b.fuera_de_rango and abs(math.degrees(b.angulos([9])[9]) - 10) < 0.1
 print("OK: dxl contra bus falso")

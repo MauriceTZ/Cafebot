@@ -7,7 +7,7 @@
       "centro": 1039,
       "invertir": false,
       "min_deg": -76.3,
-      "max_deg": 352.8
+      "max_deg": 201.8
     },
     "hombro": {
       "id": 8,
@@ -76,6 +76,7 @@
     }
   },
   "historial": [
-    "2026-10-30 reconstruido desde el chat con Claude (última lectura del perfil en la Pi)"
+    "2026-10-30 reconstruido desde el chat con Claude (última lectura del perfil en la Pi)",
+    "2026-10-31 13:30 rango de la base (cables) -76.3..+352.8° recortado a -76.3..+201.8° (con más de 340° no se sabe en qué vuelta está al encender)"
   ]
 }

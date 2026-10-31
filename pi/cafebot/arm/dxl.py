@@ -21,7 +21,9 @@ Qué cambia respecto a legacy/codigo_brazo/main.py y por qué:
   * Ceros NORMALIZADOS al conectar: en modo posición extendida, al encender cada servo lee su
     posición dentro de UNA vuelta (0..4095). Si el cero quedó cerca del borde, mandar el cero
     "tal cual" haría girar la articulación casi una vuelta entera. Igual que el código antiguo,
-    el cero efectivo se corre en múltiplos de 4096 para quedar a menos de media vuelta.
+    el cero efectivo se corre en múltiplos de 4096 para quedar a menos de media vuelta. Con `rango_deg`
+    (la base, que no tiene tope y llega a girar más de media vuelta para las canastas) se elige la vuelta que
+    deja el ángulo DENTRO de su rango; si no cae en ninguna, torque(True) se niega (31 oct).
   * Perfil por tiempo solo con firmware ≥ 42. Con un firmware anterior, Profile Velocity se
     interpretaría como VELOCIDAD (1500 → 343 rpm): en ese caso se calcula un perfil por velocidad.
 """
@@ -83,6 +85,12 @@ class ConfigServo:
     pwm_limit: int = 885
     invertir: bool = False
     centro_pasos: int = 2048  # paso que corresponde a 0 rad (cero ortogonal)
+    rango_deg: tuple | None = None   # (mín, máx) de la articulación, < 340°: al encender se elige la vuelta que cae
+                                     # aquí (sin esto, la de ±180° alrededor del cero)
+
+
+RANGO_UNICO_MAX_DEG = 340.0   # más que esto y al encender no se puede saber en qué vuelta está la articulación
+TOLERANCIA_RANGO_DEG = 10.0   # cuánto puede pasarse de su rango al encender sin que se niegue el torque
 
 
 # IDs y sentidos de legacy/codigo_brazo/main.py (config_giro). Ceros = pasos con el brazo RECTO hacia arriba:
@@ -93,7 +101,7 @@ BRAZO = [
     ConfigServo(8, invertir=True, centro_pasos=2045),    # hombro          29 oct (88° distinto del de antes)
     ConfigServo(11, invertir=True, centro_pasos=3143),   # codo1           29 oct
     ConfigServo(7, invertir=True, centro_pasos=1532),    # codo2           29 oct
-    ConfigServo(5, invertir=True, centro_pasos=1014),    # muñeca          [CONFIRMAR] 29 oct no respondió
+    ConfigServo(5, invertir=True, centro_pasos=1014),    # muñeca: 30 oct, ahora es el id 10 (pi/brazos/principal.json)
 ]
 GARRA = ConfigServo(4, p=600, i=0, d=1000, pwm_limit=300, centro_pasos=336)  # ~34 % de PWM
 
@@ -186,6 +194,7 @@ class BusDXL:
             raise IOError(f"No se pudo abrir {puerto}")
         self.servos = {c.id: c for c in (servos or BRAZO + [GARRA])}
         self.centro = {c.id: c.centro_pasos for c in self.servos.values()}   # cero efectivo (normalizado)
+        self.fuera_de_rango: dict[int, float] = {}   # id -> ° leídos al encender, fuera de su rango_deg
         self.firmware: dict[int, int] = {}
         self.perfil_tiempo = True
 
@@ -202,13 +211,30 @@ class BusDXL:
         return vivos
 
     def normalizar_centros(self) -> dict[int, int]:
-        """Corre cada cero en múltiplos de 4096 para que quede a menos de media vuelta de la posición
-        actual (ver arriba). Llamar después de encender, de configurar y de cada reboot."""
+        """Corre cada cero en múltiplos de 4096 (ver arriba): el ángulo queda a menos de media vuelta del centro de
+        su `rango_deg` (sin rango: del cero). Llamar después de encender, de configurar y de cada reboot.
+        Ejemplo, base con rango −76..+202°: encendida en la canasta (+177°) se lee +177°, no −183°."""
+        self.fuera_de_rango = {}
         for sid, c in self.servos.items():
             pos = self._r(sid, ADDR_PRESENT_POSITION, 4, signo=True)
-            dif = ((pos - c.centro_pasos + 2048) % PASOS_POR_REV) - 2048
-            self.centro[sid] = pos - dif
+            s = -1 if c.invertir else 1
+            a0 = s * (pos - c.centro_pasos) * 360.0 / PASOS_POR_REV        # ° con el cero tal cual
+            lo, hi = c.rango_deg if c.rango_deg else (-180.0, 180.0)
+            if hi - lo > RANGO_UNICO_MAX_DEG:
+                lo, hi = -180.0, 180.0
+            n = round(((lo + hi) / 2 - a0) / 360.0)                       # vueltas que hay que sumarle
+            self.centro[sid] = c.centro_pasos - s * n * PASOS_POR_REV
+            a = a0 + 360.0 * n
+            if c.rango_deg and not lo - TOLERANCIA_RANGO_DEG <= a <= hi + TOLERANCIA_RANGO_DEG:
+                self.fuera_de_rango[sid] = a
         return dict(self.centro)
+
+    def revisar_rango(self) -> dict[int, float]:
+        """Si al encender alguna articulación estaba fuera de su rango, no se sabía su vuelta: después de girarla a
+        mano (sin torque) hacia adentro, se vuelve a elegir. {id: grados} de las que siguen fuera."""
+        if self.fuera_de_rango:
+            self.normalizar_centros()
+        return dict(self.fuera_de_rango)
 
     # -------------------------------------------------------------- bajo nivel
     def _w(self, sid: int, addr: int, n: int, val: int) -> None:
@@ -254,6 +280,12 @@ class BusDXL:
         return apagados
 
     def torque(self, activo: bool, ids=None) -> None:
+        if activo and self.fuera_de_rango and self.revisar_rango():
+            raise IOError("no se activa el torque: " + "; ".join(
+                f"el servo {sid} está en {a:+.0f}°, fuera de su rango {self.servos[sid].rango_deg[0]:+.0f}.."
+                f"{self.servos[sid].rango_deg[1]:+.0f}° (no se sabe en qué vuelta está: podría girar hacia el lado "
+                "que corta los cables). Girarlo A MANO hacia adelante y volver a intentar"
+                for sid, a in self.fuera_de_rango.items()))
         for sid in ids or self.servos:
             if activo:  # sin latigazo: la meta = posición actual antes de energizar
                 self._w(sid, ADDR_GOAL_POSITION, 4, self._r(sid, ADDR_PRESENT_POSITION, 4, signo=True))

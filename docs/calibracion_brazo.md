@@ -7,7 +7,7 @@ la Pi no estaba accesible al subirlo: el historial está resumido y hay que comp
 
 | Articulación | ID | Cero (pasos) | Sentido | Límites |
 |---|---|---|---|---|
-| base | 9 | 1039 | normal | -76,3° a +352,8° |
+| base | 9 | 1039 | normal | -76,3° a +352,8° (los cables); el código usa -76,3° a +201,8° (ver Riesgos) |
 | hombro | 8 | 2038 | invertido | -118,0° a +88,1° |
 | codo1 | 11 | 3059 | invertido | -112,7° a +122,0° |
 | codo2 | 7 | 1535 | invertido | -123,3° a +127,2° |
@@ -53,8 +53,13 @@ diff brazos/principal.json ~/principal.json.pi    # si difieren, manda el de la 
 ## Riesgos
 
 - **Cables de la base:** no hay tope mecánico. Encender con la base hacia adelante y los cables sueltos.
-- **Encendido:** `normalizar_centros` supone la base entre -180° y +180°, pero su rango llega a +353°. Encendida más
-  allá de +180° se leería una vuelta corrida y podría girar hacia el lado que corta los cables. Sin corregir.
+- **Encendido (corregido el 31 oct):** al encender, el servo solo sabe su posición dentro de UNA vuelta, y los cables
+  dejan girar 429° (-76,3° a +352,8°): ahí hay posiciones que en una vuelta se leen igual. Ahora el rango de la base
+  queda recortado a lo que se usa (-76,3° a +201,8°, las canastas están en +177° y +168°; `ventana_base` en
+  `arm/brazo.py`) y `normalizar_centros` elige la vuelta que cae DENTRO de ese rango (antes: la más cercana a 0°,
+  así que en la canasta, +177°, bastaba un poco más para leer -183°). Si al encender la base está entre +212° y
+  +284°, no se activa el torque: hay que girarla a mano hacia adelante. Lo que sigue sin poder detectarse: encenderla
+  más allá de +284° (se leería como -76° a -7°), lo que solo pasa si alguien la gira a mano hasta ahí.
 - **Límites por articulación:** hay combinaciones de ángulos que pueden chocar aunque cada una esté dentro de su rango.
 
 ## Pendiente

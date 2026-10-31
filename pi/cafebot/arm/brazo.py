@@ -88,6 +88,22 @@ def nombre_articulacion(texto: str) -> str:
     return t
 
 
+def ventana_base(lo: float, hi: float, usados, margen: float = 25.0) -> tuple[float, float]:
+    """La base no tiene tope: el rango que permiten los cables puede pasar de una vuelta (30 oct: −76..+353°), pero
+    al encender el servo solo sabe su posición dentro de UNA vuelta. Con más de 340° no se puede saber en cuál está,
+    así que se recorta a lo que se usa (las posturas y 0°, con margen): primero el lado de arriba, después el de abajo."""
+    if hi - lo <= dxl.RANGO_UNICO_MAX_DEG:
+        return lo, hi
+    usados = [0.0] + [float(u) for u in usados]
+    hi = min(hi, max(usados) + margen)
+    if hi - lo > dxl.RANGO_UNICO_MAX_DEG:
+        lo = max(lo, min(usados) - margen)
+    if hi - lo > dxl.RANGO_UNICO_MAX_DEG:
+        raise ValueError(f"las posturas de la base ocupan {max(usados) - min(usados):.0f}°: con más de "
+                         f"{dxl.RANGO_UNICO_MAX_DEG:.0f}° no se sabe en qué vuelta está al encender")
+    return round(lo, 1), round(hi, 1)
+
+
 def _dif_pasos(a, b) -> int:
     """a − b en pasos, llevado a ± media vuelta."""
     return ((int(a) - int(b) + 2048) % dxl.PASOS_POR_REV) - 2048
@@ -130,6 +146,7 @@ class PerfilBrazo:
                 for n, post in datos.get("posturas", {}).items():
                     p.posturas[n] = p.normalizar_postura(post)
                 p.historial = list(datos.get("historial", []))
+                p.recortar_base()
             except (ValueError, KeyError, TypeError, AttributeError) as e:
                 # con un perfil roto NO se sigue con ceros de fábrica: el brazo se movería a cualquier lado
                 raise ValueError(f"perfil del brazo con errores ({p.ruta}): {e}") from e
@@ -161,13 +178,26 @@ class PerfilBrazo:
     def nombre_de(self, sid: int) -> str:
         return next((n for n in TODAS if int(self.art[n]["id"]) == int(sid)), str(sid))
 
+    def recortar_base(self) -> bool:
+        """Deja el rango de la base en ≤ 340° (ventana_base). True si lo cambió."""
+        a = self.art["base"]
+        lo, hi = ventana_base(a["min_deg"], a["max_deg"], [p["base"] for p in self.posturas.values() if "base" in p])
+        if (lo, hi) == (a["min_deg"], a["max_deg"]):
+            return False
+        self.anotar(f"rango de la base {a['min_deg']:+.1f}..{a['max_deg']:+.1f}° recortado a {lo:+.1f}..{hi:+.1f}° "
+                    "(con más de 340° no se sabe en qué vuelta está al encender)")
+        a["min_deg"], a["max_deg"] = lo, hi
+        return True
+
     def servos(self) -> list:
-        """ConfigServo para el bus: las ganancias "cuidadosas" de dxl.py con los ids/ceros/sentidos de este brazo."""
+        """ConfigServo para el bus: las ganancias "cuidadosas" de dxl.py con los ids/ceros/sentidos de este brazo.
+        La base lleva su rango: al encender se elige la vuelta que cae dentro (dxl.normalizar_centros)."""
         out = []
         for n in TODAS:
             base, a = _LEGADO[n], self.art[n]
             out.append(dxl.ConfigServo(int(a["id"]), p=base.p, i=base.i, d=base.d, pwm_limit=base.pwm_limit,
-                                       invertir=bool(a["invertir"]), centro_pasos=int(a["centro"])))
+                                       invertir=bool(a["invertir"]), centro_pasos=int(a["centro"]),
+                                       rango_deg=(float(a["min_deg"]), float(a["max_deg"])) if n == "base" else None))
         return out
 
     def pasos_a_grados(self, tabla: dict) -> dict:
@@ -280,6 +310,11 @@ class BrazoXL430(Brazo):
         apagados = self.bus.configurar()    # configuración + ceros normalizados
         if apagados:
             self.log(f"[brazo] se escribió la configuración (torque apagado en {apagados})")
+        for sid, a in self.bus.fuera_de_rango.items():
+            lo, hi = self.bus.servos[sid].rango_deg
+            self.log(f"[brazo] ¡OJO! {self.mostrar(sid)} encendida en {a:+.0f}°, fuera de su rango {lo:+.0f}..{hi:+.0f}°: "
+                     "no se sabe en qué vuelta está y NO se activa el torque. Sin torque, girarla a mano hacia adelante "
+                     "(sin enredar los cables)")
         self.bus.recuperar_errores()
         return vivos
 
@@ -360,6 +395,8 @@ class BrazoXL430(Brazo):
         for n, (lo, hi) in limites_deg.items():
             self.perfil.art[n]["min_deg"], self.perfil.art[n]["max_deg"] = round(lo, 1), round(hi, 1)
         self.perfil.anotar("límites " + ", ".join(f"{n} {lo:+.0f}..{hi:+.0f}°" for n, (lo, hi) in limites_deg.items()))
+        if self.perfil.recortar_base():
+            self.log(f"[brazo] {self.perfil.historial[-1]}")
         self.perfil.guardar()
         self._actualizar_perfil()
 
