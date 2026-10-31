@@ -26,7 +26,9 @@ la Pi no estaba accesible al subirlo: el historial está resumido y hay que comp
 
 ## Lo que no está en git
 
-`pi/robot_local.json` es de cada máquina. Agregar a mano en otra SD (sin reemplazar lo que ya tenga):
+31 oct: como la SD murió, estos valores quedaron como **valores por defecto en `pi/cafebot/config.py`** (cámara,
+garra e IR): en una SD nueva no hay que copiar nada. `pi/robot_local.json` queda solo para lo que se cambie
+después en esa Pi (y conviene pasarlo a `config.py` cuando quede bueno). Eran:
 
 ```json
 {

@@ -387,10 +387,8 @@ class Mision:
             lateral = yc_r + cancha.COPA_DESPLAZADA_M + e - self.c.brazo_y
             if abs(lateral) > 0.01:
                 self._ok(self.mega.cangrejo(90 if lateral > 0 else -90, 1000 * abs(lateral), 100, timeout=15), "cangrejo")
-            for fila in self.c.orden_filas:
-                for s in sorted((s for s in por_est[e] if s.fila == fila), key=lambda s: -s.y):
-                    self._revisar()
-                    self._recoger(s)
+            self._recoger_estacion([s for fila in self.c.orden_filas
+                                    for s in sorted((s for s in por_est[e] if s.fila == fila), key=lambda s: -s.y)], yt)
         self.brazo.descansar()
         self.log(f"árbol {arbol}: listo | depósitos {self.brazo.estado()}")
         # Retroceder antes de planificar (lejos del tablero el A* tiene espacio)
@@ -418,6 +416,47 @@ class Mision:
         t = np.array([-u[1], u[0]])                                    # a lo largo del tablero (izquierda)
         p = np.array([x_cara, yc]) - cancha.GRANO_DELANTE_M * u + dy * t
         return np.array([p[0], p[1], sop.z])
+
+    def _frente_tablero(self, yt) -> float:
+        """Distancia del frente del robot a la cara del tablero (LiDAR; si no lo ve, la pose)."""
+        pc = self.pose_cancha()
+        esperado = relativo(pc, np.array([cancha.ARBOL_X_FRENTE, yt, 0.0]))
+        med = self._medir_tablero(esperado[:2])
+        return (med[0] if med else esperado[0]) - self.cfg.geometria.largo / 2
+
+    def _recoger_estacion(self, pendientes: list, yt):
+        """Recoge (en orden) lo que el brazo alcanza desde aquí; para lo que falta, se acerca o se aleja del tablero
+        a la distancia de `holguras_agarre_m` desde la que se alcanzan más (la fila baja suele pedir alejarse y la
+        alta, acercarse)."""
+        probadas = set()
+        while pendientes:
+            ahora = [s for s in pendientes if self.brazo.alcanzable(self._p_robot(s))]
+            for s in ahora:
+                self._revisar()
+                self._recoger(s)
+            pendientes = [s for s in pendientes if s not in ahora]
+            if not pendientes or self.queda() < self._reserva_entrega() + 12:
+                break
+            frente = self._frente_tablero(yt)
+            probadas.add(round(frente, 2))
+            mejor, n_mejor = None, 0
+            for h in self.c.holguras_agarre_m:
+                if any(abs(h - q) < 0.015 for q in probadas):
+                    continue
+                d = frente - h                                   # cuánto hay que avanzar
+                n = sum(self.brazo.alcanzable(self._p_robot(s) - np.array([d, 0.0, 0.0])) for s in pendientes)
+                if n > n_mejor:
+                    mejor, n_mejor = h, n
+            if mejor is None:
+                break
+            probadas.add(round(mejor, 2))
+            d = frente - mejor
+            self.log(f"  {n_mejor} grano(s) se alcanzan con el tablero a {100 * mejor:.0f} cm: me "
+                     f"{'acerco' if d > 0 else 'alejo'} {100 * abs(d):.1f} cm")
+            self._ok(self.mega.avanzar(1000 * d, 60, timeout=15), "distancia de agarre")
+        for s in pendientes:
+            p = self._p_robot(s)
+            self.log(f"  {s.fila} col {s.col}: fuera de alcance (x={p[0]:.3f} y={p[1]:+.3f} z={p[2]:.3f})")
 
     def _recoger(self, sop):
         cat = self.lecturas[sop.clave].categoria

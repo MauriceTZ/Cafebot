@@ -94,8 +94,8 @@ class ConfigIR:
     # Cuentas del ADC del Mega (0..1023). NEGRO si la lectura pasa umbral + histéresis/2.
     # None = usar los guardados en la EEPROM del Mega. Con valores, tools.navegacion / tools.mision se
     # los envían al Mega al conectar (así quedan en el repo). `tools.ir` los guarda aquí al calibrar.
-    umbrales: tuple | None = None
-    histeresis: int | None = None
+    umbrales: tuple | None = (727, 926, 659, 715)   # DI DD TI TD: 30 oct, `tools.ir` (la SD de la Pi murió: copiados
+    histeresis: int | None = 60                     # de docs/calibracion_brazo.md; también están en la EEPROM del Mega)
     # ---- Uso en la navegación ----
     ancho_linea_m: float = 0.019
     asociar_m: float = 0.05        # distancia máx. de un cruce a una línea conocida de la cancha
@@ -129,6 +129,9 @@ class ConfigMision:
     desplazamiento_foto_m: float = 0.10  # si algún soporte queda fuera de la foto: cangrejo y otra foto
     holgura_agarre_m: float = 0.06     # para recoger: con la base del brazo a 36 cm, a 8 cm la fila alta ya no
                                        # se alcanza (docs/brazo.md). Nada del robot sobre 38 cm en el frente. [AJUSTAR]
+    holguras_agarre_m: tuple = (0.06, 0.12, 0.16)   # si un grano no se alcanza desde aquí, otras distancias a probar:
+                                       # 31 oct, con los límites del brazo de Pablo y la base a 35,2 cm, la fila baja
+                                       # pide ≥ 12 cm (se pliega demasiado) y la alta, ≤ 8 cm (si la base sube a 37)
     estaciones_y: tuple = (0.24, 0.12, 0.0, -0.12, -0.24)   # posiciones laterales del brazo frente al árbol
     orden_filas: tuple = ("alta", "media", "baja")
     camara_arbol_deg: float = 25.0     # OBSOLETO (31 oct): el ángulo del servo (X 2) sale de camara.inclinacion_arbol_deg
@@ -156,9 +159,10 @@ class ConfigBrazo:
     yaw0_deg: float = 0.0          # corrección extra de la base; con `tools.brazo cero` (base mirando adelante) = 0
     yaw_signo: int = 1             # ídem: el sentido de la base lo fija `tools.brazo verificar` en el perfil
     garra_largo_m: float = 0.032   # eje de la muñeca -> centro de los dedos cerrados                    [MEDIR]
-    garra_abierta_deg: float = 0.0
-    garra_cerrada_deg: float = 65.0
-    garra_vacia_deg: float = 58.0  # si al cerrar la garra pasa de este ángulo, no tomó nada               [MEDIR]
+    garra_abierta_deg: float = 0.0     # 30 oct (Pablo, a mano): abierta −3,6°, con pelota +42,3°, cerrada +46,1°
+    garra_cerrada_deg: float = 50.0    # (con la garra invertida en el perfil; antes 65 iba contra el tope de abrir)
+    garra_vacia_deg: float = 44.0  # si al cerrar la garra pasa de este ángulo, no tomó nada: solo ~2° de margen a
+                                   # cada lado (42,3 con pelota, 46,1 vacía)                              [AJUSTAR]
     pitch_preferido_deg: float = 90.0  # garra horizontal; si no alcanza, prueba en [pitch_min, pitch_max]
     pitch_min_deg: float = 55.0        # 90 = horizontal, menos = garra apuntando hacia arriba
     pitch_max_deg: float = 100.0
@@ -206,11 +210,13 @@ class ConfigCamara:
     yaw_cabezal_deg: float = 0.0     # giro del cabezal (X 3 desactivado): 0 = mirando adelante
     ancho_px: int = 1536
     alto_px: int = 864
-    fx_px: float = 1183.0           # 768 / tan(33°): Camera Module 3 estándar a 1536×864     [AJUSTAR: intrinseca]
-    fy_px: float = 0.0              # 0 = igual a fx
-    cx_px: float = 0.0              # 0 = centro de la imagen
-    cy_px: float = 0.0
-    dist: list = field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0, 0.0])   # k1 k2 p1 p2 k3 (OpenCV)
+    # Intrínsecos a 1536×864: 30 oct, tablero de ajedrez (tools.ver_camara, 39 fotos, 0,33 px; Pablo). Antes, de
+    # fábrica: fx 1183 (768 / tan 33°), centro de la imagen y sin distorsión
+    fx_px: float = 1107.0
+    fy_px: float = 1106.6           # 0 = igual a fx
+    cx_px: float = 767.4            # 0 = centro de la imagen
+    cy_px: float = 424.5
+    dist: list = field(default_factory=lambda: [0.08176, -0.21233, -0.00204, 0.00244, 0.1535])   # k1 k2 p1 p2 k3
     foco_m: float = 0.6             # foco FIJO (el autofoco cambia la distancia focal): LensPosition = 1/foco_m
     arbol: str = "competencia"      # forma del árbol: "competencia" (Apéndice B) o pi/arboles/<nombre>.json
     sat_min: int = 130              # pelota = saturación HSV > sat_min (0..255). 29 oct, foto del taller:

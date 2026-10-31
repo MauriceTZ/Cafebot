@@ -31,6 +31,21 @@ un chip no calza con su regla), los drivers buscan el puerto por el fabricante d
 basta el fabricante `0403`): reinstalar las reglas con
 `sudo cp pi/system/99-cafebot.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger`.
 
+## Raspberry nueva (o SD nueva)
+31 oct: la SD murió. Lo que hay que hacer en una SD nueva (con Raspberry Pi OS **Bookworm o más nuevo**: la Pi 5 no
+arranca con versiones anteriores; si la SD viene de una Pi 4, `sudo apt update && sudo apt full-upgrade` y reiniciar):
+1. `git clone https://github.com/MauriceTZ/Cafebot ~/Cafebot`
+2. `cd ~/Cafebot/pi && python3 -m venv --system-site-packages .venv && . .venv/bin/activate && pip install -r requirements.txt`
+   (antes, con apt: `python3-picamera2 python3-opencv python3-scipy python3-pygame`).
+3. Reglas de los puertos: `sudo cp system/99-cafebot.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger`.
+4. `sudo usermod -aG dialout $USER` y volver a entrar (sin eso no abre los puertos serie).
+5. Comprobar: `rpicam-hello --list-cameras` (la cámara), `ls -l /dev/cafebot-*` (Mega, LiDAR y U2D2).
+6. I2C en `raspi-config` solo si se usa el giroscopio.
+La calibración que vive en la Pi (`pi/robot_local.json`, `pi/calibracion/`) se pierde con la SD: lo que quede bueno,
+pasarlo a `config.py` o subirlo al repo. El perfil del brazo (`pi/brazos/`) ya está en el repo.
+La Pi 5 necesita 5 V / 5 A: con menos (el 30 oct marcó 4,86 V y avisos de bajo voltaje) limita la corriente de los
+USB y el LiDAR, el Mega o el U2D2 pueden desconectarse solos.
+
 ## Pines del Mega (`firmware/mega_cafebot/config.h`)
 
 | Rueda | Ubicación (verificada) | Enc A | Enc B | PWM | DIR1 | DIR2 | Servo | Offset |

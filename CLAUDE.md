@@ -31,6 +31,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   con la base a ≥ 37 cm se alcanza (docs/cosecha.md). El hombro se
   sobrecarga si el brazo queda estirado en horizontal (ver `docs/brazo.md`). Ids, ceros, sentidos, límites y
   posturas de cada brazo: su perfil `pi/brazos/<nombre>.json` (`tools.brazo`, la misión usa `brazo.perfil`).
+  Calibrado el 30 oct por Pablo (`pi/brazos/principal.json`, docs/calibracion_brazo.md): muñeca = id 10 (el 5 no
+  responde), cero de la base girado 180° respecto del anterior, garra invertida; las canastas, girando la base por la
+  izquierda (+177° / +168°). Base sin tope: encenderla mirando adelante.
 - Puertos en la Pi (28 oct): Mega = clon con CH340 (1a86) → `/dev/ttyUSB1`; LD06 (CP2102) → `/dev/ttyUSB0`;
   U2D2 (FTDI) → otro ttyUSB. Con `pi/system/99-cafebot.rules`: `/dev/cafebot-mega`, `-lidar`, `-u2d2`.
 - Sensores de línea: 4 × QTR-1A analógicos en A8–A11 (DI, DD, TI, TD), conector Analog IO del shield; A1/A4/A5
@@ -109,6 +112,10 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - 31 oct: integrada la rama de Pablo: soporte sin pelota detectada = NEGRO o VACIO (nunca un color: la madera se
   confundía con AMARILLO; prueba 4b), `tools.ver_camara` (navegador) y, sin Mega, A/R/flechas dicen cuánto mover el
   árbol a mano; encima, **U** lo vuelve a ubicar con el LiDAR (sin foto, sirve de cerca; prueba 7c).
+- 31 oct: la SD de la Pi murió (se usa otra, de una Pi 4). Integrada la calibración del brazo de Pablo. Lo que
+  estaba en `robot_local.json` (intrínsecos de la cámara, garra, IR) quedó como valores por defecto en `config.py`.
+  Arreglado: al encender, la base se lee en la vuelta que cae dentro de su rango (recortado a −76..+202°; antes, la
+  más cercana a 0°: encendida pasado +180° leía una vuelta corrida); fuera de rango no se activa el torque.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de

@@ -281,6 +281,13 @@ def prueba_ayudas(cfg):
 
 def prueba_comandos(cfg):
     """Los comandos de tools.brazo de punta a punta (input y pantallas simuladas)."""
+    cargar_original = tb.cargar
+
+    def cargar_fijo():                     # la garra de la prueba, no la calibrada del robot
+        c = cargar_original()
+        c.brazo.garra_cerrada_deg, c.brazo.garra_vacia_deg = 65.0, 58.0
+        return c
+    tb.cargar = cargar_fijo
     bus.__init__()
     cfg_ruta = TMP / "brazos" / "principal.json"
     if cfg_ruta.exists():
@@ -382,6 +389,7 @@ def main():
     cfg = cargar()
     cfg.brazo.t_mov_s = cfg.brazo.t_fino_s = 0.01          # sin esperas en la prueba
     cfg.mision.brazo_x, cfg.mision.brazo_y, cfg.mision.brazo_z = 0.10, 0.0, 0.36   # geometría fija de la prueba
+    cfg.brazo.garra_cerrada_deg, cfg.brazo.garra_vacia_deg = 65.0, 58.0            # y garra fija (no la del robot)
     print("Calibración del brazo (bus falso)")
     prueba_perfil()
     prueba_cero_y_sentido()
