@@ -14,7 +14,7 @@ Qué hace (detalles en docs/cosecha.md):
 En la Raspberry (escritorio por VNC), con el robot frente al árbol, el frente a ~60 cm del pie:
     python3 -m tools.cosecha                          # todo: cámara, LiDAR, Mega y brazo
     python3 -m tools.cosecha --sin-brazo              # solo ver (no mueve el brazo)
-    python3 -m tools.cosecha --sin-mega               # la base no se mueve (A, R y flechas no hacen nada)
+    python3 -m tools.cosecha --sin-mega               # la base no se mueve: A, R y flechas dicen cuánto mover el ÁRBOL a mano
     python3 -m tools.cosecha --arbol taller           # modelo del árbol de prueba (pi/arboles/taller.json)
     python3 -m tools.cosecha --arbol taller --crear-arbol   # crea ese archivo (con las medidas de competencia) para editar
     python3 -m tools.cosecha --imagen capturas/F.jpg --frente 0.60    # fotos guardadas, sin robot (prior a mano)
@@ -635,8 +635,7 @@ class Cosecha:
         """Avanza (o, con cangrejo_deg = ±90, se corre de lado: + = izquierda) y vuelve a ubicar el árbol: primero
         con la odometría y después con el LiDAR."""
         if self.mega is None:
-            self.log("sin Mega (--sin-mega)")
-            return False
+            return self._mover_a_mano(mm, cangrejo_deg)
         p0 = self._pose_mega()
         t = 10 + 3 * abs(mm) / max(vel, 20.0)
         r = (self.mega.cangrejo(cangrejo_deg, mm, vel, timeout=t) if cangrejo_deg else
@@ -660,6 +659,28 @@ class Cosecha:
         self.log(f"{que} {mm:+.0f} mm: {'ok' if r.ok else r.motivo}{frente}"
                  + ("" if med is not None else " (el LiDAR no vio el pie: solo odometría)"))
         return r.ok
+
+    def _mover_a_mano(self, mm: float, cangrejo_deg: float) -> bool:
+        """Sin Mega: el ÁRBOL se mueve a mano (lo que el robot avanzaría) y aquí solo se corre la pose del pie.
+        Sirve para probar el brazo sin ruedas: ESPACIO a la distancia de la foto, A y acercar el árbol lo pedido."""
+        if self.pose_pie is None:
+            self.log("sin Mega: primero medir (ESPACIO)")
+            return False
+        d = mm / 1000
+        dx, dy = (0.0, d if cangrejo_deg > 0 else -d) if cangrejo_deg else (d, 0.0)
+        x, y, ang = self.pose_pie
+        self.pose_pie = (x - dx, y - dy, ang)
+        if self.prior_fijo is not None:
+            (px, py, pa), sig = self.prior_fijo
+            self.prior_fijo = ((px - dx, py - dy, pa), sig)
+        self._actualizar_alcance()
+        if dx:
+            que = f"ACERCA el árbol {100 * dx:.1f} cm al robot" if dx > 0 else f"ALEJA el árbol {-100 * dx:.1f} cm del robot"
+        else:
+            que = f"corre el árbol {100 * abs(dy):.1f} cm a la {'DERECHA' if dy > 0 else 'IZQUIERDA'} (visto desde el robot)"
+        self.log(f"sin Mega, A MANO: {que} | pie a {self.pose_pie[0] - self.cfg.geometria.largo / 2:.3f} m del frente "
+                 "(no apretar ESPACIO: el LiDAR o la foto lo moverían de nuevo)")
+        return True
 
     def acercar(self):
         if self.pose_pie is None:
