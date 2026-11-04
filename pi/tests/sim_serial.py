@@ -14,9 +14,13 @@ BINARIO = "/tmp/cafebot_sim"
 
 
 def compilar() -> str:
+    """Compila a un archivo aparte y lo pone en su lugar de una vez: así otra simulación que ya corre el binario
+    anterior no falla ("Text file busy"). En la Pi hace falta g++ (sudo apt install g++)."""
     th = RAIZ / "firmware" / "test_host"
+    tmp = f"{BINARIO}.{os.getpid()}"
     subprocess.run(["g++", "-std=c++17", "-O1", f"-I{th}", "-include", "Arduino.h", "-x", "c++",
-                    str(th / "sim.cpp"), "-o", BINARIO], check=True)
+                    str(th / "sim.cpp"), "-o", tmp], check=True)
+    os.replace(tmp, BINARIO)
     return BINARIO
 
 

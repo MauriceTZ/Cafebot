@@ -69,6 +69,9 @@ class Brazo:
     def descansar(self):
         """Postura plegada y segura para navegar (idealmente apoyado y sin torque)."""
 
+    def detener(self):
+        """Parar ya (ESC / Ctrl+C): no empezar ningún movimiento más."""
+
     def estado(self) -> str:
         return ""
 
@@ -184,6 +187,40 @@ class BrazoSimulado(Brazo):
 
     def estado(self):
         return " ".join(f"{k[:4]}={len(v)}" for k, v in self.depositos.items())
+
+
+class BrazoHibrido(Brazo):
+    """Prueba HÍBRIDA: ronda simulada con el BRAZO REAL (tools.mision --sim --brazo, tools.navegacion --sim --brazo).
+    El brazo de verdad hace cada agarre completo (acercarse, cerrar la garra, ir a la canasta, soltar) con los mismos
+    puntos que tendría frente al árbol, y el mundo simulado (BrazoSimulado, con la pose real del robot simulado)
+    decide si el grano salió del árbol y lleva la cuenta. La garra cierra en el aire: no se exige grano."""
+
+    def __init__(self, real, sim: BrazoSimulado, log=print):
+        self.real, self.sim, self.log = real, sim, log
+        self.sim.t = 0.0                        # el tiempo de cada agarre lo pone el brazo de verdad
+        self.real.prueba_sin_granos = True
+
+    def preparar(self) -> bool:
+        return self.real.preparar()
+
+    def alcanzable(self, p_robot) -> bool:
+        return self.real.alcanzable(p_robot)
+
+    def recoger(self, p_robot, categoria: str) -> bool:
+        if not self.real.recoger(p_robot, categoria):
+            self.log(f"   [brazo real] no completó el agarre: {self.real.ultimo_motivo}")
+            return False
+        return self.sim.recoger(p_robot, categoria)
+
+    def descansar(self):
+        self.real.descansar()
+
+    def detener(self):
+        self.real.detener()
+
+    def estado(self) -> str:
+        real = self.real.estado().split(" | ", 1)
+        return self.sim.estado() + (f" | brazo real: {real[1]}" if len(real) > 1 else "")
 
 
 class VisionNula(Vision):

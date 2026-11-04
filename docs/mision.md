@@ -23,6 +23,25 @@ python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0 --brazo --c
 Al terminar (entregó lo que alcanzó a recoger, o se acabó el tiempo) el programa se cierra solo: el brazo queda en su
 postura de descanso y las compuertas cerradas, con torque, mientras los jueces levantan el robot.
 
+## Prueba híbrida: ronda simulada con el BRAZO REAL (4 nov)
+Todo simulado (cancha, Mega, LiDAR, visión) menos el brazo: el de verdad hace cada agarre completo (acercarse, cerrar
+la garra, ir a la canasta, soltar) en los mismos puntos que tendría frente al árbol, y la simulación decide si el
+grano salió del árbol y lleva el puntaje (`interfaces.BrazoHibrido`). La garra cierra en el aire: no se exige grano.
+```bash
+python3 -m tools.mision --sim --brazo                     # en la terminal
+python3 -m tools.navegacion --sim --brazo --mision        # con el mapa y la vista de la cámara simulada
+```
+- El robot queda QUIETO (el Mega es simulado: las ruedas no se mueven). Dejar espacio libre adelante (~40 cm), arriba
+  (~75 cm), a los lados y ATRÁS: la base gira hasta ~180° por la izquierda para ir a las canastas.
+- NO poner el árbol de prueba delante: entre estaciones el robot simulado se corre de lado y el de verdad no, así
+  que el brazo apuntaría a otro soporte. Para agarrar pelotas de verdad: `tools.cosecha` (docs/cosecha.md).
+- Sirve para ver los movimientos reales en una ronda, el tiempo de verdad de cada agarre dentro de los 8 min, que
+  estén las posturas de las canastas y la salud de los servos (°C, V). Lo que el brazo no alcanza lo dice antes de
+  moverse ("fuera de alcance").
+- ESC (interfaz) o Ctrl+C: la misión se detiene y el brazo termina el movimiento en curso y no empieza otro
+  (`Mision.detener` → `brazo.detener`). Para una emergencia, cortar la alimentación del brazo.
+- En la Pi, la simulación compila el firmware del Mega: hace falta `g++` (`sudo apt install g++`).
+
 ## Botón de inicio y servicio (para la competencia)
 Botón entre el GPIO 23 (pin 16) y GND (pin 14), sin resistencia (pull-up interno): `docs/hardware.md`. Probarlo con
 `python3 -m tools.boton`. Para que la misión corra sin el PC (la ronda va sin WiFi), instalar el servicio una vez:

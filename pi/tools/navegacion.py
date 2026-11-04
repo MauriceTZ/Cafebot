@@ -4,6 +4,7 @@ En la Raspberry (escritorio por VNC):
     python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0
     python3 -m tools.navegacion --lidar /dev/ttyUSB0 --sin-mega      # solo mapear (empujando el robot)
     python3 -m tools.navegacion --sim                                 # todo simulado, sin robot
+    python3 -m tools.navegacion --sim --brazo --mision                # HÍBRIDA: ronda simulada, el BRAZO REAL agarra
     agregar --imu para usar el giroscopio MPU9250
 
 Ratón:  clic = destino B | Shift+clic = origen A | arrastrar = mover | rueda = zoom
@@ -182,6 +183,9 @@ def crear_mision(cfg, nav, lidar, mega, esc, usar_brazo=False, usar_camara=False
         brazo = I.BrazoSimulado(esc, real, (c.brazo_x, c.brazo_y, c.brazo_z), alcanzable_fn=alcanzable)
         vision = I.VisionSimulada(esc, cfg_camara=cfg.camara, ve_cajas_al_partir=False)
         depositos = I.DepositosSimulados(mega, c, brazo, esc, real)
+        if usar_brazo:                       # prueba híbrida: el brazo de verdad hace los agarres simulados
+            from tools.mision import brazo_hibrido
+            brazo = brazo_hibrido(cfg, brazo)
     else:
         brazo, vision, depositos = armar_reales(cfg, usar_brazo, "camara" if usar_camara else "nula", mega, camara)
     return Mision(cfg, nav, lidar, mega, brazo, vision, depositos, I.Boton())
@@ -200,7 +204,9 @@ def main():
     ap.add_argument("--ir-a", default=None, metavar="X,Y",
                     help="planificar y ejecutar una ruta a (X,Y) m apenas el mapa lo permita")
     ap.add_argument("--mision", action="store_true", help="iniciar la misión sola a los 3 s (como la tecla K)")
-    ap.add_argument("--brazo", action="store_true", help="(robot) la misión usa el brazo XL430 real")
+    ap.add_argument("--brazo", action="store_true",
+                    help="la misión usa el brazo XL430 real (con --sim: prueba híbrida, el brazo de verdad en la "
+                         "ronda simulada)")
     ap.add_argument("--camara", action="store_true", help="(robot) la misión usa la cámara real")
     ap.add_argument("--taller", default=None, metavar="LARGOxANCHO",
                     help="(con --sim) pista de taller: rectángulo de huincha de LARGO × ANCHO m, robot en una esquina")

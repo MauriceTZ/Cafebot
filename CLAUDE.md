@@ -68,7 +68,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
     test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
     test_navegacion, test_mision, test_ir, test_borde, test_cosecha, test_pantalla, test_vista_camara,
-    test_cajas, test_compuertas, test_linea_arbol).
+    test_cajas, test_compuertas, test_linea_arbol, test_brazo_hibrido).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
@@ -143,6 +143,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   (el LiDAR solo da la posición lateral); se repite tras cada cangrejo (`mision.linea_cultivo`, `linea_por_estacion`;
   docs/mision.md). No corrige la pose global. Simulado con LiDAR mal montado (1,5 cm, 1,5°): error del agarre
   1,6 → 0,8 cm. Medir en la cancha la distancia línea–tablero (`cancha.ARBOL_X_FRENTE`) y calibrar los IR ahí.
+- 4 nov: prueba HÍBRIDA (`tools.mision --sim --brazo`, `tools.navegacion --sim --brazo --mision`): ronda simulada
+  con el brazo REAL haciendo cada agarre en el aire (`interfaces.BrazoHibrido`, `BrazoXL430.prueba_sin_granos`); la
+  simulación decide y puntúa. `Mision.detener()` ahora también para el brazo (`brazo.detener`). docs/mision.md.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de

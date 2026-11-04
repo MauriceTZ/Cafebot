@@ -278,6 +278,7 @@ class BrazoXL430(Brazo):
         self.listo = False
         self.ultimo_motivo = ""
         self.parar = threading.Event()   # ESC: no se manda ningún movimiento más hasta la próxima orden
+        self.prueba_sin_granos = False   # prueba híbrida (ronda simulada, brazo real): la garra cierra en el aire
         self._salud = []           # última lectura (estado() NO toca el bus: lo llama la interfaz desde otro hilo)
         self._actualizar_perfil()
 
@@ -327,6 +328,7 @@ class BrazoXL430(Brazo):
 
     def preparar(self) -> bool:
         """Para la misión: conectar, revisar salud y quedar en la postura de espera. False si no se puede usar."""
+        self.parar.clear()
         try:
             if self.bus is None:
                 self.conectar()
@@ -605,7 +607,9 @@ class BrazoXL430(Brazo):
                     self._abortar(direccion)
                     return False
             cierre = self.garra(abrir=False)
-            if cierre > self.cb.garra_vacia_deg:
+            if cierre > self.cb.garra_vacia_deg and self.prueba_sin_granos:
+                self.log(f"[brazo] la garra cerró hasta {cierre:.0f}° (prueba sin granos: sigo como si lo tuviera)")
+            elif cierre > self.cb.garra_vacia_deg:
                 self.ultimo_motivo = f"la garra cerró hasta {cierre:.0f}°: no había grano"
                 self.log(f"[brazo] {self.ultimo_motivo}")
                 self._abortar(direccion)
@@ -633,6 +637,11 @@ class BrazoXL430(Brazo):
             except Exception:
                 pass
             return False
+
+    def detener(self):
+        """Parar (ESC / Ctrl+C / fin de la misión): termina el movimiento en curso y no manda ninguno más (queda
+        donde está, con torque). preparar() lo vuelve a habilitar."""
+        self.parar.set()
 
     def descansar(self):
         if self.bus is None:

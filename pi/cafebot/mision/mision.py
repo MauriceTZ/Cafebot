@@ -139,6 +139,7 @@ class Mision:
     def detener(self):
         self._cancelar.set()
         self.nav.detener()
+        self.brazo.detener()                 # el brazo termina el movimiento en curso y no empieza otro
 
     def esperar(self, timeout=None):
         if self._hilo:

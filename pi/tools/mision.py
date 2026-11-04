@@ -1,6 +1,8 @@
 """Correr la misión de una ronda, sin interfaz gráfica.
 
     python3 -m tools.mision --sim                    # todo simulado: cancha sorteada, brazo y visión simulados
+    python3 -m tools.mision --sim --brazo            # HÍBRIDA: ronda simulada con el BRAZO REAL (el robot quieto en la
+                                                     #   mesa; el brazo hace cada agarre en el aire: docs/mision.md)
     python3 -m tools.mision --sim --nivel 3 --semilla 7
     python3 -m tools.mision                          # robot real: Mega + LD06, botón = ENTER, sin brazo ni visión
     python3 -m tools.mision --brazo --vision camara  # robot real COMPLETO (brazo XL430 + cámara)
@@ -66,6 +68,21 @@ def armar_reales(cfg, usar_brazo: bool, vision: str, mega, camara=None):
     return brazo, vis, depositos
 
 
+def brazo_hibrido(cfg, brazo_sim, log=print):
+    """El brazo REAL (U2D2) haciendo los agarres de una ronda SIMULADA (interfaces.BrazoHibrido)."""
+    from cafebot.arm.brazo import BrazoXL430
+    from tools.brazo import buscar_u2d2
+    try:
+        puerto = buscar_u2d2(cfg.puertos.u2d2)
+    except SystemExit as e:
+        log(f"[brazo] {e}")
+        puerto = cfg.puertos.u2d2
+    log("PRUEBA HÍBRIDA: ronda simulada con el BRAZO REAL. El robot quieto (no se mueve: el Mega es simulado), con "
+        "espacio libre adelante, a los lados y atrás (la base gira hasta las canastas). Ctrl+C / ESC lo detiene "
+        "después del movimiento en curso.")
+    return I.BrazoHibrido(BrazoXL430(cfg, puerto, log=log), brazo_sim, log=log)
+
+
 def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None):
     """Mega (firmware real compilado en el PC), LiDAR, brazo, visión y compuertas simulados."""
     from cafebot.drivers.lidar_simulado import LD06Simulado
@@ -112,7 +129,8 @@ def main():
     ap.add_argument("--t-agarre", type=float, default=4.0, help="(sim) segundos por agarre")
     ap.add_argument("--nivel", type=int, default=None)
     ap.add_argument("--boton", choices=("enter", "gpio", "ya"), default=None)
-    ap.add_argument("--brazo", action="store_true", help="(real) usar el brazo XL430")
+    ap.add_argument("--brazo", action="store_true",
+                    help="usar el brazo XL430 real (con --sim: prueba híbrida, ronda simulada con el brazo de verdad)")
     ap.add_argument("--vision", choices=("nula", "camara", "fija"), default="nula",
                     help="(real) camara = la real; nula = no toca granos; fija = todo MADURO (solo taller)")
     ap.add_argument("--imu", action="store_true")
@@ -135,6 +153,8 @@ def main():
         esc, mega, lidar, brazo, vision, depositos = armar_sim(cfg, a.semilla, a.t_agarre, a.zona)
         print(f"Cancha sorteada: partida {esc.zona_robot}, caja roja {esc.zona_caja_roja}, "
               f"azul {esc.zona_caja_azul}, albercas {esc.albercas}")
+        if a.brazo:
+            brazo = brazo_hibrido(cfg, brazo)
     else:
         from cafebot.drivers.ld06 import LD06
         from cafebot.drivers.mega import Mega
