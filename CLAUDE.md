@@ -146,6 +146,10 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - 4 nov: prueba HÍBRIDA (`tools.mision --sim --brazo`, `tools.navegacion --sim --brazo --mision`): ronda simulada
   con el brazo REAL haciendo cada agarre en el aire (`interfaces.BrazoHibrido`, `BrazoXL430.prueba_sin_granos`); la
   simulación decide y puntúa. `Mision.detener()` ahora también para el brazo (`brazo.detener`). docs/mision.md.
+- 4 nov: calibración GUIADA de las compuertas (`tools.compuertas calibrar`): sin torque, a mano cerrada y abierta
+  (ángulo en vivo), límites con margen en la EEPROM, prueba con torque (avisa si sujetándola cerrada empuja un tope).
+  Sin parámetro de sentido (se graban los ángulos reales). Si entre cerrada y abierta se pasa por 0°/360° no se guarda:
+  montar el cuerno girado (en modo posición el servo no cruza el 0; el Homing Offset no lo arregla).
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de

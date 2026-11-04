@@ -58,15 +58,30 @@ reinicia solo: después de una ronda, `sudo systemctl start cafebot-mision` (o a
 ## Compuertas (Dynamixel id 12 = maduros, id 13 = sobremaduros)
 En el mismo bus que el brazo (U2D2). Quedan en modo posición, con el PWM limitado (si algo las traba no se queman) y
 con sus límites grabados en el servo: aunque se pida un ángulo equivocado, no pasan de ahí. **Sin calibrar no se
-mueven** (sus granos quedan en el robot: +3 / +1). Calibrar (ángulos del servo, 0..360°):
+mueven** (sus granos quedan en el robot: +3 / +1).
+
+**Calibración guiada** (ángulos del servo, 0..360°), con el brazo quieto y el U2D2 conectado:
 ```bash
-python3 -m tools.compuertas soltar                     # sin torque
-python3 -m tools.compuertas leer --seguir              # el ángulo en vivo mientras se mueven a mano
-python3 -m tools.compuertas grabar maduros cerrada     # cada una cerrada y abierta (también: sobremaduros, 12, 13)
-python3 -m tools.compuertas grabar maduros abierta
-python3 -m tools.compuertas limites maduros 150 260    # unos grados más allá de cerrada y abierta
-python3 -m tools.compuertas probar                     # abre, espera mision.t_vaciado_s y cierra
+python3 -m tools.compuertas leer                       # ¿responden las dos (id 12 y 13)? modo, límites, °C
+python3 -m tools.compuertas calibrar                   # las dos (o: calibrar maduros / calibrar sobremaduros)
 ```
+1. Deja la compuerta SIN torque. Se lleva **a mano** a CERRADA (tapando la salida, sin apretarla contra un tope) mirando
+   el ángulo en vivo, ENTER; después a ABIERTA (del todo: que los granos salgan solos), ENTER.
+2. **Sentido**: no hay que configurarlo. Se graban los ángulos reales y el servo va de uno al otro (si "abierta" es
+   menor que "cerrada", gira para el otro lado y listo).
+3. Si entre cerrada y abierta se pasa por **0°/360°**, el servo (modo posición) no cruza el 0: daría la vuelta larga y
+   rompería la compuerta. La herramienta no la guarda y pide **montar el cuerno girado** (soltar su tornillo y
+   moverlo unos dientes) para que la compuerta trabaje cerca de 180°; después, calibrar otra vez. Correr el cero por
+   software (Homing Offset) no sirve: la lectura sigue saltando en el mismo punto del eje.
+4. **Límites**: `--margen` grados (5 por defecto) más allá de cerrada y de abierta, grabados en la EEPROM del servo.
+5. **Prueba** con torque, despacio: cierra, abre, espera `mision.t_vaciado_s` y cierra; dice dónde quedó y cuánta
+   carga hace sujetándola cerrada. Más de ~35 %: está empujando contra algo y se calienta: correr "cerrada" 2–3°
+   hacia abierta.
+6. Al final imprime las líneas para `ConfigCompuertas` en `pi/cafebot/config.py` (lo grabado va a
+   `pi/robot_local.json`, que se pierde con la SD).
+
+A mano, lo mismo por partes: `soltar`, `leer --seguir`, `grabar maduros cerrada|abierta`, `limites maduros MIN MAX`,
+`mover maduros GRADOS`, `probar`.
 Se graba en `pi/robot_local.json` (sección `compuertas`): copiarlo también a `ConfigCompuertas` en
 `pi/cafebot/config.py`, que robot_local.json se pierde con la SD. `compuertas.tipo = "mega"` vuelve a las de X 0 / X 1.
 

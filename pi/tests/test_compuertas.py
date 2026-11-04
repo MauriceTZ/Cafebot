@@ -8,6 +8,9 @@
   3. armar_reales (tools.mision) arma las compuertas Dynamixel (o las del Mega con compuertas.tipo = "mega").
   4. Botón (gpiozero falso): parte al soltar; un pulso de ruido de 10 ms no cuenta; si al empezar está apretado,
      espera que lo suelten y que lo vuelvan a apretar.
+  5. Calibración guiada (tools.compuertas calibrar) con un "usuario" falso que mueve las compuertas a mano: graba
+     cerrada, abierta y límites, y la prueba con torque cierra, abre y cierra; si entre cerrada y abierta se pasa por
+     0°, esa compuerta no se guarda ni se mueve (el servo daría la vuelta larga).
 """
 import sys
 import threading
@@ -166,6 +169,49 @@ def prueba_boton(cfg):
     print("  GPIO 23 con pull-up: parte al soltar; ignora un pulso de 10 ms; apretado al empezar no parte solo")
 
 
+def prueba_calibracion(tmp):
+    import argparse
+    import json
+    import pathlib
+    from cafebot.arm import compuertas as C
+    from cafebot.config import guardar_local
+    import tools.compuertas as T
+
+    assert not C.cruza_cero(180, 250) and C.cruza_cero(350, 20) and C.cruza_cero(20, 350) and not C.cruza_cero(90, 10)
+    ruta = pathlib.Path(tmp) / "robot_local.json"
+    T.guardar_local = lambda sec, val: guardar_local(sec, val, ruta=str(ruta))
+
+    def mano(sid, grados):                       # el "usuario" mueve la compuerta (sin torque) a ese ángulo
+        def f():
+            falso.mem[(sid, 132)] = grados_a_pasos(grados)
+        return f
+    respuestas = [(mano(12, 180.0), ""), (mano(12, 250.0), ""), (None, "s"),       # maduros + prueba con torque
+                  (mano(13, 350.0), ""), (mano(13, 20.0), "")]                     # sobremaduros: pasa por 0°
+
+    def entrada(prompt=""):
+        accion, r = respuestas.pop(0)
+        if accion:
+            accion()
+        return r
+    T.input = entrada
+    cfg = cargar()
+    cfg.mision.t_vaciado_s = 0.05
+    escrituras_antes = len(falso.escrituras)
+    bus = dxl.BusDXL("/dev/falso", 1_000_000, [dxl.ConfigServo(i) for i in cfg.compuertas.ids])
+    comp = CompuertasDXL(bus, cfg.compuertas, log=lambda t: None)
+    T.cmd_calibrar(argparse.Namespace(compuerta=None, margen=5.0), cfg, comp)
+    assert not respuestas, respuestas
+    guardado = json.loads(ruta.read_text())["compuertas"]
+    assert guardado["cerrada_deg"] == [180.0, None] and guardado["abierta_deg"] == [250.0, None], guardado
+    assert guardado["limites_deg"][0] == [175.0, 255.0], guardado
+    assert falso.leer(12, ADDR_MIN_POS) == grados_a_pasos(175) and falso.leer(12, ADDR_MAX_POS) == grados_a_pasos(255)
+    assert metas(12)[-3:] == [grados_a_pasos(180), grados_a_pasos(250), grados_a_pasos(180)], metas(12)[-3:]
+    nuevas = falso.escrituras[escrituras_antes:]
+    assert not any(s == 13 and a in (20, ADDR_MIN_POS, ADDR_MAX_POS, ADDR_GOAL) for s, a, _ in nuevas)
+    print("  maduros: cerrada 180°, abierta 250°, límites 175..255° en el servo y la prueba cerró, abrió y cerró | "
+          "sobremaduros 350° -> 20° pasa por 0°: no se guarda ni se mueve (pide montar el cuerno girado)")
+
+
 def main():
     cfg = cargar()
     print("1) Compuertas en el bus del brazo")
@@ -176,6 +222,10 @@ def main():
     prueba_armar(cargar())
     print("4) Botón de inicio")
     prueba_boton(cfg)
+    print("5) Calibración guiada")
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        prueba_calibracion(tmp)
     print("OK: compuertas y botón")
 
 

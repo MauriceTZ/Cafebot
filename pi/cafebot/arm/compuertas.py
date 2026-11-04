@@ -6,7 +6,13 @@ el servo respeta sus límites (Min/Max Position Limit, en su EEPROM): con `limit
 ángulo equivocado la compuerta no pasa de ahí. Ángulos en grados del servo, 0..360 (180° = 2048 pasos).
 
 Sin calibrar (abierta/cerrada = None) la compuerta NO se mueve: sus granos quedan en el robot (+3 / +1), que es mejor
-que golpear el mecanismo con un ángulo inventado. Calibrar con  python3 -m tools.compuertas  (docs/mision.md).
+que golpear el mecanismo con un ángulo inventado. Calibrar con  python3 -m tools.compuertas calibrar  (docs/mision.md).
+
+Sentido: no hay un parámetro de "dirección": se graban los ángulos REALES de abierta y cerrada y el servo va de uno
+al otro. Lo único que importa es que entre los dos no se pase por 0°/360°: en modo posición el servo no cruza el 0
+sino que da la vuelta por el otro lado (330° en vez de 30°) y rompería la compuerta. Correr el cero por software
+(Homing Offset) no lo arregla: la lectura sigue saltando en el mismo punto del eje. Si pasa, hay que montar el cuerno
+(la pieza entre el servo y la compuerta) girado, para que la compuerta trabaje cerca de 180°, y volver a calibrar.
 """
 from __future__ import annotations
 
@@ -17,6 +23,7 @@ from cafebot.arm import dxl
 from cafebot.mision.interfaces import Depositos
 
 NOMBRES = ("maduros", "sobremaduros")
+ADDR_HOMING = 20               # 4 B con signo, EEPROM: Present Position = real + Homing Offset (solo se muestra)
 ADDR_MAX_POS = 48              # 4 B, EEPROM (solo en modo posición)
 ADDR_MIN_POS = 52              # 4 B, EEPROM
 MODO_POSICION = 3
@@ -28,6 +35,21 @@ def grados_a_pasos(g: float) -> int:
 
 def pasos_a_grados(p: int) -> float:
     return (p % dxl.PASOS_POR_REV) * 360.0 / dxl.PASOS_POR_REV
+
+
+def diferencia(a: float, b: float) -> float:
+    """De a hasta b por el camino CORTO (−180..180]: lo que se movió la compuerta a mano."""
+    return (b - a + 180.0) % 360.0 - 180.0
+
+
+def cruza_cero(a: float, b: float) -> bool:
+    """¿El camino corto entre a y b pasa por 0°/360°? Entonces el servo (que no cruza el 0) iría por el largo."""
+    return abs(b - a) > 180.0
+
+
+def limites_con_margen(a: float, b: float, margen: float) -> tuple:
+    """(mín, máx) que contiene a y b con `margen` grados de más a cada lado (dentro de 0..360)."""
+    return max(0.0, min(a, b) - margen), min(359.9, max(a, b) + margen)
 
 
 def indice(que) -> int:
@@ -63,7 +85,9 @@ class CompuertasDXL:
 
     # ------------------------------------------------------------------ estado
     def calibrada(self, k: int) -> bool:
-        return self.cc.abierta_deg[k] is not None and self.cc.cerrada_deg[k] is not None
+        """Abierta y cerrada grabadas, y sin pasar por 0°/360° entre ellas (el servo daría la vuelta larga)."""
+        o, c = self.cc.abierta_deg[k], self.cc.cerrada_deg[k]
+        return o is not None and c is not None and not cruza_cero(float(c), float(o))
 
     def limites(self, k: int):
         lim = self.cc.limites_deg[k]
@@ -82,7 +106,7 @@ class CompuertasDXL:
         return {"id": sid, "modelo": dxl.MODELOS.get(r(sid, dxl.ADDR_MODEL, 2), r(sid, dxl.ADDR_MODEL, 2)),
                 "modo": r(sid, dxl.ADDR_OPERATING_MODE, 1), "torque": bool(r(sid, dxl.ADDR_TORQUE_ENABLE, 1)),
                 "angulo": self.angulo(k), "temp_c": r(sid, dxl.ADDR_PRESENT_TEMP, 1),
-                "error": r(sid, dxl.ADDR_HW_ERROR, 1),
+                "error": r(sid, dxl.ADDR_HW_ERROR, 1), "desfase": self.desfase(k), "carga": self.carga(k),
                 "limites_servo": (pasos_a_grados(r(sid, ADDR_MIN_POS, 4)), pasos_a_grados(r(sid, ADDR_MAX_POS, 4)))}
 
     # ------------------------------------------------------------------ configuración
@@ -134,6 +158,14 @@ class CompuertasDXL:
                 self.log(f"[compuertas] {e}")
                 malas.append(k)
         return malas
+
+    def desfase(self, k: int) -> float:
+        """Homing Offset del servo, en grados (si alguien lo cambió: los ángulos quedan corridos en eso)."""
+        return self.bus._r(self.ids[k], ADDR_HOMING, 4, signo=True) * 360.0 / dxl.PASOS_POR_REV
+
+    def carga(self, k: int) -> float:
+        """Present Load (%, estimada): sujetando la compuerta cerrada debería ser poca; mucha = empuja un tope."""
+        return self.bus._r(self.ids[k], dxl.ADDR_PRESENT_LOAD, 2, signo=True) / 10.0
 
     def torque(self, k: int, activo: bool) -> None:
         sid = self.ids[k]
