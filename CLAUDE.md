@@ -37,7 +37,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   responde), cero de la base girado 180° respecto del anterior, garra invertida; las canastas, girando la base por la
   izquierda (+177° / +168°). Base sin tope: encenderla mirando adelante.
 - Puertos en la Pi (28 oct): Mega = clon con CH340 (1a86) → `/dev/ttyUSB1`; LD06 (CP2102) → `/dev/ttyUSB0`;
-  U2D2 (FTDI) → otro ttyUSB. Con `pi/system/99-cafebot.rules`: `/dev/cafebot-mega`, `-lidar`, `-u2d2`.
+  U2D2 (FTDI) → otro ttyUSB (4 nov: quedó en ttyUSB0; los números cambian al reconectar). Con
+  `pi/system/99-cafebot.rules`: `/dev/cafebot-mega`, `-lidar`, `-u2d2`. Sin ellas, `drivers/puertos.py` elige por el
+  chip USB, aunque `robot_local.json` diga un ttyUSB que ahora es de otro aparato.
 - Sensores de línea: 4 × QTR-1A analógicos en A8–A11 (DI, DD, TI, TD), conector Analog IO del shield; A1/A4/A5
   son del motor M4. Montados en las 4 esquinas, a 45°, junto a cada rueda (posición = centro de la rueda,
   ±111,5 / ±108,5 mm). Calibración y umbrales: `docs/ir.md` (`python3 -m tools.ir`).
@@ -68,7 +70,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
     test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
     test_navegacion, test_mision, test_ir, test_borde, test_cosecha, test_pantalla, test_vista_camara,
-    test_cajas, test_compuertas, test_linea_arbol, test_brazo_hibrido).
+    test_cajas, test_compuertas, test_puertos, test_linea_arbol, test_brazo_hibrido).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
