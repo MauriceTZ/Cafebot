@@ -36,7 +36,8 @@ basta el fabricante `0403`): reinstalar las reglas con
 arranca con versiones anteriores; si la SD viene de una Pi 4, `sudo apt update && sudo apt full-upgrade` y reiniciar):
 1. `git clone https://github.com/MauriceTZ/Cafebot ~/Cafebot`
 2. `cd ~/Cafebot/pi && python3 -m venv --system-site-packages .venv && . .venv/bin/activate && pip install -r requirements.txt`
-   (antes, con apt: `python3-picamera2 python3-opencv python3-scipy python3-pygame`).
+   (antes, con apt: `python3-numpy python3-scipy python3-opencv python3-picamera2 python3-pygame python3-smbus2`;
+   numpy NO por pip: un numpy 2 en el venv rompe el cv2 de apt, 4 nov).
 3. Reglas de los puertos: `sudo cp system/99-cafebot.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger`.
 4. `sudo usermod -aG dialout $USER` y volver a entrar (sin eso no abre los puertos serie).
 5. Comprobar: `rpicam-hello --list-cameras` (la cámara), `ls -l /dev/cafebot-*` (Mega, LiDAR y U2D2).

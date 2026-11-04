@@ -1,8 +1,8 @@
-# En la Raspberry: crear el venv con --system-site-packages para conservar picamera2 y opencv de apt
+# En la Raspberry, numpy, scipy, OpenCV, picamera2 y pygame van por APT (están compilados juntos):
+#   sudo apt install python3-numpy python3-scipy python3-opencv python3-picamera2 python3-pygame python3-smbus2
 #   python3 -m venv --system-site-packages .venv && . .venv/bin/activate && pip install -r requirements.txt
+# NO instalar numpy con pip en la Pi: un numpy 2 dentro del venv tapa al de apt y cv2 (compilado con numpy 1) no
+# carga ("_ARRAY_API not found", 4 nov). Si pasó: pip uninstall -y numpy scipy pygame opencv-python
+# En un PC (sin apt): pip install -r requirements.txt numpy scipy opencv-python pygame smbus2
 pyserial>=3.5
-numpy
-scipy           # navegación (en la Pi: sudo apt install python3-scipy)
-smbus2          # giroscopio MPU9250 (opcional)
-pygame          # interfaz de navegación y visor (en la Pi: sudo apt install python3-pygame)
 dynamixel-sdk   # brazo
