@@ -303,6 +303,7 @@ class BrazoXL430(Brazo):
             from cafebot.drivers.puertos import resolver
             self.puerto = resolver(self.puerto, "u2d2", self.log)
             self.bus = dxl.BusDXL(self.puerto, self.perfil.baudios, self.perfil.servos())
+        self.bus.volt_min_v = self.cb.volt_min_v
         vivos = self.bus.ping()
         faltan = [s for s in self.IDS + [self.ID_GARRA] if s not in vivos]
         if faltan:

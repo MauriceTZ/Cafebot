@@ -100,3 +100,12 @@ for inv in (False, True):
     b.torque(True)
     assert not b.fuera_de_rango and abs(math.degrees(b.angulos([9])[9]) - 10) < 0.1
 print("OK: dxl contra bus falso")
+# Voltaje bajo: el límite es configurable (brazo.volt_min_v); 4 nov la fuente daba 10,2 V
+sv = next(iter(b.servos))
+bus.mem[(sv, dxl.ADDR_PRESENT_VOLTAGE)] = 102
+b.volt_min_v = 10.5
+assert not b.puede_trabajar()[0] and "10.2 V" in b.puede_trabajar()[1]
+b.volt_min_v = 9.5
+assert b.puede_trabajar()[0]
+bus.mem[(sv, dxl.ADDR_PRESENT_VOLTAGE)] = 118
+print("  voltaje: con 10,2 V no agarra si el mínimo es 10,5 V; con 9,5 V sí")

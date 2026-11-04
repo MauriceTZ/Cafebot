@@ -73,7 +73,8 @@ MODELOS = {1060: "XL430-W250", 1090: "2XL430-W250", 1070: "XC430-W150", 1080: "X
 PASOS_POR_REV = 4096
 TEMP_AVISO_C = 60       # avisar y preferir descanso
 TEMP_DESCANSO_C = 66    # no iniciar más agarres hasta enfriar
-VOLT_MIN_V = 10.5       # bajo esto el torque disponible cae (1,0 N·m a 9 V)
+VOLT_MIN_V = 9.5        # por defecto; el brazo usa brazo.volt_min_v (config). XL430: funciona de 6,5 a 12 V, pero
+                        # el torque cae con el voltaje (~1,4 N·m a 11,1 V, ~1,0 a 9 V)
 
 
 @dataclass
@@ -188,6 +189,7 @@ class BusDXL:
         Sin ella se usan los del código antiguo (BRAZO + GARRA)."""
         from dynamixel_sdk import PacketHandler, PortHandler
 
+        self.volt_min_v = VOLT_MIN_V          # puede_trabajar(): bajo esto no se agarra (lo cambia el brazo)
         self.port = PortHandler(puerto)
         self.pk = PacketHandler(2.0)
         if not self.port.openPort() or not self.port.setBaudRate(baudios):
@@ -360,7 +362,7 @@ class BusDXL:
                 return False, f"servo {s.id}: {', '.join(s.errores)}"
             if s.temp_c >= TEMP_DESCANSO_C:
                 return False, f"servo {s.id} a {s.temp_c} °C"
-            if s.volt_v < VOLT_MIN_V:
+            if s.volt_v < getattr(self, "volt_min_v", VOLT_MIN_V):
                 return False, f"voltaje {s.volt_v:.1f} V"
         return True, ""
 

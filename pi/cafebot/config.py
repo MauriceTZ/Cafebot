@@ -208,6 +208,9 @@ class ConfigBrazo:
     t_fino_s: float = 0.4          # duración de cada paso de la aproximación
     error_max_deg: float = 6.0     # si una articulación queda más lejos de su meta: algo la bloquea, se aborta
     carga_max_pct: float = 80.0    # ídem con la carga estimada
+    volt_min_v: float = 9.5        # bajo esto el brazo no agarra (4 nov: era 10,5 fijo y con la fuente a 10,2 V no
+                                   # partía). XL430: 6,5–12 V; con menos voltaje, menos torque: el hombro estirado
+                                   # se sobrecarga antes (docs/brazo.md). Con batería, cargarla igual.   [AJUSTAR]
     postura_espera: str = "descanso"    # entre un grano y otro: plegado DETRÁS del frente del robot. "trabajo"
                                         # deja la garra a la altura de la fila media y 1 cm delante: chocaría
     descanso_sin_torque: bool = False   # True SOLO si el brazo plegado queda APOYADO (si no, se cae)
