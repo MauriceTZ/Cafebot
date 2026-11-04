@@ -133,6 +133,14 @@ class ConfigMision:
                                        # 31 oct, con los límites del brazo de Pablo y la base a 35,2 cm, la fila baja
                                        # pide ≥ 12 cm (se pliega demasiado) y la alta, ≤ 8 cm (si la base sube a 37)
     estaciones_y: tuple = (0.24, 0.12, 0.0, -0.12, -0.24)   # posiciones laterales del brazo frente al árbol
+    # Línea del cultivo (4 nov): entre el robot y el árbol, a ARBOL_X_FRENTE − CULTIVO_X0 ≈ 11,9 cm de la cara del
+    # tablero (borde cercano de la línea; reglamento: el tablero a 10 cm de la línea) [MEDIR en la cancha]. Al
+    # acercarse, los sensores DELANTEROS (DI/DD) la tocan: con los dos cruces salen la distancia y el rumbo exactos,
+    # el robot se endereza y desde ahí la x y el rumbo salen de la línea + la odometría (de cerca el LiDAR es menos
+    # preciso); el LiDAR sigue dando la posición lateral del árbol. Sin ver la línea, sigue solo con el LiDAR.
+    linea_cultivo: bool = True
+    linea_por_estacion: bool = True        # repetirlo después de cada cangrejo (corrige lo que gira o deriva)
+    linea_max_correccion_m: float = 0.10   # si la línea dice algo más distinto que esto (o > 10°), no se usa
     orden_filas: tuple = ("alta", "media", "baja")
     camara_arbol_deg: float = 25.0     # OBSOLETO (31 oct): el ángulo del servo (X 2) sale de camara.inclinacion_arbol_deg
     camara_cajas_deg: float = 0.0      # OBSOLETO: ídem con camara.inclinacion_cajas_deg (ConfigCamara.servo_de_pitch)

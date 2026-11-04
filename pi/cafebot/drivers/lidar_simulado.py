@@ -28,6 +28,7 @@ class LD06Simulado:
         self.real = np.asarray(pose_inicial, float)
         self.pose_mega_fn = pose_mega_fn
         self.esc_d, self.esc_g = escala_dist, escala_giro
+        self.cfg_real = None          # montaje REAL (otro x / yaw que cfg) para simular un LiDAR mal medido
         self.periodo = 1.0 / hz
         self.rng = np.random.default_rng(semilla)
         self._scan = None
@@ -48,7 +49,7 @@ class LD06Simulado:
                 if math.hypot(d[0], d[1]) < 0.25:
                     self.real = componer(self.real, np.array([d[0] / self.esc_d, d[1] / self.esc_d, d[2] / self.esc_g]))
             self._mega_prev = pm
-            s = simular_scan(tuple(self.real), self.segmentos, self.cfg, self.rng)
+            s = simular_scan(tuple(self.real), self.segmentos, self.cfg, self.rng, cfg_real=self.cfg_real)
             x, y = s.xy()
             propios = mascara_huella(x, y, self.cfg)
             scan = Scan(time.monotonic(), s.angulos[~propios], s.distancias[~propios], s.intensidades[~propios],

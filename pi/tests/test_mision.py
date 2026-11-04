@@ -5,7 +5,7 @@ calibración, brazo/visión/compuertas simulados. Tarda ~2 min (la simulación c
     python3 -m tests.test_mision 3 7        # otras canchas sorteadas
 
 Comprueba: se ubica en el sector correcto, recoge solo maduros, los vacía en la caja roja,
-no abandona granos y termina antes de los 8 min.
+no abandona granos, termina antes de los 8 min y frente al árbol usa la línea del cultivo (DI/DD).
 """
 import sys
 import time
@@ -47,6 +47,9 @@ def ronda(semilla: int) -> int:
     assert all(c == cancha.MADURO for c in depositos.en_roja), "algo que no es maduro en la caja roja"
     assert m.tiempo() < cfg.mision.duracion_s
     assert "TERMINADA" in m.eventos[-1], m.eventos[-1]
+    lineas = [e for e in m.eventos if "línea del cultivo con DI/DD" in e]
+    print(f"   línea del cultivo: tocada {len(lineas)} vez/veces frente al árbol" + (f" ({lineas[0].split(': ', 2)[-1]})" if lineas else ""))
+    assert lineas, "no usó la línea del cultivo frente al árbol (mision.linea_cultivo)"
     return pts
 
 

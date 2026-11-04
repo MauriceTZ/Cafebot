@@ -60,10 +60,31 @@ Se graba en `pi/robot_local.json` (sección `compuertas`): copiarlo también a `
 | Cajas | Sectores con caja: LiDAR al partir **y** el mapa después (desde la partida una caja puede tapar a la otra). Color: la cámara mira adelante, así que antes de entregar se para frente a una caja (`x_vista_cajas`, mirando al beneficiadero) y `Vision.color_caja` dice ROJA/AZUL; si hay dos cajas, la otra es del otro color. | N2 |
 | Ir al árbol | El más cercano en y (si la partida es dudosa, el que el LiDAR ve; ver abajo). A* hasta quedar con el frente a `distancia_foto_m` (50 cm) del tablero, mirando +x y con la **cámara** centrada en el árbol. Si el destino estaba tapado por una alberca, al llegar se replanifica. | N1 |
 | Foto | `X 2` con el ángulo que da `camara.inclinacion_arbol_deg` (`camara.servo_de_pitch`) → el LiDAR mide el tablero → `Vision.clasificar_arbol` (16 lecturas; dónde cae cada soporte en la imagen sale de esa medida). Soportes FUERA de la foto: cangrejo 10 cm hacia ese lado y otra foto. Solo se recogen las categorías de `recoger` con confianza ≥ `confianza_min`. **NO_SE = no tocar.** | N1 |
-| Acercarse | `A` recto, midiendo la cara del tablero con el LiDAR, hasta `holgura_agarre_m`. | N1 |
-| Recoger | 5 estaciones laterales (`estaciones_y`, con `L` cangrejo); en cada una, los granos más cercanos, fila alta → baja. La posición de cada grano se calcula **desde el tablero medido por el LiDAR** (cara + bordes + ángulo), no desde la pose global: así un error de 2–3 cm de la pose no importa. 2 intentos por grano. | N1 |
+| Acercarse | Hasta tocar la **línea del cultivo** con DI y DD (ver abajo) y enderezarse con ella; después `A` recto hasta `holgura_agarre_m`. Sin línea: midiendo la cara del tablero con el LiDAR. | N1 |
+| Recoger | 5 estaciones laterales (`estaciones_y`, con `L` cangrejo; después de cada cangrejo vuelve a tocar la línea); en cada una, los granos más cercanos, fila alta → baja. La posición de cada grano: distancia y ángulo del tablero **de la línea** + la odometría desde que la tocó, y la posición lateral **del pie medido por el LiDAR**; no desde la pose global. 2 intentos por grano. | N1 |
 | Entregar | A* hasta `x_aproximacion_entrega` frente a la caja, mirando +x; **reversa** hasta `x_entrega`; `X 0` abre la compuerta de maduros `t_vaciado_s`, la cierra y sale. N3 hace lo mismo con la azul (`X 1`). | N2 |
 | Reloj | Antes de cada árbol y de cada estación se reserva el tiempo para volver y vaciar. A los 468 s se detiene todo. Si algo falla, igual intenta entregar lo que lleva. | todos |
+
+## Línea del cultivo con los sensores delanteros (4 nov)
+La línea entre la zona intermedia y el cultivo está entre el robot y los árboles, paralela a los tableros: su borde
+cercano (`CULTIVO_X0`) queda a `ARBOL_X_FRENTE − CULTIVO_X0` ≈ 11,9 cm de la cara del tablero (el reglamento pone el
+tablero a 10 cm de la línea; **medirlo en la cancha** y ajustar `cancha.ARBOL_X_FRENTE`). Se puede pisar (las que no:
+el perímetro y las de las albercas).
+- Al acercarse al árbol (`_cuadrar_en_linea`), el robot avanza hasta que DI o DD toca la línea y sigue despacio hasta
+  que la toca el otro (`Bordes.medir_adelante`). Con los dos puntos de cruce (la pose del Mega en cada evento) salen la
+  distancia del robot a la línea (±2 mm) y cuánto está girado (±0,5°, `tests.test_linea_arbol`); gira eso y queda
+  paralelo al tablero, con el frente a ~8 cm. Lo repite después de cada cangrejo (`linea_por_estacion`).
+- Desde ahí, la distancia y el ángulo del tablero salen de la línea + la odometría (pocos cm: precisa); el LiDAR, que
+  de tan cerca es menos preciso, solo da la posición lateral del pie. La pose de la cancha NO se corrige con la línea:
+  un ángulo medido en 22 cm, llevado a la entrega (2–3 m más allá), correría la caja; ahí manda el SLAM.
+- Si no ve la línea (IR sin calibrar en la cancha: `tools.ir`) o lo que mide no calza (más de
+  `linea_max_correccion_m` o 10°), sigue como antes, con el LiDAR. Sin ver la línea no se acerca a menos de 4,5 cm del
+  tablero.
+- **Diagnóstico**: cada toque deja en el registro el error que tenía la pose fusionada ("la pose fusionada tenía +3 cm
+  en x y +1,2°"). Si en el robot sale siempre parecido, es el montaje del LiDAR: un error fijo en x apunta a
+  `geometria.lidar_x` y uno en el ángulo, a su yaw.
+- Simulado con el LiDAR mal montado (1,5 cm y 1,5°): el error de cada agarre bajó de ~1,6 cm a ~0,8 cm (queda el
+  error lateral del LiDAR); cuesta ~3 s por estación (semilla 1: 124 s → 137 s). `linea_cultivo = False` lo apaga.
 
 ## Si las dos cajas son del mismo color (`mision.cajas`)
 4 nov: el reglamento dice una caja ROJA (maduros) y una AZUL (sobremaduros), pero las canastas que vimos en la

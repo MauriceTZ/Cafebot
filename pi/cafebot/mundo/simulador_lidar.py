@@ -30,19 +30,22 @@ def trazar(origen: tuple[float, float], angulos: np.ndarray, segmentos: np.ndarr
 
 def simular_scan(pose: tuple[float, float, float], segmentos: np.ndarray, cfg: ConfigLD06 | None = None,
                  rng: np.random.Generator | None = None, ruido_m: float = 0.010, paso_deg: float = 0.8,
-                 fuera_de_cancha: bool = True) -> Scan:
+                 fuera_de_cancha: bool = True, cfg_real: ConfigLD06 | None = None) -> Scan:
     """Vuelta en el sistema del ROBOT, igual que la entrega el driver real.
 
     fuera_de_cancha: agrega "público" (puntos aleatorios a 3,5-6 m) para que la
     localización aprenda a ignorar lo que no está en el mapa.
+    cfg_real: dónde está montado DE VERDAD el LiDAR (posición y yaw), si no es lo que dice cfg: los rayos salen de
+    ahí pero los puntos se pasan al robot con cfg, como hace el driver (error de montaje).
     """
     cfg = cfg or ConfigLD06()
+    real = cfg_real or cfg
     rng = rng or np.random.default_rng()
     x, y, th = pose
     c, s = math.cos(th), math.sin(th)
-    lx, ly = x + c * cfg.x_m - s * cfg.y_m, y + s * cfg.x_m + c * cfg.y_m
+    lx, ly = x + c * real.x_m - s * real.y_m, y + s * real.x_m + c * real.y_m
     a_sensor = np.radians(np.arange(-cfg.fov_deg, cfg.fov_deg, paso_deg))
-    a_mundo = th + math.radians(cfg.yaw_deg) + a_sensor
+    a_mundo = th + math.radians(real.yaw_deg) + a_sensor
     d = trazar((lx, ly), a_mundo, segmentos)
     if fuera_de_cancha:
         gente = rng.random(d.shape) < 0.08

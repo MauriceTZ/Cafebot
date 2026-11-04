@@ -8,6 +8,10 @@ Primitivas (clase `Bordes`):
                                   tocó uno solo, se despega 3 cm, gira hacia el otro y vuelve a tocar (bisección)
                                   hasta que tocan juntos: así queda paralelo al borde sin salirse de la cancha
     alinear(...)                  = tocar(..., enderezar=True)
+    medir_adelante(...)           una línea que SÍ se puede pisar (la del cultivo, frente al árbol): avanza hasta que
+                                  DI o DD la toca y SIGUE hasta que la toca el otro; con los dos puntos de cruce (pose
+                                  del Mega en cada evento) da la distancia del robot a la línea y cuánto está girado,
+                                  sin bisección (4 nov, docs/mision.md)
 
 Rutinas:
     buscar_bordes(...)            (tools.ir borde) borde de atrás + borde derecho, midiendo blanco/negro y umbrales
@@ -40,7 +44,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from cafebot.drivers.mega import NOMBRES_IR
-from cafebot.navegacion.geometria import componer, invertir, relativo, transformar
+from cafebot.navegacion.geometria import componer, envolver, invertir, relativo, transformar
 
 DI, DD, TI, TD = 0, 1, 2, 3
 # Giro (signo) que endereza el robot según qué sensor del par tocó primero (+ = antihorario)
@@ -59,6 +63,15 @@ class Toque:
     mega: np.ndarray               # punto del sensor en el marco de la odometría del Mega (m)
     mapa: np.ndarray | None        # en el marco del mapa (pose fusionada), si hay
     t: float = 0.0
+
+
+@dataclass
+class MedidaLinea:
+    """Una línea delante del robot, medida con los dos sensores delanteros (Bordes.medir_adelante). Es el borde
+    CERCANO de la línea (donde los sensores entran a negro), visto desde la pose ACTUAL del robot."""
+    dist_m: float          # del centro del robot a la línea, en perpendicular (+ = adelante)
+    angulo: float          # rad: rumbo del robot menos la normal de la línea (girar −angulo lo deja de frente)
+    puntos: dict           # sensor -> punto de cruce en el marco de la odometría del Mega (m)
 
 
 @dataclass
@@ -219,11 +232,41 @@ class Bordes:
             self.log(f"  {nombre}: estaba torcido {abs(total):.1f}° (giré {total:+.1f}°)")
         return ResultadoToque(primero, None, sep, total, toque)
 
+    def medir_adelante(self, max_mm: float, vel: float = 70.0, extra_mm: float = 60.0) -> MedidaLinea | None:
+        """Avanza (máx. max_mm) hasta que un sensor delantero toca una línea y SIGUE despacio (máx. extra_mm) hasta
+        que la toca el otro. Solo para líneas que se pueden pisar (no el perímetro ni las albercas). Con los dos
+        puntos de cruce sale la recta: la distancia del centro del robot a ella y el ángulo (hasta extra_mm / 21,7 cm
+        de torcido: ~15°). None si no tocó o si solo tocó uno."""
+        r, toque = self.hasta_linea(self.mov("adelante", max_mm, vel), (1 << DI) | (1 << DD))
+        if r.ok or r.motivo != "BORDE":
+            self.log(f"  línea adelante: NO se encontró ({'recorrió todo sin verla' if r.ok else r.motivo})")
+            return None
+        if len(toque) == 1:
+            otro = DD if DI in toque else DI
+            r2, toque2 = self.hasta_linea(self.mov("adelante", extra_mm, vel / 2), 1 << otro)
+            if r2.ok or r2.motivo != "BORDE":
+                self.log(f"  línea adelante: la tocó {NOMBRES_IR[next(iter(toque))]} pero no {NOMBRES_IR[otro]} "
+                         f"en {extra_mm:.0f} mm más")
+                return None
+            toque.update(toque2)
+        self._registrar(toque, None)
+        puntos = {k: transformar(self.sensores[k][None, :], np.array([ev.x, ev.y, ev.th]))[0] for k, ev in toque.items()}
+        return medida_linea(puntos[DI], puntos[DD], self.pose_mega(), puntos)
+
     def alinear(self, lado: str, max_mm: float, vel: float, despegar_mm: float = 30.0, nombre: str = "",
                 borde=None, tol_deg: float = 0.7) -> ResultadoToque | None:
         """Tocar el borde y quedar paralelo a él (ver tocar)."""
         return self.tocar(lado, max_mm, vel, nombre, borde, enderezar=True, tol_deg=tol_deg,
                           despegar_mm=min(despegar_mm, 40.0))
+
+
+def medida_linea(p_izq, p_der, pose, puntos=None) -> MedidaLinea:
+    """La recta que pasa por el cruce del sensor IZQUIERDO (DI) y el del DERECHO (DD), vista desde `pose` (los tres
+    en el mismo marco). La normal apunta hacia adelante (de la izquierda a la derecha, girado 90° antihorario)."""
+    d = np.asarray(p_der, float) - np.asarray(p_izq, float)
+    n = np.array([-d[1], d[0]]) / np.linalg.norm(d)
+    dist = float((np.asarray(p_izq, float) - np.asarray(pose[:2], float)) @ n)
+    return MedidaLinea(dist, envolver(float(pose[2]) - math.atan2(n[1], n[0])), puntos or {})
 
 
 # ---------------------------------------------------------------------------- tools.ir borde

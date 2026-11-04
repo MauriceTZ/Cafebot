@@ -26,7 +26,7 @@ from cafebot.drivers.ld06 import Scan
 from cafebot.localizacion.inicio import estimar_inicio
 from cafebot.mision.interfaces import Boton, Brazo, Depositos, Vision
 from cafebot.mundo import cancha
-from cafebot.navegacion.geometria import componer, relativo, transformar
+from cafebot.navegacion.geometria import componer, envolver, relativo, transformar
 
 
 MODOS_CAJAS = ("colores", "cercana", "guardar")     # config.ConfigMision.cajas
@@ -58,6 +58,7 @@ class Mision:
         self.dudoso = False
         self.scan_inicio = None
         self.zonas_caja = set()       # sectores con caja (LiDAR), con o sin color conocido
+        self._ref_linea = None        # (pose en la cancha, pose del Mega) al tocar la línea del cultivo (_pose_linea)
         self._cancelar = threading.Event()
         self._hilo = None
 
@@ -267,6 +268,7 @@ class Mision:
         self.inicio = np.array([r.x, r.y, r.th])
         self.nav.fijar_cancha(self.T_mapa_cancha())
         self.res_inicio, self.dudoso = r, r.confianza < 0.15
+        self._ref_linea = None
         if cambio:                                   # lo que se dedujo de las cajas estaba corrido
             self.zonas_caja, self.cajas = set(), {}
             self._actualizar_cajas()
@@ -317,6 +319,12 @@ class Mision:
         return x_cara, yc_centro, -ang, ancho
 
     def _arbol(self, arbol):
+        try:
+            return self._arbol_(arbol)
+        finally:
+            self._ref_linea = None                   # la línea solo vale frente a ESTE árbol
+
+    def _arbol_(self, arbol):
         yt = cancha.centros_arboles()[arbol - 1]
         medio = self.cfg.geometria.largo / 2
         x_foto = cancha.ARBOL_X_FRENTE - self.c.distancia_foto_m - medio
@@ -362,15 +370,14 @@ class Mision:
         # Acercarse de frente midiendo el tablero con el LiDAR (y corrigiendo: la fila alta queda al límite
         # del alcance del brazo, así que 1–2 cm de más la dejan fuera)
         self.brazo.descansar()
+        self._cuadrar_en_linea(arbol, yt)            # rumbo y distancia exactos con la línea del cultivo (si se ve)
         for paso in range(3):
-            pc = self.pose_cancha()
-            esperado = relativo(pc, np.array([cancha.ARBOL_X_FRENTE, yt, 0.0]))
-            med = self._medir_tablero(esperado[:2])
-            frente = (med[0] if med else esperado[0]) - medio
+            frente, fuente = self._medir_frente(yt)
             avance = frente - self.c.holgura_agarre_m
             if paso == 0:
-                self.log(f"árbol {arbol}: tablero a {100 * frente:.1f} cm del frente; avanzo {100 * avance:.1f} cm")
-            if abs(avance) < 0.008 or (paso > 0 and med is None):
+                self.log(f"árbol {arbol}: tablero a {100 * frente:.1f} cm del frente ({fuente}); "
+                         f"avanzo {100 * avance:.1f} cm")
+            if abs(avance) < 0.008 or (paso > 0 and fuente == "pose"):
                 break
             self._ok(self.mega.avanzar(1000 * avance, 100 if abs(avance) > 0.05 else 60, timeout=20), "acercamiento")
 
@@ -396,6 +403,11 @@ class Mision:
             lateral = yc_r + cancha.COPA_DESPLAZADA_M + e - self.c.brazo_y
             if abs(lateral) > 0.01:
                 self._ok(self.mega.cangrejo(90 if lateral > 0 else -90, 1000 * abs(lateral), 100, timeout=15), "cangrejo")
+                # el cangrejo puede girar o desviar la base: volver a tocar la línea y quedar a la holgura de agarre
+                if self.c.linea_por_estacion and self._cuadrar_en_linea(arbol, yt):
+                    d = self._frente_tablero(yt) - self.c.holgura_agarre_m
+                    if abs(d) > 0.008:
+                        self._ok(self.mega.avanzar(1000 * d, 60, timeout=15), "distancia de agarre")
             self._recoger_estacion([s for fila in self.c.orden_filas
                                     for s in sorted((s for s in por_est[e] if s.fila == fila), key=lambda s: -s.y)], yt)
         self.brazo.descansar()
@@ -412,14 +424,19 @@ class Mision:
         return self.vision.clasificar_arbol(arbol, pc, tablero=med[:3] if med else None)
 
     def _p_robot(self, sop):
-        """Centro del grano en el sistema del robot, usando el tablero medido por el LiDAR (más fino que la pose)."""
-        pc = self.pose_cancha()
+        """Centro del grano en el sistema del robot, usando el tablero medido por el LiDAR (más fino que la pose).
+        Si se tocó la línea del cultivo frente a este árbol, la distancia y el ángulo del tablero salen de ella (de
+        cerca es más precisa que el LiDAR) y del LiDAR solo la posición lateral del pie."""
+        pl = self._pose_linea()
+        pc = pl if pl is not None else self.pose_cancha()
         esperado = relativo(pc, np.array([cancha.ARBOL_X_FRENTE, cancha.centros_arboles()[sop.arbol - 1], 0.0]))
         med = self._medir_tablero(esperado[:2])
         if med is None:
             r = relativo(pc, np.array([sop.x, sop.y, 0.0]))
             return np.array([r[0], r[1], sop.z])
         x_cara, yc, ang, _ = med
+        if pl is not None:
+            x_cara, ang = (cancha.ARBOL_X_FRENTE - pl[0]) / math.cos(pl[2]), esperado[2]
         dy = sop.y - cancha.centros_arboles()[sop.arbol - 1]           # incluye COPA_DESPLAZADA_M
         u = np.array([math.cos(ang), math.sin(ang)])                   # normal del tablero (hacia atrás)
         t = np.array([-u[1], u[0]])                                    # a lo largo del tablero (izquierda)
@@ -427,11 +444,84 @@ class Mision:
         return np.array([p[0], p[1], sop.z])
 
     def _frente_tablero(self, yt) -> float:
-        """Distancia del frente del robot a la cara del tablero (LiDAR; si no lo ve, la pose)."""
+        """Distancia del frente del robot a la cara del tablero (línea, LiDAR o, si no, la pose)."""
+        return self._medir_frente(yt)[0]
+
+    def _medir_frente(self, yt) -> tuple[float, str]:
+        """(distancia del frente del robot a la cara del tablero, de dónde salió: "línea", "LiDAR" o "pose")."""
+        medio = self.cfg.geometria.largo / 2
+        pl = self._pose_linea()
+        if pl is not None:                       # la recta del robot hasta la cara (x = ARBOL_X_FRENTE)
+            return (cancha.ARBOL_X_FRENTE - pl[0]) / math.cos(pl[2]) - medio, "línea"
         pc = self.pose_cancha()
         esperado = relativo(pc, np.array([cancha.ARBOL_X_FRENTE, yt, 0.0]))
         med = self._medir_tablero(esperado[:2])
-        return (med[0] if med else esperado[0]) - self.cfg.geometria.largo / 2
+        if med is not None:
+            return med[0] - medio, "LiDAR"
+        return esperado[0] - medio, "pose"
+
+    # ------------------------------------------------------------------ línea del cultivo (sensores delanteros)
+    def _pose_linea(self):
+        """Pose en la cancha según la última vez que se tocó la línea del cultivo + la odometría del Mega desde
+        entonces (movimientos de pocos cm: precisa). None si no se tocó frente a este árbol."""
+        if self._ref_linea is None:
+            return None
+        P0, M0 = self._ref_linea
+        x, y, th = self.mega.pose()
+        return componer(P0, relativo(M0, np.array([x / 1000.0, y / 1000.0, th])))
+
+    def _cuadrar_en_linea(self, arbol, yt) -> bool:
+        """Frente al árbol: avanzar hasta que DI y DD toquen la línea del cultivo (Bordes.medir_adelante: con los dos
+        cruces, la distancia y el ángulo), enderezarse con ella y anotar la pose: x = CULTIVO_X0 − distancia (borde
+        cercano de la línea), rumbo 0, y la y de la pose fusionada. Deja esa referencia para _pose_linea (la x y el
+        rumbo frente al árbol). False si no la vio o si no calza con lo esperado (se sigue con el LiDAR)."""
+        if not self.c.linea_cultivo:
+            return False
+        from cafebot.navegacion.bordes import DD, DI, Bordes, Detenido
+        g = self.cfg.geometria
+        sx = 0.5 * (self.cfg.ir.posiciones[DI][0] + self.cfg.ir.posiciones[DD][0])
+        frente = self._frente_tablero(yt)
+        d = frente + g.largo / 2 - (cancha.ARBOL_X_FRENTE - cancha.CULTIVO_X0) - sx     # de DI/DD a la línea
+        if d < 0.025:                                # encima de la línea o pasados: atrás primero
+            atras = 0.045 - d
+            self._ok(self.mega.avanzar(-1000 * atras, 80, timeout=10), "retroceder antes de la línea")
+            frente, d = frente + atras, 0.045
+        # Hasta 6 cm más allá de donde debería estar la línea, pero sin ver la línea no quedar a menos de 4,5 cm del
+        # tablero (según el LiDAR; el LD06 sobresale ~2,7 cm del frente). Al tocarla, el frente queda a ~8 cm.
+        max_m = min(d + 0.06, frente - 0.045)
+        if max_m < 0.02:
+            return False
+        b = Bordes(self.mega, self.cfg, log=self.log)
+        try:
+            med = b.medir_adelante(1000 * max_m, vel=100 if d > 0.10 else 60)
+        except Detenido:
+            med = None
+        finally:
+            b.cerrar()
+            self.mega.seguridad_ir(self.c.freno_ir)
+        self._ref_linea = None
+        if med is None:
+            self.log(f"árbol {arbol}: no vi la línea del cultivo con DI/DD (¿IR sin calibrar?): sigo con el LiDAR")
+            return False
+        if abs(med.angulo) > math.radians(0.5):
+            self._ok(self.mega.girar(-math.degrees(med.angulo), timeout=10), "enderezar con la línea")
+        time.sleep(0.3)                              # que la pose fusionada se ponga al día
+        pc = self.pose_cancha()
+        x = cancha.CULTIVO_X0 - med.dist_m
+        dx, dth = x - pc[0], envolver(-pc[2])
+        if abs(dx) > self.c.linea_max_correccion_m or abs(dth) > math.radians(10):
+            self.log(f"árbol {arbol}: la línea no calza con la pose (Δx {100 * dx:+.1f} cm, Δθ "
+                     f"{math.degrees(dth):+.1f}°): no la uso")
+            return False
+        # Solo para el trabajo frente a ESTE árbol (_pose_linea): la pose de la cancha (self.inicio) NO se toca.
+        # Un rumbo medido en 22 cm de línea puede tener ±0,5°: frente al árbol es mejor que el LiDAR, pero llevado
+        # a la entrega (2–3 m más allá) correría la caja varios cm; ahí manda el SLAM, que ve toda la cancha.
+        P0 = np.array([x, pc[1], 0.0])
+        xm, ym, thm = self.mega.pose()
+        self._ref_linea = (P0, np.array([xm / 1000.0, ym / 1000.0, thm]))
+        self.log(f"árbol {arbol}: línea del cultivo con DI/DD: estaba torcido {math.degrees(med.angulo):+.1f}°; la "
+                 f"pose fusionada tenía {100 * -dx:+.1f} cm en x y {math.degrees(-dth):+.1f}° de error")
+        return True
 
     def _recoger_estacion(self, pendientes: list, yt):
         """Recoge (en orden) lo que el brazo alcanza desde aquí; para lo que falta, se acerca o se aleja del tablero
