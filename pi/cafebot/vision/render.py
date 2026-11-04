@@ -120,7 +120,8 @@ class MundoCancha:
     """La cancha de una ronda simulada. Los granos se leen de esc.granos en cada cuadro: los que el brazo
     simulado saca (BrazoSimulado los quita de ahí) desaparecen del árbol."""
 
-    def __init__(self, esc: cancha.Escenario, modelo: ModeloArbol | None = None):
+    def __init__(self, esc: cancha.Escenario, modelo: ModeloArbol | None = None, cajas_iguales: bool = False):
+        """cajas_iguales: las dos cajas rojas (como las canastas de la competencia del 4 nov)."""
         self.esc = esc
         self.modelo = modelo or ModeloArbol()
         L = 4.0
@@ -131,7 +132,7 @@ class MundoCancha:
                                 PISO_CANCHA)]
         self.piso += [_rect_piso(r, NEGRO) for _, r in cancha.lineas_cancha()]
         self.fijos = [_prisma(cancha.rect_alberca(a), ALTO_ALBERCA, ALBERCA, tapa=ALBERCA) for a in esc.albercas]
-        for zona, color in ((esc.zona_caja_roja, "ROJA"), (esc.zona_caja_azul, "AZUL")):
+        for zona, color in ((esc.zona_caja_roja, "ROJA"), (esc.zona_caja_azul, "ROJA" if cajas_iguales else "AZUL")):
             oscuro = tuple(int(0.55 * c) for c in CAJA[color])
             self.fijos.append(_prisma(cancha.rect_caja(zona), ALTO_CAJA, CAJA[color], tapa=oscuro))
 

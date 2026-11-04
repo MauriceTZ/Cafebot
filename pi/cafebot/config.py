@@ -138,6 +138,13 @@ class ConfigMision:
     camara_cajas_deg: float = 0.0      # OBSOLETO: ídem con camara.inclinacion_cajas_deg (ConfigCamara.servo_de_pitch)
     # Color de las cajas: la cámara mira adelante, así que antes de entregar se para frente a una caja
     x_vista_cajas: float = 1.25        # centro del robot, mirando hacia el beneficiadero (θ = 180°)
+    # Cómo saber cuál caja es cuál. El reglamento dice una ROJA (maduros) y una AZUL (sobremaduros), pero el 4 nov
+    # en la competencia las dos canastas se ven ROJAS.          [CONFIRMAR con los jueces cómo se distingue la azul]
+    #   "colores"  la cámara mira una caja y la otra es del otro color (si en verdad son iguales, esto ya es apostar)
+    #   "cercana"  las dos iguales: maduros a la más cercana al volver, sobremaduros a la otra (apuesta al 50 %)
+    #   "guardar"  las dos iguales: no se entrega, los granos quedan en el robot (+3 / +1 seguros, sin el viaje)
+    # Se cambia entre rondas en robot_local.json o con --cajas (tools.mision, tools.navegacion). docs/mision.md
+    cajas: str = "colores"
     # Entrega (de reversa: las compuertas están atrás)
     x_aproximacion_entrega: float = 0.95   # centro del robot antes de retroceder (cancha, m)
     x_entrega: float = 0.77               # centro del robot al abrir: atrás queda ~2 cm de la caja   [AJUSTAR]

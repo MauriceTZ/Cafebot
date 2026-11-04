@@ -12,6 +12,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Reinicio forzado: tocar línea perimetral o de alberca con las ruedas, mover una alberca >10 mm,
   sacar o botar 2+ granos a la vez (los jueces deben VER que sale uno a la vez).
 - Se puede reprogramar entre rondas. Clasifican las 2 mejores de 4 rondas.
+- 4 nov: las canastas reales se ven ROJAS las dos (el reglamento dice roja y azul): preguntar a los jueces cómo se
+  distingue la azul. Mientras: `mision.cajas` = colores / cercana / guardar (docs/mision.md).
 
 ## Hardware (verificado en el robot el 27 oct salvo que diga lo contrario)
 - Base 30 × 23 cm, 4 ruedas Ø53 mm (diámetro efectivo calibrado 52,6 mm el 28 oct, ruedas nuevas) con motor + encoder
@@ -62,7 +64,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - `firmware/test_host/correr.sh`: el firmware real compilado en el PC con una planta simulada.
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
     test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
-    test_navegacion, test_mision, test_ir, test_borde, test_cosecha, test_pantalla, test_vista_camara).
+    test_navegacion, test_mision, test_ir, test_borde, test_cosecha, test_pantalla, test_vista_camara,
+    test_cajas).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
@@ -125,6 +128,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   cámara de verdad, compartida con la misión (`CamaraCompartida`). Shift+V: superposición de las líneas y los soportes
   según la pose estimada, con el color de cada lectura. `Mega.aux` recuerda el `X 2`. La misión de
   `tools.navegacion --sim` ahora usa el alcance del brazo de verdad (como `tools.mision --sim`).
+- 4 nov: cajas del mismo color: `mision.cajas` ("colores" lo de siempre; "cercana" = maduros a la más cercana, apuesta
+  al 50 %; "guardar" = no entregar, +3/+1 seguros), `--cajas` en `tools.mision` y `tools.navegacion`. Simulado (semilla
+  1): colores 14, cercana −14 (le tocó la azul), guardar 6 (terminó a los 64 s). Cálculo de qué conviene: `tests.test_cajas`.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de

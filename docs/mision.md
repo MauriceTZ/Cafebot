@@ -35,6 +35,27 @@ python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0 --brazo --c
 | Entregar | A* hasta `x_aproximacion_entrega` frente a la caja, mirando +x; **reversa** hasta `x_entrega`; `X 0` abre la compuerta de maduros `t_vaciado_s`, la cierra y sale. N3 hace lo mismo con la azul (`X 1`). | N2 |
 | Reloj | Antes de cada árbol y de cada estación se reserva el tiempo para volver y vaciar. A los 468 s se detiene todo. Si algo falla, igual intenta entregar lo que lleva. | todos |
 
+## Si las dos cajas son del mismo color (`mision.cajas`)
+4 nov: el reglamento dice una caja ROJA (maduros) y una AZUL (sobremaduros), pero las canastas que vimos en la
+competencia son las dos rojas. **Primero: preguntar a los jueces cómo se distingue la de sobremaduros** (si es una
+marca, un papel o una cinta, se le enseña a la cámara y deja de ser una apuesta).
+
+| `mision.cajas` | Qué hace | Puntaje |
+|---|---|---|
+| `colores` (por defecto) | La cámara mira la caja más cercana y la otra es "del otro color". Si las dos son rojas, esto ya es una apuesta a la más cercana, pero perdiendo tiempo en mirar. | Lo del reglamento |
+| `cercana` | Sin mirar: maduros a la caja más cercana al volver, sobremaduros a la otra (`_asignar_por_cercania`). Al azar sería la misma probabilidad (50 %), pero con un viaje más largo. Con cajas en más de 2 sectores, no apuesta. | ±7 por maduro, ±5 por sobremaduro |
+| `guardar` | No entrega: los granos quedan en el robot. No reserva tiempo para el viaje (conviene con `--nivel 3`: más árboles). | +3 por maduro, +1 por sobremaduro, seguros |
+
+Se cambia entre rondas en `robot_local.json` (`"mision": {"cajas": "cercana"}`) o con `--cajas` en `tools.mision` /
+`tools.navegacion` (en `--sim`, las dos cajas se dibujan rojas en la vista de la cámara).
+
+Cuál conviene (`tests.test_cajas` lo calcula): en UNA ronda, apostar promedia 0 y guardar da +3 por maduro, así que
+guardar es mejor. Pero la clasificatoria suma las **2 mejores de 4** rondas y la final toma la **mejor de 3**: las
+rondas malas se descartan y apostar sale mejor en promedio. Con 3 maduros por ronda: clasificatoria guardar 18 /
+apostar 26 en promedio (42 con 69 % de probabilidad, 0 con 25 %, −42 con 6 %); final guardar 9 / apostar 16 (21 con
+88 %, −21 con 12 %). Además, después de cada ronda se sabe si la apuesta salió bien: si ya hay 2 rondas buenas, las
+siguientes pueden ir con `guardar`; en la última clasificatoria, si falta una buena, guardar asegura sumar.
+
 ## Resultados en simulación
 
 (firmware real simulado, LiDAR con 3 % / 2 % de error de calibración, visión con 10 % NO_SE, brazo con 10 % de fallas

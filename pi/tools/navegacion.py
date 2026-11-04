@@ -208,11 +208,15 @@ def main():
     ap.add_argument("--vel-borde", type=float, default=120.0, help="mm/s de los tramos del recorrido del borde")
     ap.add_argument("--captura", default=None, help="(pruebas) guardar una imagen tras N s y salir: archivo.png")
     ap.add_argument("--captura-s", type=float, default=8.0)
+    ap.add_argument("--cajas", choices=("colores", "cercana", "guardar"), default=None,
+                    help="cómo distingue la misión las cajas (mision.cajas; cercana/guardar: las dos del mismo color)")
     ap.add_argument("--vista-camara", choices=("chica", "grande", "no"), default="chica",
                     help="vista de la cámara abajo a la derecha (tecla V); en el robot abre la cámara al mostrarse")
     pantalla.agregar_opcion(ap)
     a = ap.parse_args()
     cfg = cargar()
+    if a.cajas:
+        cfg.mision.cajas = a.cajas
 
     # ------------------------------------------------------------- hardware
     mega = giroscopio = ir_sim = None
@@ -237,7 +241,7 @@ def main():
             inicio_sim = np.array([cancha.ZONA_X_CENTRO, cancha.centros_zonas_beneficiadero()[a.zona_sim - 1], 0.0])
             segs, lineas_sim = esc.segmentos(), cancha.lineas_cancha()
             from cafebot.vision.render import MundoCancha
-            mundo_sim = MundoCancha(esc)
+            mundo_sim = MundoCancha(esc, cajas_iguales=cfg.mision.cajas != "colores")
         lidar = LD06Simulado(cfg.geometria.config_ld06(), segs, inicio_sim,
                              lambda: (mega.tele.x / 1000, mega.tele.y / 1000, mega.tele.th))
         from cafebot.drivers.ir_simulado import IRSimulado, pose_mega_extrapolada

@@ -29,6 +29,9 @@ from cafebot.mundo import cancha
 from cafebot.navegacion.geometria import componer, relativo, transformar
 
 
+MODOS_CAJAS = ("colores", "cercana", "guardar")     # config.ConfigMision.cajas
+
+
 class Abortar(Exception):
     pass
 
@@ -47,6 +50,8 @@ class Mision:
         self.inicio = None            # pose de partida en la cancha (x, y, θ)
         self.res_inicio = None
         self.cajas = {}               # {"ROJA": zona, "AZUL": zona}
+        if self.c.cajas not in MODOS_CAJAS:
+            raise ValueError(f"mision.cajas = {self.c.cajas!r}: debe ser uno de {MODOS_CAJAS}")
         self.lecturas = {}            # {(arbol, fila, col): LecturaSoporte}
         self.recogidos = {cancha.MADURO: 0, cancha.SOBREMADURO: 0}
         self.eventos = []
@@ -143,7 +148,7 @@ class Mision:
             self.estado = "esperando el botón"
             self.boton.esperar()
             self.t0 = time.monotonic()
-            self.log(f"¡PARTIDA! nivel {self.c.nivel}")
+            self.log(f"¡PARTIDA! nivel {self.c.nivel}" + ("" if self.c.cajas == "colores" else f" | cajas: {self.c.cajas}"))
             self.mega.seguridad_ir(self.c.freno_ir)
             self.depositos.cerrar_todo()
             self._localizar()
@@ -221,6 +226,9 @@ class Mision:
                 if z != self.res_inicio.zona and cancha.rect_caja(z).contiene(pc[:, 0], pc[:, 1], 0.04).sum() >= 6:
                     self.zonas_caja.add(z)
         sin_color = sorted(z for z in self.zonas_caja if z not in self.cajas.values())
+        if self.c.cajas != "colores":          # las dos se ven iguales: el color no sirve (ver _entregar)
+            self.log(f"cajas en {sorted(self.zonas_caja)} (modo {self.c.cajas}: no miro su color)")
+            return
         if sin_color:
             self.mega.comando(f"X 2 {self.cfg.camara.servo_de_pitch(self.cfg.camara.inclinacion_cajas_deg)}")
             for z, color in self.vision.color_cajas(sin_color, self.pose_cancha()).items():
@@ -267,7 +275,7 @@ class Mision:
     def _reserva_entrega(self) -> float:
         """Segundos a guardar para volver y vaciar (tramos a la velocidad de crucero + giros + paradas).
         Si todavía no se sabe el color, se cuenta la caja más lejana y la parada para mirarla."""
-        if self.c.nivel < 2:
+        if self.c.nivel < 2 or self.c.cajas == "guardar":
             return 0.0
         zonas = set(self.zonas_caja) | set(self.cajas.values())
         if not zonas:
@@ -282,7 +290,8 @@ class Mision:
             ys = [cancha.centros_zonas_beneficiadero()[z - 1] for z in candidatas]
             yb = max(ys, key=lambda y: abs(y - p[1]))
             d = abs(p[0] - self.c.x_aproximacion_entrega) + abs(p[1] - yb)
-            t += 1.6 * d / v + 20 + self.c.t_vaciado_s + (0 if color in self.cajas else 15)
+            mirar = 15 if color not in self.cajas and self.c.cajas == "colores" else 0
+            t += 1.6 * d / v + 20 + self.c.t_vaciado_s + mirar
             p = np.array([self.c.x_aproximacion_entrega, yb, 0.0])
         return t
 
@@ -495,9 +504,36 @@ class Mision:
                 if len(self.zonas_caja) == 2 and len(self.cajas) == 1 and len(resto) == 1:
                     self.cajas["AZUL" if color == "ROJA" else "ROJA"] = resto[0]
 
+    def _asignar_por_cercania(self):
+        """mision.cajas = "cercana": las dos cajas se ven iguales y no hay cómo saber cuál cuenta como roja. Se apuesta
+        (50 %) a que la más cercana es la de los maduros y la otra la de los sobremaduros: la misma probabilidad que
+        al azar, pero con el viaje más corto. Si el LiDAR vio cajas en más de 2 sectores, no se apuesta."""
+        if self.cajas:
+            return
+        ys = cancha.centros_zonas_beneficiadero()
+        y = self.pose_cancha()[1]
+        orden = sorted(self.zonas_caja, key=lambda z: (abs(ys[z - 1] - y), z))
+        if len(orden) > 2:
+            self.log(f"veo cajas en los sectores {sorted(orden)}: no sé cuáles son, los granos se quedan en el robot")
+            return
+        if orden:
+            self.cajas["ROJA"] = orden[0]
+        if len(orden) == 2:
+            self.cajas["AZUL"] = orden[1]
+        if orden:
+            self.log(f"cajas iguales: apuesto a que la del sector {orden[0]} (la más cercana) es la de los maduros"
+                     + (f" y la del {orden[1]}, la de los sobremaduros" if len(orden) == 2 else ""))
+
     def _entregar(self):
+        if self.c.cajas == "guardar":
+            self.log("cajas iguales (modo guardar): no entrego, los granos se quedan en el robot (+3 / +1)")
+            return
         self._actualizar_cajas()
+        if self.c.cajas == "cercana":
+            self._asignar_por_cercania()
         for color, cat in (("ROJA", cancha.MADURO), ("AZUL", cancha.SOBREMADURO)):
+            if self.c.cajas != "colores":
+                break
             if self.recogidos.get(cat, 0) and color not in self.cajas and (color == "ROJA" or self.c.nivel >= 3):
                 self._mirar_cajas(color)
         pendientes = [("ROJA", 0, cancha.MADURO)]

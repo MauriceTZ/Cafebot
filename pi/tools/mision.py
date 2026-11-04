@@ -6,6 +6,7 @@
     python3 -m tools.mision --brazo --vision camara  # robot real COMPLETO (brazo XL430 + cámara)
     python3 -m tools.mision --boton gpio             # botón de inicio real (cfg.mision.pin_boton)
     python3 -m tools.mision --brazo --vision fija    # SOLO TALLER: árbol cargado solo con maduros
+    python3 -m tools.mision ... --cajas cercana      # las dos cajas del mismo color (ver config: mision.cajas)
 
 Para verlo en el mapa usar la interfaz: python3 -m tools.navegacion --sim  y tecla K.
 """
@@ -98,10 +99,16 @@ def main():
     ap.add_argument("--vision", choices=("nula", "camara", "fija"), default="nula",
                     help="(real) camara = la real; nula = no toca granos; fija = todo MADURO (solo taller)")
     ap.add_argument("--imu", action="store_true")
+    ap.add_argument("--cajas", choices=("colores", "cercana", "guardar"), default=None,
+                    help="cómo distinguir las cajas (por defecto mision.cajas de la config): colores = con la "
+                         "cámara; si las dos son del mismo color: cercana = maduros a la más cercana (apuesta), "
+                         "guardar = no entregar (quedan en el robot)")
     a = ap.parse_args()
     cfg = cargar()
     if a.nivel:
         cfg.mision.nivel = a.nivel
+    if a.cajas:
+        cfg.mision.cajas = a.cajas
     if cfg.mision.nivel >= 3:
         cfg.mision.max_arboles = max(cfg.mision.max_arboles, 3)
         cfg.mision.recoger = tuple(sorted(set(cfg.mision.recoger) | {cancha.SOBREMADURO}))
@@ -149,7 +156,8 @@ def main():
     if a.sim:
         print(f"Robot: {brazo.estado()} | roja {depositos.en_roja} | azul {depositos.en_azul} | "
               f"abandonados {depositos.abandonados}")
-        print(f"PUNTAJE (simulado): {depositos.puntaje()}")
+        print(f"PUNTAJE (simulado): {depositos.puntaje()} | caja roja en el sector {esc.zona_caja_roja}, azul en el "
+              f"{esc.zona_caja_azul} | la misión creyó: {m.cajas or '-'} (modo {cfg.mision.cajas})")
     print("Líneas cruzadas:", m.nav.lineas.estadisticas() if hasattr(m, "nav") else "")
     if getattr(mega, "ir_sim", None):
         mega.ir_sim.detener()
