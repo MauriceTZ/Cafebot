@@ -50,14 +50,8 @@ class VisionCamara(Vision):
     @property
     def cam(self):
         if self._cam is None:
-            from cafebot.vision.camara import Camara, cargar_ajustes
-            aj = cargar_ajustes()
-            self._cam = Camara((aj or {}).get("dist_m", 0.6))
-            if aj:
-                self._cam.aplicar(aj)
-            else:
-                self.log("[visión] sin ajustes de exposición guardados: se fijan ahora (python3 -m tools.camara exposicion)")
-                self._cam.bloquear_auto()
+            from cafebot.vision.camara import abrir_para_mision
+            self._cam = abrir_para_mision(self.log)
         return self._cam
 
     def iniciar(self):

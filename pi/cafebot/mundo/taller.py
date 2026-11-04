@@ -22,16 +22,22 @@ def lineas(largo: float, ancho: float) -> list:
             Rect(largo / 2, ancho + h / 2, largo + 2 * h, h), Rect(-h / 2, ancho / 2, h, ancho + 2 * h)]
 
 
+def sala(largo: float, ancho: float, sala_m: float = 0.7) -> Rect:
+    """Las paredes de la sala, a sala_m de la huincha."""
+    return Rect(largo / 2, ancho / 2, largo + 2 * sala_m, ancho + 2 * sala_m)
+
+
+def muebles(largo: float, ancho: float, sala_m: float = 0.7) -> list:
+    """[(Rect, alto en m)] de los muebles de la sala (el alto solo lo usa el dibujo de la cámara simulada)."""
+    return [(Rect(largo + sala_m - 0.25, ancho * 0.3, 0.4, 0.6), 0.75),          # mesa contra la pared
+            (Rect(largo * 0.35, -sala_m + 0.2, 0.5, 0.3), 0.30),                 # caja en el piso
+            (Rect(-sala_m + 0.15, ancho * 0.75, 0.25, 0.25), 0.45),              # silla
+            (Rect(largo * 0.55, ancho * 0.55, 0.30, 0.20), 0.15)]                # algo dentro de la pista (no estorba)
+
+
 def segmentos(largo: float, ancho: float, sala_m: float = 0.7) -> np.ndarray:
     """Paredes de la sala (a sala_m de la huincha) y muebles para que el LiDAR tenga referencias."""
-    def caja(cx, cy, ax, ay):
-        return Rect(cx, cy, ax, ay).segmentos()
-    pared = caja(largo / 2, ancho / 2, largo + 2 * sala_m, ancho + 2 * sala_m)
-    muebles = [caja(largo + sala_m - 0.25, ancho * 0.3, 0.4, 0.6),          # mesa contra la pared
-               caja(largo * 0.35, -sala_m + 0.2, 0.5, 0.3),                 # caja en el piso
-               caja(-sala_m + 0.15, ancho * 0.75, 0.25, 0.25),              # silla
-               caja(largo * 0.55, ancho * 0.55, 0.30, 0.20)]                # algo dentro de la pista (no estorba)
-    return np.vstack([pared] + muebles)
+    return np.vstack([sala(largo, ancho, sala_m).segmentos()] + [r.segmentos() for r, _ in muebles(largo, ancho, sala_m)])
 
 
 def inicio(sep_m: float = 0.12, torcido_deg: float = 4.0) -> np.ndarray:

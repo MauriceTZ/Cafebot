@@ -17,6 +17,9 @@ Teclado (como el programa antiguo):
     mapa (verde = asociado a una línea conocida de la cancha, naranjo = sin asociar). Calibrarlos: tools.ir
     B recalibrar giroscopio (quieto) | +/- zoom | F11 pantalla completa sí/no
     K MISIÓN completa (como el botón de inicio; el robot debe estar en su sector de partida). ESC la detiene
+    V vista de la CÁMARA (abajo a la derecha): chica -> grande -> oculta | Shift+V superposición de la cancha
+      (líneas y soportes donde deberían verse según la localización; tools/vista_camara.py). En --sim es la cámara
+      simulada (lo que vería desde la pose real); en el robot, la cámara de verdad, compartida con la misión
     F RECORRER EL BORDE: con el robot en una esquina (borde detrás y a la derecha), da la vuelta al rectángulo
       tocando los bordes con los IR y vuelve a la esquina (docs/navegacion.md). ESC lo detiene
     --taller 2.4x1.8 (con --sim): pista de taller simulada (solo la huincha del borde, sala con paredes)
@@ -38,6 +41,7 @@ from cafebot.mundo import cancha
 from cafebot.navegacion.geometria import componer, envolver, rectangulo, relativo, transformar
 from cafebot.navegacion.sistema import SistemaNavegacion
 from tools import pantalla
+from tools.vista_camara import VistaCamara
 
 FONDO, LIBRE, TENTATIVO, ESTATICO = (12, 14, 20), (22, 30, 44), (55, 62, 85), (70, 150, 220)
 COLOR_BORDE = [(255, 90, 90), (90, 200, 255), (255, 210, 60), (200, 120, 255), (160, 160, 160)]
@@ -159,20 +163,27 @@ def dibujar_recorrido(win, fuente, v, rb):
             win.blit(fuente.render(str(e["k"]), True, (255, 255, 255)), (sx + 9, sy - 8))
 
 
-def crear_mision(cfg, nav, lidar, mega, esc, usar_brazo=False, usar_camara=False):
+def crear_mision(cfg, nav, lidar, mega, esc, usar_brazo=False, usar_camara=False, camara=None):
     """Con --sim: brazo, visión y compuertas simulados. Con el robot: los reales que se pidan con --brazo /
-    --camara; sin ellos la misión navega, se acerca y mide el árbol, pero no toca granos."""
+    --camara; sin ellos la misión navega, se acerca y mide el árbol, pero no toca granos.
+    camara: la CamaraCompartida de la vista de la cámara (la misión usa la misma)."""
     from cafebot.mision import interfaces as I
     from cafebot.mision.mision import Mision
     from tools.mision import armar_reales
     c = cfg.mision
     if esc is not None:
         real = lambda: tuple(lidar.real)
-        brazo = I.BrazoSimulado(esc, real, (c.brazo_x, c.brazo_y, c.brazo_z))
+        try:        # el alcance con la cinemática y el plan de agarre del brazo de verdad, como tools.mision --sim
+            from cafebot.arm.brazo import BrazoXL430
+            alcanzable = BrazoXL430(cfg, log=lambda t: None).alcanzable
+        except Exception as e:
+            print(f"[AVISO] alcance del brazo simulado aproximado (esfera de 38 cm): {e}")
+            alcanzable = None
+        brazo = I.BrazoSimulado(esc, real, (c.brazo_x, c.brazo_y, c.brazo_z), alcanzable_fn=alcanzable)
         vision = I.VisionSimulada(esc, cfg_camara=cfg.camara, ve_cajas_al_partir=False)
         depositos = I.DepositosSimulados(mega, c, brazo, esc, real)
     else:
-        brazo, vision, depositos = armar_reales(cfg, usar_brazo, "camara" if usar_camara else "nula", mega)
+        brazo, vision, depositos = armar_reales(cfg, usar_brazo, "camara" if usar_camara else "nula", mega, camara)
     return Mision(cfg, nav, lidar, mega, brazo, vision, depositos, I.Boton())
 
 
@@ -197,6 +208,8 @@ def main():
     ap.add_argument("--vel-borde", type=float, default=120.0, help="mm/s de los tramos del recorrido del borde")
     ap.add_argument("--captura", default=None, help="(pruebas) guardar una imagen tras N s y salir: archivo.png")
     ap.add_argument("--captura-s", type=float, default=8.0)
+    ap.add_argument("--vista-camara", choices=("chica", "grande", "no"), default="chica",
+                    help="vista de la cámara abajo a la derecha (tecla V); en el robot abre la cámara al mostrarse")
     pantalla.agregar_opcion(ap)
     a = ap.parse_args()
     cfg = cargar()
@@ -205,6 +218,7 @@ def main():
     mega = giroscopio = ir_sim = None
     esc = None
     inicio_sim = None
+    mundo_sim = None
     if a.sim:
         from cafebot.drivers.lidar_simulado import LD06Simulado
         from cafebot.drivers.mega import Mega
@@ -215,11 +229,15 @@ def main():
             from cafebot.mundo import taller
             largo, ancho = (float(x) for x in a.taller.lower().split("x"))
             segs, lineas_sim, inicio_sim = taller.segmentos(largo, ancho), taller.lineas(largo, ancho), taller.inicio()
+            from cafebot.vision.render import MundoTaller
+            mundo_sim = MundoTaller(largo, ancho)
         else:
             esc = cancha.Escenario(a.zona_sim, 1 if a.zona_sim != 1 else 2, 5 if a.zona_sim != 5 else 4, (2, 4),
                                    cancha.sorteo_granos(np.random.default_rng()))
             inicio_sim = np.array([cancha.ZONA_X_CENTRO, cancha.centros_zonas_beneficiadero()[a.zona_sim - 1], 0.0])
             segs, lineas_sim = esc.segmentos(), cancha.lineas_cancha()
+            from cafebot.vision.render import MundoCancha
+            mundo_sim = MundoCancha(esc)
         lidar = LD06Simulado(cfg.geometria.config_ld06(), segs, inicio_sim,
                              lambda: (mega.tele.x / 1000, mega.tele.y / 1000, mega.tele.th))
         from cafebot.drivers.ir_simulado import IRSimulado, pose_mega_extrapolada
@@ -247,6 +265,14 @@ def main():
             print(f"Umbrales IR de robot_local.json enviados al Mega: {est.umbrales} (histéresis {est.histeresis})")
     lidar.iniciar()
     nav = SistemaNavegacion(cfg, lidar, mega, giroscopio)
+    camara = None
+    if a.sim:
+        vista_cam = VistaCamara(cfg, a.vista_camara, mega, mundo_sim,
+                                lambda: lidar.pose_real_ahora(pose_mega_extrapolada(mega)))
+    else:
+        from cafebot.vision.camara import CamaraCompartida, abrir_para_mision
+        camara = CamaraCompartida(lambda: abrir_para_mision(print))   # se abre al mostrarse la vista (o en la misión)
+        vista_cam = VistaCamara(cfg, a.vista_camara, mega, camara=camara)
 
     # ------------------------------------------------------------- interfaz
     pan = pantalla.Pantalla("Cafebot - navegación (SLAM + odometría + A*)", (a.ancho, a.alto), a.pantalla)
@@ -277,7 +303,9 @@ def main():
             elif ev.type == pg.MOUSEBUTTONDOWN and ev.button in (1, 2, 3):
                 arrastrando, arrastre = True, 0.0
             elif ev.type == pg.MOUSEBUTTONUP and ev.button in (1, 2, 3):
-                if arrastrando and ev.button == 1 and arrastre < 6:
+                if vista_cam.rect is not None and vista_cam.rect.collidepoint(ev.pos):
+                    pass                                        # clic sobre la cámara: no es un destino
+                elif arrastrando and ev.button == 1 and arrastre < 6:
                     p = v.a_mundo(*ev.pos)
                     if pg.key.get_mods() & pg.KMOD_SHIFT:
                         origen_A = p
@@ -351,6 +379,13 @@ def main():
                     v.pan = np.array([-v.w * 0.25, 70.0])
                 elif k == pg.K_t:
                     ver_odom = not ver_odom
+                elif k == pg.K_v:
+                    if pg.key.get_mods() & pg.KMOD_SHIFT:
+                        vista_cam.superponer = not vista_cam.superponer
+                        msg = "Superposición de la cancha " + ("SÍ" if vista_cam.superponer else "NO")
+                    else:
+                        vista_cam.ciclar()
+                        msg = f"Vista de la cámara: {vista_cam.tamano}"
                 elif k == pg.K_b and giroscopio is not None:
                     giroscopio.recalibrar()
                     msg = "Recalibrando giroscopio: NO mover"
@@ -362,7 +397,7 @@ def main():
                         recorrido = iniciar_recorrido(cfg, nav, mega, a.vel_borde)
                         msg = "Recorriendo el borde (ESC o F para detener)"
                 elif k == pg.K_k and mega is not None and not (mision and mision.activa):
-                    mision = crear_mision(cfg, nav, lidar, mega, esc, a.brazo, a.camara)
+                    mision = crear_mision(cfg, nav, lidar, mega, esc, a.brazo, a.camara, camara)
                     mision.iniciar()
                     msg = "MISIÓN en marcha (ESC para detenerla)"
                 elif k == pg.K_i:
@@ -408,7 +443,7 @@ def main():
 
         nav.actualizar()
         if a.mision and mision is None and mega is not None and nav.ekf.inicializada and time.monotonic() - t0 > 3:
-            mision = crear_mision(cfg, nav, lidar, mega, esc, a.brazo, a.camara)
+            mision = crear_mision(cfg, nav, lidar, mega, esc, a.brazo, a.camara, camara)
             mision.iniciar()
             msg = "MISIÓN en marcha (ESC para detenerla)"
         if a.borde and recorrido is None and mega is not None and nav.ekf.inicializada and time.monotonic() - t0 > 3:
@@ -482,6 +517,11 @@ def main():
             pg.draw.rect(win, (20, 20, 20) if mask_ir & (1 << k) else (235, 235, 235), (sx - 4, sy - 4, 9, 9))
             pg.draw.rect(win, (255, 200, 0), (sx - 4, sy - 4, 9, 9), 1)
 
+        # Vista de la cámara (abajo a la derecha), con la superposición según la pose ESTIMADA en la cancha
+        pose_cancha = relativo(T_mapa_cancha, pose) if T_mapa_cancha is not None else None
+        vista_cam.dibujar(win, fuente, pose_cancha, mision.lecturas if mision is not None else None,
+                          y_min=14 + 18 * 15)
+
         # HUD
         st = lidar.estadisticas()
         d_odom, d_th = nav.ekf.deriva()
@@ -511,7 +551,8 @@ def main():
              if mision is not None else "MISIÓN    K para iniciar (robot en su sector de partida)"),
             f">> {msg}",
             "clic B | shift+clic A | ENTER ejecutar | ESC parar | TAB/G landmark | flechas, Q/E mover | "
-            "M congelar | S/L guardar/cargar | I cancha | T odometría | R reset | F11 pantalla completa",
+            "M congelar | S/L guardar/cargar | I cancha | T odometría | R reset | V cámara (Shift+V superp.) | "
+            "F11 pantalla completa",
         ]
         panel = pg.Surface((v.w, 14 + 18 * len(hud)), pg.SRCALPHA)
         panel.fill((8, 10, 16, 205))
@@ -532,6 +573,9 @@ def main():
         recorrido.esperar(3)
     if ir_sim is not None:
         ir_sim.detener()
+    vista_cam.detener()
+    if camara is not None:
+        camara.cerrar()
     nav.detener()
     lidar.detener()
     if mega is not None:

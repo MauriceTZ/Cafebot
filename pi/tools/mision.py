@@ -23,8 +23,9 @@ from cafebot.mundo import cancha
 from cafebot.navegacion.sistema import SistemaNavegacion
 
 
-def armar_reales(cfg, usar_brazo: bool, vision: str, mega):
-    """Brazo / visión / compuertas reales según las opciones (lo que no se pide queda nulo)."""
+def armar_reales(cfg, usar_brazo: bool, vision: str, mega, camara=None):
+    """Brazo / visión / compuertas reales según las opciones (lo que no se pide queda nulo).
+    camara: una CamaraCompartida si otra parte (la vista de tools.navegacion) también la usa."""
     if usar_brazo:
         from cafebot.arm.brazo import BrazoXL430
         from tools.brazo import buscar_u2d2
@@ -38,7 +39,7 @@ def armar_reales(cfg, usar_brazo: bool, vision: str, mega):
         brazo = I.BrazoNulo()
     if vision == "camara":
         from cafebot.vision.vision import VisionCamara
-        vis = VisionCamara(cfg)
+        vis = VisionCamara(cfg, camara=camara)
     elif vision == "fija":
         print("¡OJO! visión FIJA: toma todo como MADURO. Solo para el taller.")
         vis = I.VisionFija()

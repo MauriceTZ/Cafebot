@@ -111,6 +111,8 @@ class Mega:
         self._ir_suscriptores: list = []                # colas extra (suscribir_ir): cada una recibe TODOS los eventos
         self.ir_crudo: tuple | None = None              # (valores, mascara, t) de la última línea IRV
         self.ir_historia: deque = deque(maxlen=3000)    # para graficar / calibrar
+        self.aux: dict[int, float] = {}                 # último ángulo ACEPTADO de cada servo auxiliar ("X k ang"):
+                                                        # 2 = inclinación de la cámara (la vista de la cámara lo usa)
         self._ir_mascara = 0
         self._respuestas: "queue.Queue[str]" = queue.Queue()
         self._resultados: dict[int, Resultado] = {}
@@ -244,9 +246,16 @@ class Mega:
                 self._respuestas.get_nowait()
             self._serial.write((linea + "\n").encode("ascii"))
         try:
-            return self._respuestas.get(timeout=timeout)
+            r = self._respuestas.get(timeout=timeout)
         except queue.Empty:
             raise TimeoutError(f"Sin respuesta a '{linea}'")
+        if linea.startswith("X ") and r.startswith("OK"):
+            try:
+                _, k, ang = linea.split()[:3]
+                self.aux[int(k)] = min(180.0, max(0.0, float(int(float(ang)))))   # como el firmware (int, 0..180)
+            except ValueError:
+                pass
+        return r
 
     def _encolar(self, linea: str) -> int:
         r = self.comando(linea)

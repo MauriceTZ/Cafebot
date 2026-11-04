@@ -16,6 +16,11 @@
 > El driver pide el modo del sensor de campo COMPLETO (2304×1296): sin eso, a 1536×864 libcamera elige un recorte
 > del centro (~49° de campo, fx ≈ 1690) y nada calzaría. Lo de abajo es el método anterior (zonas fijas).
 
+## Verla junto al mapa
+`python3 -m tools.navegacion` (tecla **V**) muestra la cámara abajo a la derecha, con la superposición de la cancha
+(líneas y soportes donde deberían verse según la localización): ver docs/navegacion.md. En `--sim`, la cámara
+simulada (`cafebot/vision/render.py`).
+
 ## Probar la cámara en el robot (`python3 -m tools.camara`, en `pi/`)
 
 Código: `pi/cafebot/vision/` — `camara.py` y `clasificador.py` (de Pablo, portados), `proyeccion.py` (dónde cae cada

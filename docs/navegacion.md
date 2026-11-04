@@ -32,6 +32,21 @@ Lanzada **por SSH con la ventana en la pantalla de la Raspberry** (HDMI), la int
 | I | ubicar en la cancha (robot en su sector de partida): dibuja la cancha encima del mapa |
 | T | mostrar/ocultar la trayectoria de solo odometría |
 | R, C, O, B | reiniciar, centrar en el robot, volver al origen, recalibrar giroscopio |
+| V / Shift+V | vista de la cámara chica → grande → oculta / superposición de la cancha sí/no |
+
+**Vista de la cámara** (abajo a la derecha; `--vista-camara chica|grande|no`, `tools/vista_camara.py`):
+- `--sim`: lo que vería la cámara desde la pose REAL del robot simulado (`cafebot/vision/render.py`: la cancha, los
+  árboles con los granos del sorteo —los que saca el brazo desaparecen—, cajas y albercas, con el mismo modelo de
+  cámara que la visión). Con `--taller`, la pista de taller.
+- En el robot: la cámara de verdad. Es **una sola** para la vista y la misión (`--camara`): `CamaraCompartida` en
+  `cafebot/vision/camara.py`; la misión saca sus fotos igual y la vista muestra la última. Se abre al mostrarse
+  (~2 s; si no hay exposición guardada, la fija). Si falla (p. ej. `tools.ver_camara` la tiene abierta), V reintenta.
+- La inclinación es la del último `X 2` que aceptó el Mega (`Mega.aux[2]`; al encender, 90°).
+- **Superposición** (cian = eje de las líneas de la cancha; círculos = los 48 soportes): dónde DEBERÍAN verse según
+  la pose que el robot cree tener en la cancha (I o la misión) y la calibración de la cámara. Cada soporte con el
+  color de lo que clasificó la misión (rojo maduro, azul sobremaduro, verde, amarillo no sé, gris vacío; blanco sin
+  leer). En el robot: si no calzan con la imagen, falla la localización o la calibración de la cámara
+  (`tools.cosecha` C). En la simulación la imagen sale de la pose real: la diferencia es el error de localización.
 
 **Qué mirar para calibrar:**
 - **Línea verde** = trayectoria fusionada. **Amarilla** = la que daría la odometría sola. Si se separan

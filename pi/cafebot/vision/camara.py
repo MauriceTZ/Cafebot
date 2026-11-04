@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import threading
 import time
 
 # Silenciar los mensajes INFO/WARN de libcamera (solo mostrar errores).
@@ -119,6 +120,81 @@ class CamaraArchivo:
 
     def cerrar(self):
         pass
+
+
+def abrir_para_mision(log=print, dist_por_defecto: float = 0.6) -> Camara:
+    """La cámara como la usa la misión: con la exposición y el balance de blancos guardados (tools.camara
+    exposicion), o fijados ahora si no hay."""
+    aj = cargar_ajustes()
+    cam = Camara((aj or {}).get("dist_m", dist_por_defecto))
+    if aj:
+        cam.aplicar(aj)
+    else:
+        log("[visión] sin ajustes de exposición guardados: se fijan ahora (python3 -m tools.camara exposicion)")
+        cam.bloquear_auto()
+    return cam
+
+
+class CamaraCompartida:
+    """UNA cámara para la misión y la vista en vivo de la interfaz (libcamera no deja abrirla dos veces).
+    Misma interfaz que Camara. Se abre la primera vez que se usa (abrir() puede tardar ~2 s); las capturas van de a
+    una, y `reciente()` da la última foto si es nueva (la vista no le quita fotos a la misión)."""
+
+    def __init__(self, abrir):
+        self._abrir = abrir
+        self._cam = None
+        self._lock = threading.RLock()
+        self.error = ""
+        self.ultima = None
+        self.t_ultima = 0.0
+
+    @property
+    def abierta(self) -> bool:
+        return self._cam is not None
+
+    def _camara(self):
+        with self._lock:
+            if self._cam is None:
+                try:
+                    self._cam = self._abrir()
+                    self.error = ""
+                except Exception as e:
+                    self.error = f"{type(e).__name__}: {e}"
+                    raise
+            return self._cam
+
+    def capturar(self):
+        with self._lock:
+            img = self._camara().capturar()
+            self.ultima, self.t_ultima = img, time.monotonic()
+            return img
+
+    def reciente(self, max_edad_s: float = 0.25):
+        """La última foto si tiene menos de max_edad_s; si no, una nueva."""
+        img, t = self.ultima, self.t_ultima
+        if img is not None and time.monotonic() - t < max_edad_s:
+            return img
+        return self.capturar()
+
+    def enfocar(self, dist_m):
+        with self._lock:
+            self._camara().enfocar(dist_m)
+
+    def aplicar(self, ajustes):
+        with self._lock:
+            self._camara().aplicar(ajustes)
+
+    def bloquear_auto(self, espera_s: float = 2.0):
+        with self._lock:
+            return self._camara().bloquear_auto(espera_s)
+
+    def cerrar(self):
+        with self._lock:
+            if self._cam is not None:
+                try:
+                    self._cam.cerrar()
+                finally:
+                    self._cam = None
 
 
 def guardar_ajustes(ajustes: dict, dist_m: float):

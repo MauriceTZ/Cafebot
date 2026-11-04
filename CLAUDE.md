@@ -47,7 +47,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   Protocolo de texto: `docs/protocolo_mega.md`.
 - **Pi = decisiones** (`pi/cafebot`): drivers (`mega.py`, `ld06.py`, `imu.py`), brazo (`arm/`: `BrazoXL430`),
   visión (`vision/`: `VisionCamara`, clasificador Lab de Pablo + proyección de los soportes; cosecha: modelo de
-  cámara `camara_modelo.py`, árbol `arbol.py`, detección + fusión cámara/LiDAR + proyección inversa `granos.py`), mapa de la
+  cámara `camara_modelo.py`, árbol `arbol.py`, detección + fusión cámara/LiDAR + proyección inversa `granos.py`;
+  cámara simulada y superposición de la cancha `render.py`), mapa de la
   cancha y simulador (`mundo/`), localización inicial con LiDAR (`localizacion/`),
   navegación modular (`navegacion/`: SLAM, EKF, landmarks, seguimiento, A*, ejecutor; ver `docs/navegacion.md`),
   misión de la ronda (`mision/`: N1→N2→N3; brazo, visión, compuertas y botón detrás de interfaces; ver `docs/mision.md`).
@@ -61,7 +62,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - `firmware/test_host/correr.sh`: el firmware real compilado en el PC con una planta simulada.
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
     test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
-    test_navegacion, test_mision, test_ir, test_borde, test_cosecha, test_pantalla).
+    test_navegacion, test_mision, test_ir, test_borde, test_cosecha, test_pantalla, test_vista_camara).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
@@ -119,6 +120,11 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - 4 nov: las ventanas pygame (`tools.navegacion`, `tools.cosecha`, `tools.visor_lidar`) se abren en pantalla completa
   si se lanzan por SSH y se ven en la pantalla HDMI de la Pi (F11 alterna, `--pantalla`); Ctrl+C en la terminal
   cierra ordenado (detiene misión y robot). `tests/sim_serial.py`: el firmware simulado en su propia sesión.
+- 4 nov: vista de la CÁMARA en `tools.navegacion` (tecla V, abajo a la derecha): en `--sim` la cámara simulada
+  (`vision/render.py`, sin MuJoCo: polígonos con el modelo de cámara de la visión, desde la pose real); en el robot la
+  cámara de verdad, compartida con la misión (`CamaraCompartida`). Shift+V: superposición de las líneas y los soportes
+  según la pose estimada, con el color de cada lectura. `Mega.aux` recuerda el `X 2`. La misión de
+  `tools.navegacion --sim` ahora usa el alcance del brazo de verdad (como `tools.mision --sim`).
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de
