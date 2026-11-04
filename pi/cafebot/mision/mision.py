@@ -555,6 +555,8 @@ class Mision:
                 self._ok(self.mega.avanzar(-1000 * atras, 100, timeout=15), "reversa a la caja")
             pc = self.pose_cancha()
             self.log(f"entrega: abro la compuerta {k} en x={pc[0]:.2f} y={pc[1]:.2f} (caja en y={yb:.2f})")
-            self.depositos.vaciar(k)
-            self.recogidos[cat] = 0
+            if self.depositos.vaciar(k) is False:
+                self.log(f"entrega: la compuerta {k} no se abrió bien: los {cat} pueden seguir en el robot")
+            else:
+                self.recogidos[cat] = 0
             self._ok(self.mega.avanzar(120, 150, timeout=10), "salir de la caja")

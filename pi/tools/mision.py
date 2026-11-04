@@ -46,7 +46,24 @@ def armar_reales(cfg, usar_brazo: bool, vision: str, mega, camara=None):
         vis = I.VisionFija()
     else:
         vis = I.VisionNula()
-    return brazo, vis, I.Depositos(mega, cfg.mision)
+    if cfg.compuertas.tipo == "dxl":           # 4 nov: Dynamixel 12 / 13 en el bus del brazo
+        from cafebot.arm.compuertas import DepositosDXL, abrir_bus
+        if usar_brazo:
+            def bus_fn():                       # el MISMO bus del brazo: el puerto del U2D2 se abre una sola vez
+                if brazo.bus is None:
+                    try:
+                        brazo.conectar()
+                    except IOError as e:        # aunque falte un servo del brazo, las compuertas pueden servir
+                        print(f"[brazo] {e}")
+                if brazo.bus is None:
+                    raise IOError("no se pudo abrir el U2D2")
+                return brazo.bus
+        else:
+            bus_fn = lambda: abrir_bus(cfg)
+        depositos = DepositosDXL(cfg, bus_fn)
+    else:
+        depositos = I.Depositos(mega, cfg.mision)
+    return brazo, vis, depositos
 
 
 def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None):
@@ -137,6 +154,7 @@ def main():
 
     lidar.iniciar()
     vision.iniciar()
+    depositos.preparar()                       # compuertas conectadas y sujetas antes del botón (fuera del reloj)
     nav = SistemaNavegacion(cfg, lidar, mega, gyro)
     m = Mision(cfg, nav, lidar, mega, brazo, vision, depositos, boton)
     # Antes del botón: dejar que el SLAM arranque (el robot quieto)
@@ -163,6 +181,11 @@ def main():
         mega.ir_sim.detener()
     lidar.detener()
     mega.cerrar()
+    if hasattr(vision, "cerrar"):
+        vision.cerrar()                        # (libcamera tiene hilos propios: que no dejen el programa colgado)
+    # El brazo y las compuertas quedan con torque: el brazo en su postura de descanso y las compuertas cerradas
+    # mientras los jueces levantan el robot (sin torque, una compuerta podría abrirse y botar granos).
+    print("FIN: la misión terminó y el programa se cierra.")
 
 
 if __name__ == "__main__":

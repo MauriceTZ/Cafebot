@@ -17,9 +17,39 @@ python3 -m tests.test_mision 1 2 3                  # prueba automática (~2 min
 python3 -m tools.mision                             # solo navegación: va, mira y se acerca; no toca granos (botón = ENTER)
 python3 -m tools.mision --brazo --vision camara     # COMPLETA: brazo XL430 + cámara (calibrarlos antes: docs/brazo.md, docs/camara.md)
 python3 -m tools.mision --brazo --vision fija       # SOLO TALLER: árbol con puros maduros, para probar el brazo sin visión
-python3 -m tools.mision --boton gpio ...            # botón real en cfg.mision.pin_boton
+python3 -m tools.mision --boton gpio ...            # botón real (GPIO 23, mision.pin_boton)
 python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0 --brazo --camara    # con interfaz: tecla K
 ```
+Al terminar (entregó lo que alcanzó a recoger, o se acabó el tiempo) el programa se cierra solo: el brazo queda en su
+postura de descanso y las compuertas cerradas, con torque, mientras los jueces levantan el robot.
+
+## Botón de inicio y servicio (para la competencia)
+Botón entre el GPIO 23 (pin 16) y GND (pin 14), sin resistencia (pull-up interno): `docs/hardware.md`. Probarlo con
+`python3 -m tools.boton`. Para que la misión corra sin el PC (la ronda va sin WiFi), instalar el servicio una vez:
+```bash
+bash ~/Cafebot/pi/system/instalar_servicio.sh     # crea pi/system/mision.env con las opciones de la misión
+sudo systemctl start cafebot-mision               # una ronda: queda esperando el botón
+journalctl -u cafebot-mision -f                   # ver lo que hace
+sudo systemctl enable cafebot-mision              # SOLO en la competencia: arranca solo al encender la Pi
+sudo systemctl disable cafebot-mision             # de vuelta al taller (si corre, ocupa el Mega, el LiDAR y el U2D2)
+```
+Opciones (`--nivel`, `--cajas`, `--brazo`, `--vision`): en `pi/system/mision.env`, entre rondas. El servicio no se
+reinicia solo: después de una ronda, `sudo systemctl start cafebot-mision` (o apagar y encender, con `enable`).
+
+## Compuertas (Dynamixel id 12 = maduros, id 13 = sobremaduros)
+En el mismo bus que el brazo (U2D2). Quedan en modo posición, con el PWM limitado (si algo las traba no se queman) y
+con sus límites grabados en el servo: aunque se pida un ángulo equivocado, no pasan de ahí. **Sin calibrar no se
+mueven** (sus granos quedan en el robot: +3 / +1). Calibrar (ángulos del servo, 0..360°):
+```bash
+python3 -m tools.compuertas soltar                     # sin torque
+python3 -m tools.compuertas leer --seguir              # el ángulo en vivo mientras se mueven a mano
+python3 -m tools.compuertas grabar maduros cerrada     # cada una cerrada y abierta (también: sobremaduros, 12, 13)
+python3 -m tools.compuertas grabar maduros abierta
+python3 -m tools.compuertas limites maduros 150 260    # unos grados más allá de cerrada y abierta
+python3 -m tools.compuertas probar                     # abre, espera mision.t_vaciado_s y cierra
+```
+Se graba en `pi/robot_local.json` (sección `compuertas`): copiarlo también a `ConfigCompuertas` en
+`pi/cafebot/config.py`, que robot_local.json se pierde con la SD. `compuertas.tipo = "mega"` vuelve a las de X 0 / X 1.
 
 ## Qué hace
 
@@ -94,7 +124,7 @@ hipótesis) y, ya pasadas las albercas, repite la localización con **todo el ma
 | Centro del grano delante del tablero; desplazamiento lateral de la copa respecto del pie | `cancha.GRANO_DELANTE_M`, `cancha.COPA_DESPLAZADA_M` |
 | Holgura de agarre que permite llegar a la fila alta (el brazo llega poco: `docs/brazo.md`) | `mision.holgura_agarre_m` |
 | Distancia e inclinación de la cámara para ver los 16 soportes | `mision.distancia_foto_m`, `camara.inclinacion_arbol_deg` (+ `pitch_servo_90_deg` / `pitch_por_grado`, medidos con `tools.cosecha` C) |
-| Ángulos de las compuertas, dónde caen los granos, a qué x retroceder | `compuerta_*_deg`, `salida_x`, `x_entrega` |
-| GPIO del botón | `mision.pin_boton` |
+| Ángulos y límites de las compuertas (Dynamixel 12 / 13); dónde caen los granos, a qué x retroceder | `tools.compuertas` (`compuertas.*`), `salida_x`, `x_entrega` |
+| Botón: GPIO 23, pin 16 (4 nov); probar el cableado | `python3 -m tools.boton` |
 | ¿Hay líneas negras en las posiciones de alberca vacías? Si las hay, el A* debe evitarlas (hoy solo evita las albercas que ve). | reglamento Apéndice A |
 | IR: freno por borde desactivado en la misión hasta integrarlos (`freno_ir`). | |

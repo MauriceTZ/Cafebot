@@ -41,7 +41,10 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Sensores de línea: 4 × QTR-1A analógicos en A8–A11 (DI, DD, TI, TD), conector Analog IO del shield; A1/A4/A5
   son del motor M4. Montados en las 4 esquinas, a 45°, junto a cada rueda (posición = centro de la rueda,
   ±111,5 / ±108,5 mm). Calibración y umbrales: `docs/ir.md` (`python3 -m tools.ir`).
-- Pendiente de confirmar: compuertas (en el firmware, `X 0`/`X 1` en 46/11; en el modelo de Fusion son Dynamixel).
+- Compuertas (4 nov): Dynamixel en el bus del brazo, **id 12 = maduros, id 13 = sobremaduros** (`config.compuertas`,
+  `cafebot/arm/compuertas.py`); ángulos y límites por calibrar con `tools.compuertas` (sin calibrar no se mueven).
+  `X 0`/`X 1` del Mega (46/11) quedaron sin uso.
+- Botón de inicio (4 nov): **GPIO 23** (pin 16) a GND (pin 14), pull-up interno; parte al soltar (`tools.boton`).
 
 ## Arquitectura
 - **Mega = reflejos** (`firmware/mega_cafebot`): PI por rueda, primitivas `A` (avanzar), `W` (girar),
@@ -65,7 +68,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
     test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
     test_navegacion, test_mision, test_ir, test_borde, test_cosecha, test_pantalla, test_vista_camara,
-    test_cajas).
+    test_cajas, test_compuertas).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
@@ -131,10 +134,14 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - 4 nov: cajas del mismo color: `mision.cajas` ("colores" lo de siempre; "cercana" = maduros a la más cercana, apuesta
   al 50 %; "guardar" = no entregar, +3/+1 seguros), `--cajas` en `tools.mision` y `tools.navegacion`. Simulado (semilla
   1): colores 14, cercana −14 (le tocó la azul), guardar 6 (terminó a los 64 s). Cálculo de qué conviene: `tests.test_cajas`.
+- 4 nov: compuertas Dynamixel 12/13 (modo posición, PWM limitado, límites en el servo; sin calibrar no se mueven) con
+  `tools.compuertas`; botón en el GPIO 23 (descarta pulsos < 50 ms; apretado al empezar no parte) con `tools.boton`;
+  servicio `cafebot-mision` (`pi/system/instalar_servicio.sh`, opciones en `pi/system/mision.env`, no se reinicia
+  solo). Al terminar, el programa se cierra y deja brazo y compuertas con torque. Probado con bus y gpiozero falsos.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de
   color); medir con huincha la cámara y la base del brazo (¿calza el modelo de Fusion? ¿izquierda/derecha?); medir el
-  árbol de prueba (`tools.cosecha --arbol taller --crear-arbol`); recorrido inicial con las líneas; servicio systemd +
-  botón GPIO.
-- Por medir para la misión: base del brazo, grano delante del tablero, compuertas, GPIO del botón (`docs/mision.md`).
+  árbol de prueba (`tools.cosecha --arbol taller --crear-arbol`); recorrido inicial con las líneas; calibrar las
+  compuertas (`tools.compuertas`) y probar el botón (`tools.boton`).
+- Por medir para la misión: base del brazo, grano delante del tablero, ángulos de las compuertas (`docs/mision.md`).

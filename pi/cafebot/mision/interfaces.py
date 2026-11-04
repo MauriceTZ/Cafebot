@@ -211,15 +211,31 @@ class Boton:
 
 
 class BotonGPIO(Boton):
-    """Pulsador entre el GPIO `pin` (numeración BCM) y GND, con pull-up interno."""
+    """Pulsador entre el GPIO `pin` (numeración BCM) y GND, con el pull-up interno de la Pi: suelto = alto (1),
+    apretado = bajo (0). 4 nov: GPIO 23 = pin físico 16 (GND en el 14 o el 20), config.mision.pin_boton.
+    Parte al SOLTAR (la mano ya no está sobre el robot). Un pulso de menos de MIN_APRETADO_S es ruido de los
+    motores en el cable, no un dedo: se ignora. Si al empezar ya se lee apretado (botón trabado, cable a GND), se
+    espera a que se suelte en vez de partir solo."""
+    MIN_APRETADO_S = 0.05
 
-    def __init__(self, pin):
+    def __init__(self, pin, log=print, pin_factory=None):
         from gpiozero import Button          # viene con Raspberry Pi OS (usa lgpio en la Pi 5)
-        self.b = Button(pin, pull_up=True, bounce_time=0.05)
+        self.pin, self.log = pin, log
+        self.b = Button(pin, pull_up=True, bounce_time=None, pin_factory=pin_factory)
 
     def esperar(self):
-        self.b.wait_for_press()
-        self.b.wait_for_release()            # partir al SOLTAR: la mano ya no está sobre el robot
+        if self.b.is_pressed:
+            self.log(f"[botón] el GPIO {self.pin} se lee APRETADO antes de empezar (¿botón trabado o cable a GND?): "
+                     "espero a que se suelte")
+            self.b.wait_for_release()
+        self.log(f"[botón] listo: esperando el botón de inicio (GPIO {self.pin})")
+        while True:
+            self.b.wait_for_press()
+            t0 = time.monotonic()
+            self.b.wait_for_release()
+            if time.monotonic() - t0 >= self.MIN_APRETADO_S:
+                return
+            self.log("[botón] pulso de menos de 50 ms (ruido): sigo esperando")
 
 
 class BotonEnter(Boton):
@@ -229,10 +245,15 @@ class BotonEnter(Boton):
 
 # ====================================================================== depósitos (compuertas)
 class Depositos:
-    """Compuertas traseras: k = 0 maduros (caja roja), k = 1 sobremaduros (caja azul)."""
+    """Compuertas traseras: k = 0 maduros (caja roja), k = 1 sobremaduros (caja azul). Esta: servos del Mega
+    (X 0 / X 1; la simulación). Las de verdad son Dynamixel: cafebot/arm/compuertas.py (DepositosDXL)."""
 
     def __init__(self, mega, cfg_mision):
         self.mega, self.c = mega, cfg_mision
+
+    def preparar(self) -> bool:
+        """Antes del botón (fuera del reloj): conectar y sujetar las compuertas."""
+        return True
 
     def vaciar(self, k: int):
         self.mega.comando(f"X {k} {self.c.compuerta_abierta_deg[k]:.0f}")

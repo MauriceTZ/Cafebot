@@ -151,11 +151,28 @@ class ConfigMision:
     salida_x: float = -0.21               # dónde caen los granos, en el sistema del robot           [MEDIR]
                                           # (la rampa debe sobresalir ~5 cm por detrás: con la salida justo en
                                           #  el borde trasero, 1 cm de error de pose deja los granos fuera, −7 c/u)
-    compuerta_abierta_deg: tuple = (90.0, 90.0)   # X 0 (maduros) y X 1 (sobremaduros)             [MEDIR]
-    compuerta_cerrada_deg: tuple = (0.0, 0.0)     #                                                [MEDIR]
+    compuerta_abierta_deg: tuple = (90.0, 90.0)   # solo con compuertas.tipo = "mega": X 0 / X 1 (0..180)
+    compuerta_cerrada_deg: tuple = (0.0, 0.0)     # (las Dynamixel usan la sección `compuertas`)
     t_vaciado_s: float = 2.5
     freno_ir: bool = False         # IS 1 durante la misión (cuando los IR estén integrados)
-    pin_boton: int = 17            # GPIO BCM del botón de inicio                                  [CONFIRMAR]
+    # Botón de inicio (4 nov): GPIO 23 = pin físico 16 del conector de la Pi, entre él y un GND (pin 14 o 20), con el
+    # pull-up interno: suelto = alto, apretado = bajo. La misión parte al SOLTARLO.
+    pin_boton: int = 23            # numeración BCM (la de gpiozero)
+
+
+@dataclass
+class ConfigCompuertas:
+    """Compuertas de los depósitos. 4 nov: son Dynamixel en el bus del brazo (U2D2), id 12 = maduros e id 13 =
+    sobremaduros. Ángulos en GRADOS DEL SERVO, 0..360 (180° = 2048 pasos), como los muestra
+    `python3 -m tools.compuertas leer`. None = sin calibrar: esa compuerta no se mueve (sus granos quedan en el
+    robot, +3 / +1). Calibrar con tools.compuertas (docs/mision.md) y copiar aquí lo que grabe en robot_local.json."""
+    tipo: str = "dxl"                  # "dxl" | "mega" (servos X 0 / X 1 del Mega, mision.compuerta_*_deg)
+    ids: tuple = (12, 13)              # maduros, sobremaduros (4 nov)
+    abierta_deg: tuple = (None, None)  #                                                                 [MEDIR]
+    cerrada_deg: tuple = (None, None)  #                                                                 [MEDIR]
+    limites_deg: tuple = (None, None)  # (mín, máx) de cada una: se graban en el servo y no pasa de ahí   [MEDIR]
+    pwm_limit: int = 450               # ~50 %: si algo traba la compuerta, no se calienta empujando    [AJUSTAR]
+    t_mov_s: float = 0.6               # duración de cada movimiento (abrir / cerrar)
 
 
 @dataclass
@@ -248,6 +265,7 @@ class Config:
     navegacion: ConfigNavegacion = field(default_factory=ConfigNavegacion)
     ir: ConfigIR = field(default_factory=ConfigIR)
     mision: ConfigMision = field(default_factory=ConfigMision)
+    compuertas: ConfigCompuertas = field(default_factory=ConfigCompuertas)
     brazo: ConfigBrazo = field(default_factory=ConfigBrazo)
     camara: ConfigCamara = field(default_factory=ConfigCamara)
 

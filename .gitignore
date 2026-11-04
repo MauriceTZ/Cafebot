@@ -8,3 +8,4 @@ build/
 capturas/
 logs/
 .vscode/
+pi/system/mision.env
