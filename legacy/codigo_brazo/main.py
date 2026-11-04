@@ -21,7 +21,7 @@ OFFSETS_ORTOGONAL = {
     8: 1042,
     11: 3074,
     7: 1546,
-    5: 1014,
+    10: 4054,  # muñeca: el id 5 se cambió por el 10 (cero de Pablo, 30 oct; antes id 5: 1014)
     4: 336
 }
 
@@ -31,7 +31,7 @@ OFFSETS_PRENDERSE = {
     8: 1400,
     11: 2423,
     7: 194,
-    5: 1587,
+    10: 531,   # mismo ángulo que antes (id 5: 1587)
     4: 336
 }
 
@@ -41,7 +41,7 @@ OFFSETS_APAGARSE = {
     8: 1787,
     11: 1719,
     7: 78,
-    5: 1801,
+    10: 745,   # mismo ángulo que antes (id 5: 1801)
     4: 336
 }
 
@@ -60,7 +60,7 @@ ADDR_GOAL_POSITION = 116
 ADDR_PRESENT_LOAD = 126      # Carga actual (2 bytes)
 ADDR_PRESENT_POSITION = 132  # Posición actual del encoder (4 bytes)
 
-SERVO_IDS_BRAZO = [9, 8, 11, 7, 5]  # Base Yaw, Hombro, Codo1, Codo2, Muñeca
+SERVO_IDS_BRAZO = [9, 8, 11, 7, 10]  # Base Yaw, Hombro, Codo1, Codo2, Muñeca
 SERVO_ID_GRIPPER = 4                # Gripper
 TODOS_LOS_SERVOS = SERVO_IDS_BRAZO + [SERVO_ID_GRIPPER]
 
@@ -272,7 +272,7 @@ def mover_suave_a_postura(
 
 def main():
     centros_fisicos = {}
-    config_giro = {9: False, 8: True, 11: True, 7: True, 5: True, 4: False}
+    config_giro = {9: False, 8: True, 11: True, 7: True, 10: True, 4: False}
 
     # Calcular ángulos objetivo de las posturas de encendido y apagado respecto al cero ortogonal
     angulos_prenderse = obtener_angulos_desde_tabla(
