@@ -1,0 +1,314 @@
+<?xml version="1.0" ?>
+<robot name="brazo1">
+
+  <mujoco>
+    <compiler meshdir="../meshes/" balanceinertia="true" discardvisual="false"/>
+  </mujoco>
+
+  <material name="silver">
+    <color rgba="0.700 0.700 0.700 1.000"/>
+  </material>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-0.00011991811279893809 -5.093370845094053e-12 0.001556381658005178" rpy="0 0 0"/>
+      <mass value="0.02773810830156498"/>
+      <inertia ixx="1.4e-05" iyy="2.8e-05" izz="4.2e-05" ixy="-0.0" iyz="0.0" ixz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="servo_base_1">
+    <inertial>
+      <origin xyz="0.01884530361992569 0.00887644594470139 0.015321977530133833" rpy="0 0 0"/>
+      <mass value="0.11073237060446267"/>
+      <inertia ixx="1.7e-05" iyy="3e-05" izz="2.7e-05" ixy="-0.0" iyz="-0.0" ixz="-1e-06"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.032 0.011 -0.0059" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_base_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.032 0.011 -0.0059" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_base_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="hombro_1">
+    <inertial>
+      <origin xyz="-1.2244676667744203e-07 4.5020142357002704e-07 0.013416963422075212" rpy="0 0 0"/>
+      <mass value="0.009658212401008478"/>
+      <inertia ixx="5e-06" iyy="2e-06" izz="4e-06" ixy="0.0" iyz="0.0" ixz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.001206 0.002133 -0.0391" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/hombro_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.001206 0.002133 -0.0391" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/hombro_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="servo_hombro_1">
+    <inertial>
+      <origin xyz="8.873296505409155e-06 0.017878472671292236 0.011948573933304327" rpy="0 0 0"/>
+      <mass value="0.11073237060446267"/>
+      <inertia ixx="3e-05" iyy="2.7e-05" izz="1.7e-05" ixy="0.0" iyz="-1e-06" ixz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.001206 0.021133 -0.0671" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_hombro_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.001206 0.021133 -0.0671" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_hombro_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="codo1_1">
+    <inertial>
+      <origin xyz="-0.011000122446849003 -0.014199549796443282 0.03710003743924245" rpy="0 0 0"/>
+      <mass value="0.022482239588632037"/>
+      <inertia ixx="2.1e-05" iyy="1.6e-05" izz="9e-06" ixy="0.0" iyz="0.0" ixz="-0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.009794 -0.012067 -0.0991" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/codo1_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.009794 -0.012067 -0.0991" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/codo1_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="servo_codo1_1">
+    <inertial>
+      <origin xyz="8.873296505396795e-06 0.017878472671292264 0.011948573933304313" rpy="0 0 0"/>
+      <mass value="0.11073237060446267"/>
+      <inertia ixx="3e-05" iyy="2.7e-05" izz="1.7e-05" ixy="0.0" iyz="-1e-06" ixz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.001206 0.021133 -0.1741" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_codo1_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.001206 0.021133 -0.1741" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_codo1_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="codo2_1">
+    <inertial>
+      <origin xyz="-0.011000122446849041 -0.014199549796443264 0.037100037439242534" rpy="0 0 0"/>
+      <mass value="0.02248223958863206"/>
+      <inertia ixx="2.1e-05" iyy="1.6e-05" izz="9e-06" ixy="0.0" iyz="0.0" ixz="-0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.009794 -0.012067 -0.2061" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/codo2_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.009794 -0.012067 -0.2061" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/codo2_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="servo_codo2_1">
+    <inertial>
+      <origin xyz="8.873296505272328e-06 0.01787847267129226 0.011948573933304452" rpy="0 0 0"/>
+      <mass value="0.11073237060446267"/>
+      <inertia ixx="3e-05" iyy="2.7e-05" izz="1.7e-05" ixy="0.0" iyz="-1e-06" ixz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.001206 0.021133 -0.2811" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_codo2_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.001206 0.021133 -0.2811" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_codo2_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="muneca_1">
+    <inertial>
+      <origin xyz="-0.011000122446747808 -0.014199549798606957 0.015311885482131193" rpy="0 0 0"/>
+      <mass value="0.014903690357992803"/>
+      <inertia ixx="7e-06" iyy="4e-06" izz="5e-06" ixy="0.0" iyz="-0.0" ixz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.009794 -0.012067 -0.3131" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/muneca_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.009794 -0.012067 -0.3131" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/muneca_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="servo_muneca_1">
+    <inertial>
+      <origin xyz="8.873296504273561e-06 0.0178784726712921 0.01194857393330373" rpy="0 0 0"/>
+      <mass value="0.11073237060446267"/>
+      <inertia ixx="3e-05" iyy="2.7e-05" izz="1.7e-05" ixy="0.0" iyz="-1e-06" ixz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.001206 0.021133 -0.3481" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_muneca_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.001206 0.021133 -0.3481" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/servo_muneca_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="garra_1">
+    <inertial>
+      <origin xyz="0.010667940105435869 0.014030699687172974 0.016385147594230376" rpy="0 0 0"/>
+      <mass value="0.021727709860775293"/>
+      <inertia ixx="7e-06" iyy="1e-05" izz="1.1e-05" ixy="0.0" iyz="-0.0" ixz="-0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.012206 0.016333 -0.3801" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/garra_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.012206 0.016333 -0.3801" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/garra_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- UNIONES (JOINTS) -->
+  <joint name="servo_base_joint" type="fixed">
+    <origin xyz="-0.032 -0.011 0.0059" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="servo_base_1"/>
+  </joint>
+
+  <joint name="hombro_yaw_joint" type="revolute">
+    <origin xyz="0.030794 0.008867 0.0332" rpy="0 0 0"/>
+    <parent link="servo_base_1"/>
+    <child link="hombro_1"/>
+    <axis xyz="0.0 0.0 1.0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="100"/>
+  </joint>
+
+  <joint name="hombro_pitch_joint" type="revolute">
+    <origin xyz="0.0 -0.019 0.028" rpy="0 0 0"/>
+    <parent link="hombro_1"/>
+    <child link="servo_hombro_1"/>
+    <axis xyz="0.0 1.0 0.0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="100"/>
+  </joint>
+
+  <joint name="codo1_fixed_joint" type="fixed">
+    <origin xyz="0.011 0.0332 0.032" rpy="0 0 0"/>
+    <parent link="servo_hombro_1"/>
+    <child link="codo1_1"/>
+  </joint>
+
+  <joint name="codo1_pitch_joint" type="revolute">
+    <origin xyz="-0.011 -0.0332 0.075" rpy="0 0 0"/>
+    <parent link="codo1_1"/>
+    <child link="servo_codo1_1"/>
+    <axis xyz="0.0 1.0 0.0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="100"/>
+  </joint>
+
+  <joint name="codo2_fixed_joint" type="fixed">
+    <origin xyz="0.011 0.0332 0.032" rpy="0 0 0"/>
+    <parent link="servo_codo1_1"/>
+    <child link="codo2_1"/>
+  </joint>
+
+  <joint name="codo2_pitch_joint" type="revolute">
+    <origin xyz="-0.011 -0.0332 0.075" rpy="0 0 0"/>
+    <parent link="codo2_1"/>
+    <child link="servo_codo2_1"/>
+    <axis xyz="0.0 1.0 0.0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="100"/>
+  </joint>
+
+  <joint name="muneca_fixed_joint" type="fixed">
+    <origin xyz="0.011 0.0332 0.032" rpy="0 0 0"/>
+    <parent link="servo_codo2_1"/>
+    <child link="muneca_1"/>
+  </joint>
+
+  <joint name="muneca_pitch_joint" type="revolute">
+    <origin xyz="-0.011 -0.0332 0.035" rpy="0 0 0"/>
+    <parent link="muneca_1"/>
+    <child link="servo_muneca_1"/>
+    <axis xyz="0.0 1.0 0.0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="100"/>
+  </joint>
+
+  <joint name="garra_fixed_joint" type="fixed">
+    <origin xyz="-0.011 0.0048 0.032" rpy="0 0 0"/>
+    <parent link="servo_muneca_1"/>
+    <child link="garra_1"/>
+  </joint>
+
+</robot>

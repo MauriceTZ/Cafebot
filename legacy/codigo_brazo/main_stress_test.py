@@ -298,7 +298,7 @@ def main():
             else:
                 print(f"⚠️ Servo {servo_id} NO DETECTADO.")
 
-    URDF_PATH = "brazo1_description/brazo1_description/urdf/brazo1.urdf"
+    URDF_PATH = "brazo1_description/urdf/brazo1.urdf"
     model = mujoco.MjModel.from_xml_path(URDF_PATH)
     data = mujoco.MjData(model)
     viewer = mujoco.viewer.launch_passive(model, data)
