@@ -14,10 +14,16 @@ python3 -m tools.navegacion --sim                                             # 
 # agregar --imu para usar el giroscopio MPU9250
 ```
 
+Lanzada **por SSH con la ventana en la pantalla de la Raspberry** (HDMI), la interfaz se abre en pantalla completa
+(lo mismo `tools.cosecha` y `tools.visor_lidar`; `tools/pantalla.py`). **F11** la alterna; `--pantalla ventana` o
+`--pantalla completa` la fuerzan. Desde el escritorio, por VNC, con `ssh -X` o en el PC: ventana normal.
+**Ctrl+C** en la terminal SSH = cerrar la ventana (detiene la misión y el robot; un segundo Ctrl+C corta de inmediato).
+
 | Ratón / tecla | Acción |
 |---|---|
 | clic / Shift+clic | destino B / origen A (A vacío = el robot) |
 | ENTER / ESC | ejecutar la ruta / parar |
+| F11 | pantalla completa sí/no |
 | TAB / G | elegir landmark / aproximarse a él (queda mirándolo a `distancia_aprox_m`) |
 | flechas, Q / E | mover a mano (avanzar, girar) / cangrejo izquierda, derecha |
 | P, A, X | replanificar, origen = robot, borrar ruta |

@@ -61,7 +61,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - `firmware/test_host/correr.sh`: el firmware real compilado en el PC con una planta simulada.
   - En `pi/`: `python3 -m tests.<prueba>` (test_ld06, test_mega_sim, test_cinematica,
     test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
-    test_navegacion, test_mision, test_ir, test_borde, test_cosecha).
+    test_navegacion, test_mision, test_ir, test_borde, test_cosecha, test_pantalla).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
@@ -116,6 +116,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   estaba en `robot_local.json` (intrínsecos de la cámara, garra, IR) quedó como valores por defecto en `config.py`.
   Arreglado: al encender, la base se lee en la vuelta que cae dentro de su rango (recortado a −76..+202°; antes, la
   más cercana a 0°: encendida pasado +180° leía una vuelta corrida); fuera de rango no se activa el torque.
+- 4 nov: las ventanas pygame (`tools.navegacion`, `tools.cosecha`, `tools.visor_lidar`) se abren en pantalla completa
+  si se lanzan por SSH y se ven en la pantalla HDMI de la Pi (F11 alterna, `--pantalla`); Ctrl+C en la terminal
+  cierra ordenado (detiene misión y robot). `tests/sim_serial.py`: el firmware simulado en su propia sesión.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de

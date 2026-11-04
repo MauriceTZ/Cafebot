@@ -36,7 +36,8 @@ Teclas:
   A        acercarse (frente del robot a holgura_agarre_m del pie)   R  volver a la distancia de la foto
   ↑ / ↓    avanzar / retroceder 2 cm      ← / →  cangrejo 2 cm a la izquierda / derecha (granos de los costados)
   U        volver a ubicar el árbol solo con el LiDAR (sin foto: sirve de cerca; p. ej. después de moverlo a mano)
-  ESC      parar (base y brazo, después del movimiento en curso)      Q  salir
+  ESC      parar (base y brazo, después del movimiento en curso)      Q  salir      F11  pantalla completa sí/no
+Lanzado por SSH con la ventana en la pantalla de la Raspberry (HDMI), se abre en pantalla completa (--pantalla).
 """
 from __future__ import annotations
 
@@ -63,6 +64,7 @@ from cafebot.vision import clasificador as cl
 from cafebot.vision import granos as G
 from cafebot.vision.arbol import ModeloArbol, medir_pie
 from cafebot.vision.camara_modelo import CamaraPinhole, lente_cabezal, lente_de_referencia
+from tools import pantalla
 
 TECLAS_CLASE = ("ROJO", "NARANJO", "AMARILLO", "VERDE", "AZUL", "NEGRO", "VACIO")   # teclas 1..7
 COLOR_CAT = {"MADURO": (60, 70, 255), "SOBREMADURO": (255, 130, 60), "VERDE": (70, 210, 70),
@@ -806,11 +808,10 @@ def dibujar(img, ses: Cosecha, proyectar=True):
 
 
 # ---------------------------------------------------------------------------- ventana (pygame)
-def ventana(ses: Cosecha, titulo: str, en_vivo_posible: bool):
+def ventana(ses: Cosecha, titulo: str, en_vivo_posible: bool, opcion_pantalla: str = "auto"):
     import pygame as pg
-    pg.init()
-    win = pg.display.set_mode((1360, 800), pg.RESIZABLE)
-    pg.display.set_caption(titulo)
+    pan = pantalla.Pantalla(titulo, (1360, 800), opcion_pantalla, redimensionable=True)
+    win = pan.sup
     fuente = pg.font.SysFont("dejavusansmono,monospace", 13)
     negrita = pg.font.SysFont("dejavusans,sans", 16, bold=True)
     reloj = pg.time.Clock()
@@ -821,6 +822,9 @@ def ventana(ses: Cosecha, titulo: str, en_vivo_posible: bool):
         iw = int(W * 0.68)
         ih = int(iw * 9 / 16)
         for ev in pg.event.get():
+            if pan.tecla(ev):                                   # F11: pantalla completa sí/no
+                win = pan.sup
+                continue
             if ev.type == pg.QUIT:
                 return
             if ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1 and ev.pos[0] < iw and ev.pos[1] < ih and ses.imgs:
@@ -951,7 +955,7 @@ def _panel(win, ses: Cosecha, fuente, negrita, rect):
     if ses.ocupado:
         linea(f"... {ses.ocupado}", (255, 200, 80))
     y += 6
-    for t in ("ESPACIO analizar · L en vivo · S guardar · Q salir",
+    for t in ("ESPACIO analizar · L en vivo · S guardar · Q salir · F11 completa",
               "clic elegir · 1-7 color: ROJ NAR AMA VER AZU NEG VAC",
               "I/K inclinación · C calibrar con el árbol",
               "O soltar brazo · M marcar · N calibrar con el brazo",
@@ -1194,6 +1198,7 @@ def main():
     ap.add_argument("--lidar", default=None)
     ap.add_argument("--u2d2", default=None)
     ap.add_argument("--texto", action="store_true", help="sin ventana: analiza, imprime y guarda la imagen marcada")
+    pantalla.agregar_opcion(ap)
     a = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     cfg = cargar()
@@ -1221,7 +1226,8 @@ def main():
             ruta = ses.guardar()
             print(f"Imagen marcada: {ruta}_marcada.jpg")
             return
-        ventana(ses, "Cafebot: cosecha" + (" (SIMULACIÓN)" if a.sim else " (fotos)" if a.imagen else ""), vivo)
+        ventana(ses, "Cafebot: cosecha" + (" (SIMULACIÓN)" if a.sim else " (fotos)" if a.imagen else ""), vivo,
+                a.pantalla)
     finally:
         ses.esperar(5.0)
         for f in reversed(cerrar):

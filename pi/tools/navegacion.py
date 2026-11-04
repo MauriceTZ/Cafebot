@@ -15,11 +15,13 @@ Teclado (como el programa antiguo):
     I ubicar en la cancha (con el robot en su sector de partida) | T trayectoria de odometría
     Sensores de línea (IR): cuadros en las esquinas del robot (negro = ve línea); cada cruce se dibuja en el
     mapa (verde = asociado a una línea conocida de la cancha, naranjo = sin asociar). Calibrarlos: tools.ir
-    B recalibrar giroscopio (quieto) | +/- zoom
+    B recalibrar giroscopio (quieto) | +/- zoom | F11 pantalla completa sí/no
     K MISIÓN completa (como el botón de inicio; el robot debe estar en su sector de partida). ESC la detiene
     F RECORRER EL BORDE: con el robot en una esquina (borde detrás y a la derecha), da la vuelta al rectángulo
       tocando los bordes con los IR y vuelve a la esquina (docs/navegacion.md). ESC lo detiene
     --taller 2.4x1.8 (con --sim): pista de taller simulada (solo la huincha del borde, sala con paredes)
+Lanzado por SSH con la ventana en la pantalla de la Raspberry (HDMI), se abre en pantalla completa (--pantalla).
+Ctrl+C en la terminal = cerrar la ventana (detiene la misión y el robot).
 """
 from __future__ import annotations
 
@@ -35,6 +37,7 @@ from cafebot.config import cargar
 from cafebot.mundo import cancha
 from cafebot.navegacion.geometria import componer, envolver, rectangulo, relativo, transformar
 from cafebot.navegacion.sistema import SistemaNavegacion
+from tools import pantalla
 
 FONDO, LIBRE, TENTATIVO, ESTATICO = (12, 14, 20), (22, 30, 44), (55, 62, 85), (70, 150, 220)
 COLOR_BORDE = [(255, 90, 90), (90, 200, 255), (255, 210, 60), (200, 120, 255), (160, 160, 160)]
@@ -194,6 +197,7 @@ def main():
     ap.add_argument("--vel-borde", type=float, default=120.0, help="mm/s de los tramos del recorrido del borde")
     ap.add_argument("--captura", default=None, help="(pruebas) guardar una imagen tras N s y salir: archivo.png")
     ap.add_argument("--captura-s", type=float, default=8.0)
+    pantalla.agregar_opcion(ap)
     a = ap.parse_args()
     cfg = cargar()
 
@@ -245,12 +249,11 @@ def main():
     nav = SistemaNavegacion(cfg, lidar, mega, giroscopio)
 
     # ------------------------------------------------------------- interfaz
-    pg.init()
-    win = pg.display.set_mode((a.ancho, a.alto))
-    pg.display.set_caption("Cafebot - navegación (SLAM + odometría + A*)")
+    pan = pantalla.Pantalla("Cafebot - navegación (SLAM + odometría + A*)", (a.ancho, a.alto), a.pantalla)
+    win = pan.sup
     fuente = pg.font.SysFont("monospace", 14, bold=True)
     reloj = pg.time.Clock()
-    v = Vista(a.ancho, a.alto)
+    v = Vista(*win.get_size())
     origen_A = None
     seleccion = None
     msg = "Mueve el robot (flechas) para mapear; clic para elegir destino"
@@ -266,7 +269,10 @@ def main():
 
     while corriendo:
         for ev in pg.event.get():
-            if ev.type == pg.QUIT:
+            if pan.tecla(ev):                                   # F11: pantalla completa sí/no
+                win = pan.sup
+                v.w, v.h = win.get_size()
+            elif ev.type == pg.QUIT:
                 corriendo = False
             elif ev.type == pg.MOUSEBUTTONDOWN and ev.button in (1, 2, 3):
                 arrastrando, arrastre = True, 0.0
@@ -505,7 +511,7 @@ def main():
              if mision is not None else "MISIÓN    K para iniciar (robot en su sector de partida)"),
             f">> {msg}",
             "clic B | shift+clic A | ENTER ejecutar | ESC parar | TAB/G landmark | flechas, Q/E mover | "
-            "M congelar | S/L guardar/cargar | I cancha | T odometría | R reset",
+            "M congelar | S/L guardar/cargar | I cancha | T odometría | R reset | F11 pantalla completa",
         ]
         panel = pg.Surface((v.w, 14 + 18 * len(hud)), pg.SRCALPHA)
         panel.fill((8, 10, 16, 205))

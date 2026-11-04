@@ -24,7 +24,10 @@ class SerialSimulado:
     def __init__(self):
         if not os.path.exists(BINARIO):
             compilar()
-        self.p = subprocess.Popen([BINARIO, "--interactivo"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        # En su propia sesión: el Ctrl+C de la terminal le llega solo al programa de la Pi, que detiene el robot
+        # simulado y después lo cierra (si la Pi muere, el firmware ve su entrada cerrada y termina solo).
+        self.p = subprocess.Popen([BINARIO, "--interactivo"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                  start_new_session=True)
         self._buf = bytearray()
         self._cv = threading.Condition()
         threading.Thread(target=self._lector, daemon=True).start()
@@ -51,3 +54,9 @@ class SerialSimulado:
 
     def close(self):
         self.p.kill()
+        self.p.wait()
+        for f in (self.p.stdin, self.p.stdout):     # sin "BrokenPipeError" al salir de Python
+            try:
+                f.close()
+            except OSError:
+                pass
