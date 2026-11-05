@@ -1,5 +1,6 @@
 #!/bin/bash
-# Instala el servicio de la misión en la Raspberry:   bash pi/system/instalar_servicio.sh
+# Instala el servicio de la misión en la Raspberry:   bash pi/system/instalar_servicio.sh [--al-encender]
+#   --al-encender  además lo habilita: al prender la Pi la misión arranca sola y espera el botón (la competencia)
 #   sudo systemctl start cafebot-mision     una ronda: queda esperando el botón (GPIO 16)
 #   journalctl -u cafebot-mision -f         ver lo que hace la misión
 #   sudo systemctl stop cafebot-mision      detenerla (como Ctrl+C)
@@ -18,4 +19,9 @@ sed -e "s|@USUARIO@|$USUARIO|g" -e "s|@PI@|$PI_DIR|g" "$PI_DIR/system/cafebot-mi
     | sudo tee /etc/systemd/system/cafebot-mision.service > /dev/null
 sudo systemctl daemon-reload
 echo "Servicio cafebot-mision instalado (usuario $USUARIO, $PI_DIR). Opciones: $PI_DIR/system/mision.env"
+if [ "$1" = "--al-encender" ]; then
+    sudo systemctl enable cafebot-mision
+    echo "Habilitado: al encender la Pi la misión arranca sola y espera el botón."
+    echo "Para calibrar con las herramientas: sudo systemctl stop cafebot-mision (o disable para quitarlo)."
+fi
 echo "Una ronda:  sudo systemctl start cafebot-mision   |   ver:  journalctl -u cafebot-mision -f"

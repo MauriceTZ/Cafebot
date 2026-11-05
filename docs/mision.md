@@ -49,11 +49,14 @@ Botón entre el GPIO 16 (pin 36) y GND (pin 34), sin resistencia (pull-up intern
 bash ~/Cafebot/pi/system/instalar_servicio.sh     # crea pi/system/mision.env con las opciones de la misión
 sudo systemctl start cafebot-mision               # una ronda: queda esperando el botón
 journalctl -u cafebot-mision -f                   # ver lo que hace
+bash ~/Cafebot/pi/system/instalar_servicio.sh --al-encender   # = instalar + enable (la competencia)
 sudo systemctl enable cafebot-mision              # SOLO en la competencia: arranca solo al encender la Pi
 sudo systemctl disable cafebot-mision             # de vuelta al taller (si corre, ocupa el Mega, el LiDAR y el U2D2)
 ```
 Opciones (`--nivel`, `--cajas`, `--brazo`, `--vision`): en `pi/system/mision.env`, entre rondas. El servicio no se
 reinicia solo: después de una ronda, `sudo systemctl start cafebot-mision` (o apagar y encender, con `enable`).
+El servicio activa el `.venv` (si existe), espera los 3 USB-serial y deja todo lo que imprime en
+`pi/registros/mision_<fecha>.log` (además de `journalctl`).
 
 ## Compuertas (Dynamixel id 2 = maduros, id 13 = sobremaduros; `config.compuertas.ids`)
 En el mismo bus que el brazo (U2D2). Quedan en modo posición, con el PWM limitado (si algo las traba no se queman) y
