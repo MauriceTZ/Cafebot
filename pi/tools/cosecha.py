@@ -293,7 +293,8 @@ class Cosecha:
         cc = self.cfg.camara
         t0 = time.monotonic()
         a = G.analizar(self.imgs, self.cam, self.modelo, pose0, sig, self.clasif if self.clasif.muestras else None,
-                       med, cc.sat_min, cc.val_min, sig_cam=self.sig_cam())
+                       med, cc.sat_min, cc.val_min, sig_cam=self.sig_cam(),
+                       excluir_h=cc.excluir_h)
         for k in self.tomados:
             if k in a.granos:
                 a.granos[k].tomado = True

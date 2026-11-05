@@ -272,6 +272,9 @@ class ConfigCamara:
     arbol: str = "competencia"      # forma del árbol: "competencia" (Apéndice B) o pi/arboles/<nombre>.json
     sat_min: int = 130              # pelota = saturación HSV > sat_min (0..255). 29 oct, foto del taller:
     val_min: int = 60               #   madera 85–110, pelotas roja/verde 150–190
+    # 5 nov: el árbol de la cancha es VERDE y su base CAFÉ: ese verde (matiz OpenCV 0..180) no cuenta como pelota.
+    # None = no excluir (el árbol de madera del taller).   [AJUSTAR con una foto del árbol real: tools.ver_camara]
+    excluir_h: tuple | None = (38, 90)
     fotos: int = 3                  # se clasifica con varias fotos: un soporte que cambia entre fotos = NO_SE
     guardar_fotos: bool = True      # en pi/capturas/, con lo clasificado dibujado (para revisar después)
     calibrada: str = ""             # cuándo y cómo se calibró la pose (tools.cosecha C / N). Vacío = sin calibrar:
