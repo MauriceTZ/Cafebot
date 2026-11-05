@@ -25,8 +25,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Raspberry Pi 5: decisiones. LD06 al frente, por fuera de la base y centrado, a ~5 cm del suelo (29 oct, confirmado); se
   descarta lo que ve en el cuadrado de 45 cm detrás de él (`geometria.lidar_caja_m`).
   Cámara Pi Module 3 **estándar** (29 oct) sobre un cabezal de 2 SG90 (31 oct) en la tapa de la base, a la derecha del
-  brazo: inclinación con `X 2` (pin 44 = PL5; 90° = "un poquito hacia arriba"), giro con `X 3` (pin 4 = PG5,
-  DESACTIVADO: falla, la cámara mira adelante). Lente a ~37 cm del suelo según el modelo de Fusion
+  brazo: inclinación con `X 2` (pin 44 = PL5; 90° = "un poquito hacia arriba"), giro con `X 3` (pin 4 = PG5;
+  5 nov: activado, rangos X 2 60..100 y X 3 50..150; "al frente" se calibra a mano con `tools.cabezal calibrar` y la
+  misión lo manda al conectarse). Lente a ~37 cm del suelo según el modelo de Fusion
   (`description/fusion`, `camara.cabezal` en la config) [CONFIRMAR con huincha].
 - Brazo 5 GDL + garra (abre 6,5 cm) con Dynamixel XL430 (U2D2). Según el modelo de Fusion (31 oct) el eje de la base
   está 7,7 cm delante del centro y 6,3 cm a la izquierda. Altura: 31 oct, la garra horizontal con el brazo vertical
@@ -75,7 +76,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
-    `tools.cabezal` (los servos de la cámara hacen un círculo en su rango: ventana en vivo + mosaico y video),
+    `tools.cabezal` (`calibrar`: al frente a mano con el teclado; sin nada: un círculo en su rango, con video),
     `tools.cosecha` (cámara + LiDAR + brazo frente a un árbol, docs/cosecha.md), `tools.mision` (todo junto).
 - Lo que no se ha medido en el robot se marca `[CONFIRMAR]` / `[MEDIR]` / `[AJUSTAR]` en el código.
 - Commits pequeños y descriptivos en español. Cuando el equipo prueba algo en el robot, anotar el

@@ -162,6 +162,11 @@ def main():
         print("Conectando con el Mega...")
         mega.conectar()
         mega.telemetria(20)
+        cc = cfg.camara          # la cámara al frente con lo calibrado (tools.cabezal calibrar), sin recargar el Mega
+        for k, ang in ((2, cc.servo_pitch_centro), (3, cc.servo_yaw_centro)):
+            r = mega.comando(f"X {k} {ang}")
+            if not r.startswith("OK"):
+                print(f"Cámara: X {k} {ang} -> {r}")
         if cfg.ir.umbrales is not None or cfg.ir.histeresis is not None:
             mega.ir_aplicar(cfg.ir.umbrales, cfg.ir.histeresis)
         lidar = LD06(cfg.puertos.lidar, cfg.geometria.config_ld06())

@@ -1,6 +1,10 @@
-"""Probar el cabezal de la cámara: los dos servos hacen un CÍRCULO dentro de su rango y se ve lo que mira la cámara.
+"""El cabezal de la cámara: CALIBRAR a mano dónde queda "al frente", o probarlo con un CÍRCULO en su rango.
 
-    python3 -m tools.cabezal                       # 2 vueltas, ventana con la cámara en vivo (en la pantalla HDMI
+    python3 -m tools.cabezal calibrar              # teclado (en la terminal, también por SSH): w/s o ↑/↓ inclinación,
+                                                   # a/d o ←/→ giro (1°; con MAYÚSCULA 5°), c = volver al guardado,
+                                                   # g = guardar como "al frente", q = salir. La cámara en vivo con una
+                                                   # cruz en el centro (en la pantalla HDMI si se lanza por SSH)
+    python3 -m tools.cabezal                       # círculo: 2 vueltas, ventana con la cámara en vivo (en la pantalla HDMI
                                                    # si se lanza por SSH); al final un mosaico en pi/capturas/
     python3 -m tools.cabezal --vueltas 1 --periodo 10 --radio 0.5
     python3 -m tools.cabezal --sin-camara          # solo los servos
@@ -54,6 +58,7 @@ def mosaico(fotos, columnas: int = 6, ancho: int = 320):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("modo", nargs="?", choices=("circulo", "calibrar"), default="circulo")
     ap.add_argument("--mega", default=None, help="puerto del Mega (por defecto el de la config)")
     ap.add_argument("--sim", action="store_true", help="Mega simulado (sin robot)")
     ap.add_argument("--vueltas", type=int, default=2)
@@ -96,6 +101,15 @@ def main():
             pantalla = Pantalla("Cabezal de la cámara", (960, 540), a.pantalla)
         except Exception as e:
             print(f"(sin ventana: {e}) — igual guardo el mosaico")
+
+    if a.modo == "calibrar":
+        try:
+            calibrar(cfg, mega, cam, pantalla)
+        finally:
+            mega.cerrar()
+            if cam is not None:
+                cam.cerrar()
+        return
 
     giro_ok = True
 
@@ -170,6 +184,103 @@ def main():
                 ruta = time.strftime("capturas/cabezal_%Y%m%d_%H%M%S.jpg")
                 cv2.imwrite(ruta, m)
                 print(f"Mosaico (una foto por punto de la primera vuelta): pi/{ruta}")
+
+
+def leer_tecla(timeout: float):
+    """Una tecla de la terminal sin ENTER ('' si no hubo). Flechas -> 'arriba'/'abajo'/'izq'/'der'."""
+    import select
+    import sys
+    if not select.select([sys.stdin], [], [], timeout)[0]:
+        return ""
+    c = os.read(sys.stdin.fileno(), 1).decode(errors="ignore")
+    if c == "\x1b":
+        if select.select([sys.stdin], [], [], 0.05)[0]:
+            resto = os.read(sys.stdin.fileno(), 2).decode(errors="ignore")
+            return {"[A": "arriba", "[B": "abajo", "[C": "der", "[D": "izq"}.get(resto, "")
+        return "q"                                              # ESC solo
+    return c
+
+
+def guardar_frente(cfg, p: int, y: int) -> None:
+    """X 2 / X 3 actuales = cámara al frente: robot_local.json + lo que hay que pegar en config.py y el firmware."""
+    from cafebot.config import guardar_local
+    cc = cfg.camara
+    p90 = round((90 - p) * cc.pitch_por_grado, 2)     # que servo_de_pitch(0) == p con la relación servo -> inclinación
+    cc.servo_pitch_centro, cc.servo_yaw_centro, cc.pitch_servo_90_deg = p, y, p90
+    ruta = guardar_local("camara", {"servo_pitch_centro": p, "servo_yaw_centro": y, "pitch_servo_90_deg": p90})
+    print(f"\r\nGuardado en {ruta}: al frente = X 2 {p}, X 3 {y} (pitch_servo_90_deg = {p90}).\r\n"
+          "Copiarlo también (robot_local.json se pierde con la SD):\r\n"
+          f"  pi/cafebot/config.py, ConfigCamara:  servo_pitch_centro: int = {p}   servo_yaw_centro: int = {y}"
+          f"   pitch_servo_90_deg: float = {p90}\r\n"
+          f"  firmware/mega_cafebot/config.h:  AUX_INICIAL_DEG[N_SERVOS_AUX] = {{ 90, 90, {p}, {y} }};  (y recargar)\r\n"
+          "  (la misión igual manda X 2 / X 3 al frente al conectarse, con lo guardado)\r\n")
+
+
+def calibrar(cfg, mega, cam, pantalla):
+    """Mover a mano X 2 / X 3 con el teclado hasta que la cámara mire derecho adelante, y guardarlo."""
+    import sys
+    import termios
+    import tty
+    cc = cfg.camara
+    p, y = int(cc.servo_pitch_centro), int(cc.servo_yaw_centro)
+    giro = {"ok": True}
+
+    def mandar():
+        r = mega.comando(f"X 2 {p}")
+        if not r.startswith("OK"):
+            print(f"\r\nX 2 {p}: {r}\r")
+        if giro["ok"]:
+            r = mega.comando(f"X 3 {y}")
+            if not r.startswith("OK"):
+                giro["ok"] = False
+                print(f"\r\nX 3: {r} (giro desactivado en el firmware: AUX_ACTIVO). Solo la inclinación.\r")
+
+    print(__doc__.split("\n\n")[0])
+    print("w/s ↑/↓ inclinación (X 2) | a/d ←/→ giro (X 3) | MAYÚSCULA = 5° | c = volver al guardado | "
+          "g = guardar como al frente | q = salir\n")
+    viejo = termios.tcgetattr(sys.stdin)
+    tty.setcbreak(sys.stdin.fileno())
+    try:
+        mandar()
+        while True:
+            txt = f"X 2 = {p}  ({cc.servo_pitch_min}..{cc.servo_pitch_max})   X 3 = {y if giro['ok'] else '-'}  " \
+                  f"({cc.servo_yaw_min}..{cc.servo_yaw_max})"
+            print(f"\r  {txt}     ", end="", flush=True)
+            if cam is not None and pantalla is not None:
+                import cv2
+                img = cam.capturar()
+                h, w = img.shape[:2]
+                for (x0, y0, x1, y1) in ((0, h // 2, w, h // 2), (w // 2, 0, w // 2, h)):      # cruz de lado a lado
+                    cv2.line(img, (x0, y0), (x1, y1), (0, 255, 255), 2)
+                for f in (0.25, 0.75):                                                          # guías
+                    cv2.line(img, (0, int(h * f)), (w, int(h * f)), (0, 160, 160), 1)
+                    cv2.line(img, (int(w * f), 0), (int(w * f), h), (0, 160, 160), 1)
+                cv2.putText(img, txt, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 0), 6)
+                cv2.putText(img, txt, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 2)
+                if mostrar(pantalla, img):
+                    break
+            k = leer_tecla(0.03 if cam is not None else 0.5)
+            if not k:
+                continue
+            paso = 5 if k in "WASD" and len(k) == 1 else 1
+            k = {"arriba": "w", "abajo": "s", "izq": "a", "der": "d"}.get(k, k.lower())
+            if k == "q":
+                break
+            if k == "g":
+                guardar_frente(cfg, p, y)
+                continue
+            if k == "c":
+                p, y = int(cc.servo_pitch_centro), int(cc.servo_yaw_centro)
+            elif k in "ws":
+                p = min(cc.servo_pitch_max, max(cc.servo_pitch_min, p + (paso if k == "w" else -paso)))
+            elif k in "ad":
+                y = min(cc.servo_yaw_max, max(cc.servo_yaw_min, y + (paso if k == "d" else -paso)))
+            else:
+                continue
+            mandar()
+    finally:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, viejo)
+        print()
 
 
 def mostrar(pantalla, img_bgr) -> bool:

@@ -136,8 +136,8 @@ def prueba_aux_mega():
         assert m.aux == {}
         assert m.comando("X 2 80").startswith("OK") and m.aux[2] == 80
         assert m.comando("X 2 250").startswith("OK") and m.aux[2] == 100       # el firmware lo deja en 60..100 (5 nov)
-        assert m.comando("X 3 45").startswith("ERR") and 3 not in m.aux        # desactivado (AUX_ACTIVO)
-        print(f"  servos auxiliares recordados: {m.aux} (X 3 desactivado: no cuenta)")
+        assert m.comando("X 3 45").startswith("OK") and m.aux[3] == 50          # 5 nov: el giro anda, 50..150
+        print(f"  servos auxiliares recordados: {m.aux}")
     finally:
         m.cerrar()
 

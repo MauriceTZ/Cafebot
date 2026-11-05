@@ -257,8 +257,8 @@ class ConfigCamara:
     servo_pitch_max: int = 100       # de 50 a 150° (más allá choca). El firmware también los recorta
     servo_yaw_min: int = 50          # (AUX_MIN_DEG / AUX_MAX_DEG en firmware/mega_cafebot/config.h)
     servo_yaw_max: int = 150
-    servo_pitch_centro: int = 80     # 5 nov: punto medio de cada rango = cámara mirando al frente (AUX_INICIAL_DEG del
-    servo_yaw_centro: int = 100      # firmware); el giro (X 3) sigue desactivado en el firmware (AUX_ACTIVO)
+    servo_pitch_centro: int = 80     # cámara mirando al frente. 5 nov: punto medio de cada rango; se ajusta a mano con
+    servo_yaw_centro: int = 100      # python3 -m tools.cabezal calibrar (la misión lo manda al conectarse)
     ancho_px: int = 1536
     alto_px: int = 864
     # Intrínsecos a 1536×864: 30 oct, tablero de ajedrez (tools.ver_camara, 39 fotos, 0,33 px; Pablo). Antes, de
