@@ -207,6 +207,11 @@ class ConfigBrazo:
     r_min_m: float = 0.05          # la secuencia nunca acerca la garra a menos de esto del eje de la base (más cerca
                                    # pasaría sobre el robot o el propio brazo): acorta la aproximación y el retiro.
                                    # Con brazo_x = 0,10 el frente del robot queda a 5 cm del eje         [AJUSTAR]
+    giro_alto_m: float | None = 0.20   # 5 nov: al girar la base, el brazo chocaba con el cabezal de la cámara. Antes de
+                                   # cualquier giro de la base de más de giro_umbral_deg, el brazo se ESTIRA hacia arriba
+                                   # (garra ~38 cm sobre su base, al menos esto), gira arriba y recién ahí baja a donde
+                                   # iba. None = como antes (directo, o por 'transporte')
+    giro_umbral_deg: float = 10.0  # giros más chicos (dentro de un agarre) van directo
     t_mov_s: float = 1.0           # duración de un movimiento grande
     t_fino_s: float = 0.4          # duración de cada paso de la aproximación
     error_max_deg: float = 6.0     # si una articulación queda más lejos de su meta: algo la bloquea, se aborta

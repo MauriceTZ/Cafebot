@@ -50,7 +50,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from cafebot.arm import dxl
-from cafebot.arm.cinematica import ModeloBrazo, directa, inversa, torques_gravedad
+from cafebot.arm.cinematica import ModeloBrazo, directa, inversa, puntos, torques_gravedad
 from cafebot.mision.interfaces import Brazo
 from cafebot.mundo import cancha
 
@@ -431,6 +431,8 @@ class BrazoXL430(Brazo):
     def ir_plegado(self, nombre: str) -> bool:
         """A una postura pasando por 'transporte' si está grabada: 1) se pliega con la base donde está, 2) gira la
         base plegado, 3) se estira a la postura. Sin 'transporte' (o si la base casi no gira): directo."""
+        if self.cb.giro_alto_m is not None:      # _mover ya sube el brazo antes de girar la base (giro_alto_m)
+            return self.ir(nombre)
         if "transporte" not in self.posturas or nombre == "transporte":
             return self.ir(nombre)
         fin = self.posturas[nombre]
@@ -536,8 +538,35 @@ class BrazoXL430(Brazo):
     def alcanzable(self, p_robot) -> bool:
         return self.plan_agarre(p_robot) is not None
 
-    # ------------------------------------------------------------------ movimiento vigilado
+    # ------------------------------------------------------------------ giro de la base por arriba
+    def postura_giro(self, yaw: float) -> dict:
+        """Ángulos (rad, por id) para girar la base sin chocar: la base en `yaw` y el brazo ESTIRADO hacia arriba
+        (hombro, codos y muñeca en 0, la postura de calibración del cero): nada sobresale hacia la tapa ni el cabezal de
+        la cámara, la garra queda ~38 cm sobre la base del brazo (>= giro_alto_m) y casi sin carga en el hombro."""
+        i = self.id
+        post = {i["base"]: yaw, i["hombro"]: 0.0, i["codo1"]: 0.0, i["codo2"]: 0.0, i["muneca"]: 0.0}
+        z = float(puntos(self.modelo, np.zeros(4))[4, 1])
+        if z < float(self.cb.giro_alto_m) - 1e-6:
+            raise ValueError(f"estirado, el brazo llega a {100 * z:.0f} cm sobre su base: menos que giro_alto_m")
+        return post
+
     def _mover(self, obj: dict, t: float, que: str) -> bool:
+        """Movimiento vigilado. Si la base gira más de giro_umbral_deg: sube (postura_giro), gira arriba, y baja."""
+        ib = self.id["base"]
+        if self.cb.giro_alto_m is not None and ib in obj:
+            yaw_ahora = self.bus.angulos([ib])[ib]
+            giro = abs(math.degrees(obj[ib] - yaw_ahora))
+            if giro > self.cb.giro_umbral_deg:
+                alta = self.postura_giro(yaw_ahora)
+                if not self._mover_directo(alta, self.cb.t_mov_s, f"{que}: subir antes de girar"):
+                    return False
+                alta[ib] = obj[ib]
+                if not self._mover_directo(alta, self.cb.t_mov_s * max(1.0, giro / 120), f"{que}: girar arriba"):
+                    return False
+        return self._mover_directo(obj, t, que)
+
+    # ------------------------------------------------------------------ movimiento vigilado
+    def _mover_directo(self, obj: dict, t: float, que: str) -> bool:
         if self.parar.is_set():
             raise RuntimeError(f"detenido antes de: {que}")
         self.bus.mover(obj, t)

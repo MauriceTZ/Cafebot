@@ -81,7 +81,24 @@ def main():
     assert not b.recoger(objetivo, cancha.MADURO), "sin grano no debe dar recogido"
     assert "no había grano" in b.ultimo_motivo, b.ultimo_motivo
     bus.grano = True
+    # 5 nov: la base gira SOLO con el brazo estirado hacia arriba (si no, chocaba con el cabezal de la cámara)
+    movs, real = [], b.bus.mover
+
+    def anotar(obj, t, acel_frac=0.3):
+        movs.append((b.bus.angulos(), dict(obj)))
+        real(obj, t, acel_frac)
+    b.bus.mover = anotar
     assert b.recoger(objetivo, cancha.MADURO), b.ultimo_motivo
+    b.bus.mover = real
+    ib, otros = b.id["base"], [b.id[n] for n in ("hombro", "codo1", "codo2", "muneca")]
+    giros = 0
+    for antes, obj in movs:
+        if ib in obj and abs(math.degrees(obj[ib] - antes[ib])) > cfg.brazo.giro_umbral_deg:
+            giros += 1
+            assert all(abs(antes[k]) < 1e-3 and abs(obj[k]) < 1e-3 for k in otros), "giró sin estar estirado"
+    assert giros >= 2, giros                          # al depósito (180°) y de vuelta a la espera
+    z = b.directa_robot({**{k: 0.0 for k in otros}, ib: 0.0})[0][2] - b.base[2]
+    print(f"  {giros} giros grandes de la base, todos con el brazo estirado (garra {100 * z:.0f} cm sobre su base)")
     assert b.depositos[cancha.MADURO] == 1
     # quedó en la postura de espera (descanso)
     ang = b.bus.angulos()
