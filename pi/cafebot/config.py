@@ -287,6 +287,35 @@ class ConfigCamara:
 
 
 @dataclass
+class ConfigMisionIR:
+    """Misión SIN LiDAR (rama navegacion-ir, docs/mision_ir.md): IR + odometría (+ IMU) y la cámara."""
+    vel_mm_s: float = 150.0          # tramos largos
+    vel_linea_mm_s: float = 90.0     # buscando una línea con los IR delanteros
+    tramo_m: float = 0.30            # los tramos largos se cortan en trozos de esto y se corrige el rumbo (IMU)
+    tramo_fino_m: float = 0.10       # de la foto a la línea del cultivo: tramos cortos (menos desvío lateral)
+    extra_linea_mm: float = 100.0    # tras tocar la línea con un IR, cuánto más avanza buscando el otro: hasta ~25°
+                                     # de torcido (partida mirando en diagonal a un árbol)
+    x_vista_albercas: float = 0.85   # x del centro del robot para mirar la franja de albercas (1,55–1,75)
+    inclinacion_albercas_deg: float = -20.0   # cámara hacia el piso para ver las albercas (X 2 = 60, el tope)
+    margen_alberca_m: float = 0.08   # libre a cada lado del robot al cruzar la franja (huecos de 72 cm)
+    paso_busqueda_m: float = 0.30    # si no se ve un hueco seguro, se corre esto de lado y vuelve a mirar
+    # árbol al que apunta la partida (1..3, el 1 el de y chica) si se sabe: da la y ABSOLUTA y la búsqueda del carril
+    # puede ir lejos sin acercarse al perímetro. 0 = no se sabe: carril a <= 45 cm del árbol   (--arbol en la misión)
+    arbol: int = 0
+    filas: tuple = ("media", "baja")             # la alta no (difícil de ver y de alcanzar)
+    prioridad: tuple = (("media", "MADURO"), ("baja", "MADURO"), ("media", "SOBREMADURO"), ("baja", "SOBREMADURO"))
+    intentos_agarre: int = 3            # 1º donde se cree, 2º y 3º corrido ± reintento_dy_m de lado
+    reintento_dy_m: float = 0.012       # la garra perdona ±11 mm por eje (abre 65 mm, pelota de 42)
+    reserva_s: float = 12.0          # con menos de esto no empieza otro agarre
+    linea_por_estacion: bool = True  # tras cada cangrejo frente al árbol, volver a tocar la línea del cultivo
+    imu_signo: int = 0               # +1 / -1 si se sabe; 0 = lo mide en el primer giro (IMU vs odometría)
+    max_correccion_lateral_m: float = 0.18   # la foto corrige hasta esto (la puntería de 15° se lee a ±2,5°: ~10 cm); más = no recoge
+    confianza_min: float = 0.55      # sin referencias de color se clasifica por MATIZ (confianza 0,6): con el 0,70 de
+                                     # mision.confianza_min no se recogería nada. Con referencias (tools.camara) se
+                                     # puede subir                                                    [AJUSTAR]
+
+
+@dataclass
 class Config:
     geometria: GeometriaRobot = field(default_factory=GeometriaRobot)
     puertos: Puertos = field(default_factory=Puertos)
@@ -296,6 +325,7 @@ class Config:
     compuertas: ConfigCompuertas = field(default_factory=ConfigCompuertas)
     brazo: ConfigBrazo = field(default_factory=ConfigBrazo)
     camara: ConfigCamara = field(default_factory=ConfigCamara)
+    mision_ir: ConfigMisionIR = field(default_factory=ConfigMisionIR)
 
     def a_dict(self) -> dict:
         return asdict(self)

@@ -14,8 +14,10 @@ if [ -f .venv/bin/activate ]; then
     # shellcheck disable=SC1091
     source .venv/bin/activate
 fi
+# rama navegacion-ir: la misión SIN LiDAR (docs/mision_ir.md); MISION_TOOL=tools.mision en mision.env = la de siempre
+TOOL="${MISION_TOOL:-tools.mision_ir}"
 mkdir -p registros
 LOG="registros/mision_$(date +%Y%m%d_%H%M%S).log"
-echo "cafebot-mision: $(command -v python3) -m tools.mision --boton gpio $MISION_ARGS  (registro: $LOG)"
+echo "cafebot-mision: $(command -v python3) -m $TOOL --boton gpio $MISION_ARGS  (registro: $LOG)"
 set -o pipefail
-python3 -m tools.mision --boton gpio $MISION_ARGS 2>&1 | tee "$LOG"
+python3 -m "$TOOL" --boton gpio $MISION_ARGS 2>&1 | tee "$LOG"
