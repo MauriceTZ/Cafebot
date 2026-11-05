@@ -247,6 +247,43 @@ class Boton:
         """Bloquea hasta que se aprieta el botón de inicio."""
 
 
+def fabrica_gpio_header(log=print):
+    """5 nov: en la Pi del robot (kernel nuevo) los gpiochip son 11..16, no 0 ni 4, y gpiozero/lgpio fallan con
+    "can not open gpiochip". Se busca el chip del conector de 40 pines (etiqueta pinctrl-rp1 en la Pi 5, o el de
+    54 líneas) y se le pasa a gpiozero. None = que gpiozero elija (si no hay lgpio o no se encuentra)."""
+    try:
+        import glob
+        import re
+        import lgpio
+        from gpiozero.pins.lgpio import LGPIOFactory
+    except Exception:
+        return None
+    candidatos = []
+    for ruta in glob.glob("/dev/gpiochip*"):
+        m = re.fullmatch(r"/dev/gpiochip(\d+)", ruta)
+        if not m:
+            continue
+        n = int(m.group(1))
+        try:
+            h = lgpio.gpiochip_open(n)
+            try:
+                _, lineas, nombre, etiqueta = lgpio.gpio_get_chip_info(h)
+            finally:
+                lgpio.gpiochip_close(h)
+        except Exception:
+            continue
+        candidatos.append((n, lineas, str(nombre), str(etiqueta)))
+    elegido = next((c for c in candidatos if "rp1" in c[3].lower()), None)
+    if elegido is None:
+        elegido = next((c for c in candidatos if c[1] == 54 or "bcm2835" in c[3].lower()
+                        or "bcm2711" in c[3].lower()), None)
+    if elegido is None:
+        log(f"[botón] no encontré el gpiochip del conector entre {candidatos}: dejo que gpiozero elija")
+        return None
+    log(f"[botón] conector de 40 pines = /dev/gpiochip{elegido[0]} ({elegido[3]}, {elegido[1]} líneas)")
+    return LGPIOFactory(chip=elegido[0])
+
+
 class BotonGPIO(Boton):
     """Pulsador entre el GPIO `pin` (numeración BCM) y GND, con el pull-up interno de la Pi: suelto = alto (1),
     apretado = bajo (0). 5 nov: GPIO 16 = pin físico 36 (GND en el 34 o el 39), config.mision.pin_boton.
@@ -258,6 +295,8 @@ class BotonGPIO(Boton):
     def __init__(self, pin, log=print, pin_factory=None):
         from gpiozero import Button          # viene con Raspberry Pi OS (usa lgpio en la Pi 5)
         self.pin, self.log = pin, log
+        if pin_factory is None:
+            pin_factory = fabrica_gpio_header(log)
         self.b = Button(pin, pull_up=True, bounce_time=None, pin_factory=pin_factory)
 
     def esperar(self):
