@@ -178,7 +178,7 @@ class VisionIRCamara:
         if (imgs[0].shape[1], imgs[0].shape[0]) != (cam.ancho, cam.alto):
             cam = cam.escalada(imgs[0].shape[1], imgs[0].shape[0])
         r = [p[2] for p in granos.proyectar_soportes(cam, modelo, prior).values()] or [40.0]
-        dets = granos.detectar(imgs[0], 0.5 * min(r), 1.6 * max(r), self.cc.sat_min, self.cc.val_min)
+        dets = granos.detectar(imgs[0], 0.5 * min(r), 1.6 * max(r), self.cc.sat_min, self.cc.val_min, self.cc.excluir_h)
         t = time.monotonic()
         dx, dy, dp, n, p0, otro = buscar_lateral(dets, modelo, cam, prior)
         self.log(f"[visión] búsqueda: {len(dets)} pelotas, {n} calzan corriendo el árbol {100 * dx:+.1f} / "
@@ -194,7 +194,8 @@ class VisionIRCamara:
         sig = (0.02, 0.015, math.radians(3))      # ya centrado por la búsqueda fina
         sig_cam = tuple(math.radians(v) for v in (1.5, 2.0, 2.0))
         a = granos.analizar(imgs, cam, modelo, prior, sig, clasif=self.clasif if self.clasif.muestras else None,
-                            sat_min=self.cc.sat_min, val_min=self.cc.val_min, buscar=False, sig_cam=sig_cam)
+                            sat_min=self.cc.sat_min, val_min=self.cc.val_min, buscar=False, sig_cam=sig_cam,
+                            excluir_h=self.cc.excluir_h)
         for m in a.mensajes:
             self.log(f"[visión] {m}")
         self._guardar(imgs[0], "arbol")
