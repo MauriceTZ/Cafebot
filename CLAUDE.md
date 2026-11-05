@@ -75,6 +75,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
+    `tools.cabezal` (los servos de la cámara hacen un círculo en su rango: ventana en vivo + mosaico y video),
     `tools.cosecha` (cámara + LiDAR + brazo frente a un árbol, docs/cosecha.md), `tools.mision` (todo junto).
 - Lo que no se ha medido en el robot se marca `[CONFIRMAR]` / `[MEDIR]` / `[AJUSTAR]` en el código.
 - Commits pequeños y descriptivos en español. Cuando el equipo prueba algo en el robot, anotar el
