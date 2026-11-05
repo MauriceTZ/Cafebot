@@ -153,7 +153,7 @@ class Mision:
             self.log(f"¡PARTIDA! nivel {self.c.nivel}" + ("" if self.c.cajas == "colores" else f" | cajas: {self.c.cajas}"))
             self.mega.seguridad_ir(self.c.freno_ir)
             self.depositos.cerrar_todo()
-            self._localizar()
+            self._localizar_reducida() if self.c.reducida else self._localizar()
             if not self.brazo.preparar():
                 self.log("el brazo no está disponible: solo navegación")
             visitados = set()
@@ -216,10 +216,77 @@ class Mision:
         self.zonas_caja = set(r.zonas_con_caja)
         self._actualizar_cajas()
 
+    def _localizar_reducida(self):
+        """Cancha reducida: el robot parte mirando al árbol (sin el resto de la cancha). El LiDAR mide el pie de
+        adelante y con eso la "cancha" queda puesta como si fuera el árbol 2 del reglamento."""
+        self.log("cancha REDUCIDA: mido el pie del árbol con el LiDAR (sin ubicarme en la cancha)")
+        fin = time.monotonic() + 5
+        while not self.nav.ekf.inicializada and time.monotonic() < fin:
+            time.sleep(0.05)
+        med = None
+        for _ in range(3):
+            med = self._medir_pie_adelante()
+            if med is not None:
+                break
+        if med is None:
+            if self.c.reducida_dist_m <= 0:
+                raise Abortar("cancha reducida: el LiDAR no ve el pie del árbol adelante (¿a más de 90 cm?)")
+            medio = self.cfg.geometria.largo / 2
+            med = (self.c.reducida_dist_m + medio, 0.0, 0.0)
+            self.log(f"no veo el pie con el LiDAR: supongo el frente a {100 * self.c.reducida_dist_m:.0f} cm, centrado")
+        x_cara, yc, ang = med
+        th = -ang                                          # el tablero mira a -x en la cancha
+        yt = float(cancha.centros_arboles()[1])
+        c, s = math.cos(th), math.sin(th)
+        r = np.array([cancha.ARBOL_X_FRENTE - (c * x_cara - s * yc), yt - (s * x_cara + c * yc), th])
+        self.inicio = componer(r, relativo(self.nav.pose(), np.zeros(3)))
+        self.scan_inicio, self.pose_scan = None, self.nav.pose()
+        self.res_inicio = type("Partida", (), {"zona": 0, "confianza": 1.0, "albercas": (), "zonas_con_caja": ()})()
+        self.dudoso = False
+        self.zonas_caja = set()
+        self.log(f"pie del árbol a {100 * (x_cara - self.cfg.geometria.largo / 2):.1f} cm del frente, "
+                 f"{100 * yc:+.1f} cm de lado, girado {math.degrees(ang):+.1f}°")
+
+    def _medir_pie_adelante(self):
+        """(x de la cara, y del centro, ángulo) del pie delante del robot, en su sistema; en una franja angosta
+        (las paredes de los costados de una cancha chica quedan fuera). None si no se ve."""
+        s = self._esperar_scan_nuevo()
+        if s is None:
+            return None
+        x, y = s.xy()
+        m = (x > 0.10) & (x < 1.10) & (np.abs(y) < cancha.ARBOL_ANCHO_PIE / 2 + 0.03)
+        if m.sum() < 8:
+            return None
+        x, y = x[m], y[m]
+        xf = np.percentile(x, 15)
+        cara = x < xf + 0.03
+        xc, yc = x[cara], y[cara]
+        ancho = float(np.ptp(yc))
+        ang = math.atan(np.polyfit(yc, xc, 1)[0]) if len(yc) > 5 and ancho > 0.10 else 0.0
+        centro = 0.5 * (yc.min() + yc.max()) if ancho > 0.25 else 0.0
+        return float(np.median(xc)), float(centro), -ang
+
+    def _ir_directo(self, p_cancha, que):
+        """Cancha reducida (sin espacio para el A*): enderezarse, cangrejo de lado y recto adelante/atrás."""
+        pc = self.pose_cancha()
+        if abs(pc[2]) > math.radians(1.5):
+            self._ok(self.mega.girar(-math.degrees(pc[2]), timeout=10), f"{que}: enderezarse")
+            time.sleep(0.3)
+            pc = self.pose_cancha()
+        lado = p_cancha[1] - pc[1]
+        if abs(lado) > 0.01:
+            self._ok(self.mega.cangrejo(90 if lado > 0 else -90, 1000 * abs(lado), 100, timeout=15), f"{que}: cangrejo")
+            time.sleep(0.3)
+            pc = self.pose_cancha()
+        dx = p_cancha[0] - pc[0]
+        if abs(dx) > 0.01:
+            self._ok(self.mega.avanzar(1000 * dx, 100, timeout=15), f"{que}: avanzar")
+            time.sleep(0.3)
+
     def _actualizar_cajas(self):
         """Dónde están las cajas (LiDAR: inicio + mapa) y de qué color (cámara). Se llama varias veces:
         desde la partida una caja puede tapar a la otra, pero desde el árbol se ven las dos."""
-        if len(self.cajas) == 2:
+        if len(self.cajas) == 2 or self.c.reducida:
             return
         pts = self.nav.slam.puntos_estaticos()
         if len(pts):
@@ -306,7 +373,8 @@ class Mision:
         if s is None:
             return None
         x, y = s.xy()
-        m = (x > 0.05) & (x < esperado_r[0] + 0.25) & (np.abs(y - esperado_r[1]) < 0.30)
+        lado = cancha.ARBOL_ANCHO_PIE / 2 + 0.05 if self.c.reducida else 0.30    # cancha chica: paredes a ±30 cm
+        m = (x > 0.05) & (x < esperado_r[0] + 0.25) & (np.abs(y - esperado_r[1]) < lado)
         if m.sum() < 8:
             return None
         x, y = x[m], y[m]
@@ -331,7 +399,10 @@ class Mision:
         x_foto = cancha.ARBOL_X_FRENTE - self.c.distancia_foto_m - medio
         y_foto = yt - self.cfg.camara.y            # la CÁMARA (no el robot) centrada en el árbol
         self.log(f"árbol {arbol}: voy a la posición de la foto")
-        self._ir((x_foto, y_foto), 0.0, f"ir al árbol {arbol}", max_s=90)
+        if self.c.reducida:
+            self._ir_directo((x_foto, y_foto), f"ir al árbol {arbol}")
+        else:
+            self._ir((x_foto, y_foto), 0.0, f"ir al árbol {arbol}", max_s=90)
         if self.dudoso and self._reubicar():
             ys = cancha.centros_arboles()
             arbol = int(np.argmin(np.abs(ys - self.pose_cancha()[1]))) + 1

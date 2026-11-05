@@ -110,6 +110,11 @@ class ConfigMision:
     margen_final_s: float = 12.0   # detenerse antes del final por si acaso
     max_arboles: int = 1           # nivel 3 usa hasta 3
     max_granos: int = 0            # PRUEBAS: terminar después de recoger tantos granos (0 = sin límite; --max-granos)
+    # PRUEBAS en una cancha REDUCIDA (5 nov: 90 x 60 cm, el árbol en un lado corto): sin la ubicación con el mapa de
+    # la cancha; el robot parte mirando al árbol y el LiDAR mide su pie al partir (--reducida). Se hace como si fuera
+    # el árbol 2 de la cancha. reducida_dist_m: frente del robot -> cara del pie, si el LiDAR no lo ve (0 = abortar)
+    reducida: bool = False
+    reducida_dist_m: float = 0.0
     recoger: tuple = ("MADURO",)   # nivel 3 agrega "SOBREMADURO"
     confianza_min: float = 0.70    # bajo esto la visión cuenta como NO_SE (no tocar)
     # Brazo: eje de giro de la base en el sistema del robot; z = altura de la BASE del brazo sobre

@@ -11,6 +11,8 @@
     python3 -m tools.mision ... --cajas cercana      # las dos cajas del mismo color (ver config: mision.cajas)
     python3 -m tools.mision --brazo --vision camara --nivel 1 --max-granos 1   # PRUEBA de cosecha: sale, va al
                                                      #   árbol, foto, línea del cultivo, un agarre y termina
+    python3 -m tools.mision --brazo --vision camara --reducida --max-granos 1  # lo mismo en una cancha REDUCIDA:
+                                                     #   parte mirando al árbol (<= 90 cm), sin el mapa de la cancha
 
 Para verlo en el mapa usar la interfaz: python3 -m tools.navegacion --sim  y tecla K.
 """
@@ -85,7 +87,7 @@ def brazo_hibrido(cfg, brazo_sim, log=print):
     return I.BrazoHibrido(BrazoXL430(cfg, puerto, log=log), brazo_sim, log=log)
 
 
-def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None):
+def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None, frente_arbol=None):
     """Mega (firmware real compilado en el PC), LiDAR, brazo, visión y compuertas simulados."""
     from cafebot.drivers.lidar_simulado import LD06Simulado
     from cafebot.drivers.mega import Mega
@@ -99,6 +101,9 @@ def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None):
     inicio = np.array([cancha.ZONA_X_CENTRO + rng.normal(0, 0.02),
                        cancha.centros_zonas_beneficiadero()[esc.zona_robot - 1] + rng.normal(0, 0.02),
                        np.radians(rng.normal(0, 2.0))])
+    if frente_arbol is not None:     # --reducida: frente al árbol 2, el frente a `frente_arbol` m del pie
+        inicio = np.array([cancha.ARBOL_X_FRENTE - frente_arbol - cfg.geometria.largo / 2 + rng.normal(0, 0.01),
+                           cancha.centros_arboles()[1] + rng.normal(0, 0.03), np.radians(rng.normal(0, 3.0))])
     mega = Mega("sim")
     mega.conectar(serial_obj=SerialSimulado())
     mega.telemetria(20)
@@ -138,6 +143,9 @@ def main():
     ap.add_argument("--imu", action="store_true")
     ap.add_argument("--max-granos", type=int, default=None,
                     help="PRUEBA: terminar al recoger tantos granos (p. ej. 1 = un agarre y listo)")
+    ap.add_argument("--reducida", nargs="?", type=float, const=0.0, default=None, metavar="DIST_M",
+                    help="cancha REDUCIDA: parte mirando al árbol, sin ubicarse con el mapa; el LiDAR mide el pie "
+                         "(DIST_M: frente del robot -> pie, por si no lo ve)")
     ap.add_argument("--cajas", choices=("colores", "cercana", "guardar"), default=None,
                     help="cómo distinguir las cajas (por defecto mision.cajas de la config): colores = con la "
                          "cámara; si las dos son del mismo color: cercana = maduros a la más cercana (apuesta), "
@@ -150,13 +158,19 @@ def main():
         cfg.mision.cajas = a.cajas
     if a.max_granos is not None:
         cfg.mision.max_granos = a.max_granos
+    if a.reducida is not None:
+        cfg.mision.reducida, cfg.mision.reducida_dist_m = True, a.reducida
+        if cfg.mision.nivel >= 2:
+            print("cancha reducida: nivel 1 (los granos quedan en el robot; no hay canastas)")
+            cfg.mision.nivel = 1
     if cfg.mision.nivel >= 3:
         cfg.mision.max_arboles = max(cfg.mision.max_arboles, 3)
         cfg.mision.recoger = tuple(sorted(set(cfg.mision.recoger) | {cancha.SOBREMADURO}))
 
     gyro = None
     if a.sim:
-        esc, mega, lidar, brazo, vision, depositos = armar_sim(cfg, a.semilla, a.t_agarre, a.zona)
+        esc, mega, lidar, brazo, vision, depositos = armar_sim(cfg, a.semilla, a.t_agarre, a.zona,
+                                                               frente_arbol=None if a.reducida is None else (a.reducida or 0.55))
         print(f"Cancha sorteada: partida {esc.zona_robot}, caja roja {esc.zona_caja_roja}, "
               f"azul {esc.zona_caja_azul}, albercas {esc.albercas}")
         if a.brazo:
