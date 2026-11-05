@@ -42,7 +42,8 @@ CULTIVO_X0 = ALBERCA_X1 + 0.800              # 2,550 (línea entre zona intermed
 SECTORES_CULTIVO_Y = (1.1745, 1.175, 1.1745)
 # Árbol: tablero centrado en su sector, a 100 mm de la línea más cercana al centro
 ARBOL_X_FRENTE = CULTIVO_X0 + LINEA + 0.100  # cara delantera del tablero   [MEDIR]
-ARBOL_ANCHO_PIE = 0.300                      # ancho del pie a la altura del LiDAR
+ARBOL_ANCHO_PIE = 0.450                      # ancho del pie a la altura del LiDAR: la base de 450 x 150 mm
+                                             # (Apéndice B, fig. 9; 5 nov, foto del árbol real: igual). Antes 0,30
 ARBOL_ESPESOR = 0.018                        # tablero de madera            [MEDIR]
 ARBOL_ALETA = 0.200                          # soporte triangular trasero   [MEDIR]
 CAJA_LADO = 0.450

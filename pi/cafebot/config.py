@@ -280,7 +280,9 @@ class ConfigCamara:
     val_min: int = 60               #   madera 85–110, pelotas roja/verde 150–190
     # 5 nov: el árbol de la cancha es VERDE y su base CAFÉ: ese verde (matiz OpenCV 0..180) no cuenta como pelota.
     # None = no excluir (el árbol de madera del taller).   [AJUSTAR con una foto del árbol real: tools.ver_camara]
-    excluir_h: tuple | None = (38, 90)
+    # 5 nov, foto del árbol real: copa H 59–61 (sombras hasta 80), S ~190; tronco y base café H 5–9, S 77–93 (no
+    # pasan sat_min); soportes S ~96; pelota roja H 1–11. Amarillo ~H 25–32: queda fuera del rango
+    excluir_h: tuple | None = (40, 88)
     fotos: int = 3                  # se clasifica con varias fotos: un soporte que cambia entre fotos = NO_SE
     guardar_fotos: bool = True      # en pi/capturas/, con lo clasificado dibujado (para revisar después)
     calibrada: str = ""             # cuándo y cómo se calibró la pose (tools.cosecha C / N). Vacío = sin calibrar:

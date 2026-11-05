@@ -26,6 +26,7 @@ from cafebot.drivers.ld06 import Scan
 from cafebot.localizacion.inicio import estimar_inicio
 from cafebot.mision.interfaces import Boton, Brazo, Depositos, Vision
 from cafebot.mundo import cancha
+from cafebot.vision.arbol import cara_recta
 from cafebot.navegacion.geometria import componer, envolver, relativo, transformar
 
 
@@ -257,10 +258,9 @@ class Mision:
         m = (x > 0.10) & (x < 1.10) & (np.abs(y) < cancha.ARBOL_ANCHO_PIE / 2 + 0.03)
         if m.sum() < 8:
             return None
-        x, y = x[m], y[m]
-        xf = np.percentile(x, 15)
-        cara = x < xf + 0.03
-        xc, yc = x[cara], y[cara]
+        xc, yc = cara_recta(x[m], y[m], banda=0.03)
+        if len(xc) < 4:
+            return None
         ancho = float(np.ptp(yc))
         ang = math.atan(np.polyfit(yc, xc, 1)[0]) if len(yc) > 5 and ancho > 0.10 else 0.0
         centro = 0.5 * (yc.min() + yc.max()) if ancho > 0.25 else 0.0
@@ -377,10 +377,9 @@ class Mision:
         m = (x > 0.05) & (x < esperado_r[0] + 0.25) & (np.abs(y - esperado_r[1]) < lado)
         if m.sum() < 8:
             return None
-        x, y = x[m], y[m]
-        xf = np.percentile(x, 15)
-        cara = x < xf + 0.03
-        xc, yc = x[cara], y[cara]
+        xc, yc = cara_recta(x[m], y[m], banda=0.03)
+        if len(xc) < 4:
+            return None
         ancho = float(np.ptp(yc))
         yc_centro = 0.5 * (yc.min() + yc.max()) if ancho > 0.25 else float(esperado_r[1])
         ang = math.atan(np.polyfit(yc, xc, 1)[0]) if len(yc) > 5 and ancho > 0.10 else 0.0

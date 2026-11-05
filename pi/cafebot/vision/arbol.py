@@ -2,7 +2,7 @@
 
 Dos modelos:
   "competencia"   Apéndice B del reglamento (cafebot/mundo/cancha.py): soportes con la cara de arriba a 390 / 540 /
-                  690 mm, 5 / 6 / 5 por fila separados 120 mm, pie de 30 cm de ancho al ras del tablero.
+                  690 mm, 5 / 6 / 5 por fila separados 120 mm, base de 45 cm de ancho (150 mm de alto) al ras del tablero.
   "prueba" ...    cualquier otro: pi/arboles/<nombre>.json con los mismos campos (lo que no esté, de competencia).
                   El árbol de prueba del taller (29 oct) es todo de madera, con un pie angosto (una tabla) delante
                   del tablero sobre una base con una batería: hay que medir sus números [MEDIR].
@@ -156,6 +156,21 @@ class MedidaPie:
         return (self.x_cara, self.y_centro, self.ang)
 
 
+def cara_recta(x: np.ndarray, y: np.ndarray, banda: float = 0.025, tol: float = 0.012):
+    """Los puntos de la CARA de un objeto plano visto por el LiDAR: primero los más cercanos (x < percentil 15 +
+    banda), se ajusta su recta x = a·y + b y se toman TODOS los que quedan a < tol de ella. Con la base de 45 cm
+    (5 nov) y el robot un poco girado, la banda fija sola cortaba la punta lejana de la cara y corría el centro."""
+    if len(x) < 4:
+        return x, y
+    cara = x < np.percentile(x, 15) + banda
+    for _ in range(2):
+        if cara.sum() < 4 or np.ptp(y[cara]) < 0.05:
+            break
+        a, b = np.polyfit(y[cara], x[cara], 1)
+        cara = np.abs(x - (a * y + b)) < tol
+    return x[cara], y[cara]
+
+
 def medir_pie(pts_xy: np.ndarray, modelo: ModeloArbol, esperado=None, x_max: float = 1.6,
               x_min: float = 0.05) -> MedidaPie | None:
     """La cara del pie del árbol en un barrido del LiDAR (puntos (N,2) en el robot).
@@ -187,9 +202,7 @@ def medir_pie(pts_xy: np.ndarray, modelo: ModeloArbol, esperado=None, x_max: flo
     else:
         g = min(grupos, key=lambda g: np.median(x[g]))
     gx, gy = x[g], y[g]
-    xf = np.percentile(gx, 15)
-    cara = gx < xf + 0.025
-    xc, yc = gx[cara], gy[cara]
+    xc, yc = cara_recta(gx, gy)
     if len(xc) < 4:
         return None
     ancho = float(np.ptp(yc))

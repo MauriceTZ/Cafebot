@@ -86,7 +86,9 @@ def prueba_pose_y_calibracion(m):
         print(f"  a {d:.2f} m, cámara SIN calibrar (error de montaje {dp:+.1f}° {dyaw:+.1f}° {droll:+.1f}°, "
               f"{1000 * dy:+.0f}/{1000 * dz:+.0f} mm): {a.n_asignadas} granos, {a.error_px:.1f} px, error 3D mediana "
               f"{1000 * np.median(e):.1f} máx {1000 * e.max():.1f} mm")
-        assert np.median(e) < 0.006 and e.max() < 0.012, e
+        # 5 nov: base de 45 cm (antes 30): a 0,6–0,8 m los bordes caen entre rayos del LiDAR (1 cada 0,8° = 1 cm)
+        # y el centro del pie sale a ±5 mm según dónde caigan; de cerca (al agarrar) son 2 mm
+        assert np.median(e) < 0.009 and e.max() < 0.012, e
         # C: calibrar con el árbol medido por el LiDAR
         asig = {dd.clave: i for i, dd in enumerate(a.detecciones) if dd.clave is not None}
         cam, rms = G.calibrar_camara(a.detecciones, asig, m, med.pose, conf)
@@ -97,7 +99,7 @@ def prueba_pose_y_calibracion(m):
         a2 = G.analizar(imgs, cam, m, med.pose, med.sigma, sig_cam=(math.radians(0.6),) * 3)
         e2 = error(a2)
         print(f"    con la cámara calibrada: error 3D mediana {1000 * np.median(e2):.1f} máx {1000 * e2.max():.1f} mm")
-        assert np.median(e2) < 0.005 and e2.max() < 0.010, e2
+        assert np.median(e2) < 0.0065 and e2.max() < 0.010, e2      # ídem: el LiDAR a ±5 mm de lado a 0,6 m
         # N: calibrar con el brazo (los centros reales de los granos, como los daría la cinemática directa ± 1,5 mm)
         claves = list(asig)
         P = np.array([verdad[c] for c in claves]) + rng.normal(0, 0.0015, (len(claves), 3))
