@@ -156,6 +156,9 @@ def probar_una(cfg, comp, k, t: float = 1.0) -> bool:
     bien = abs(llego - cc.abierta_deg[k]) < 5 and abs(vuelta - cc.cerrada_deg[k]) < 5
     if not bien:
         print("    ¡OJO! no llegó a donde debía: algo la traba o los límites la cortan (leer, limites)")
+        for t in comp.diagnostico(k, float(cc.cerrada_deg[k])) or ["el servo no reporta nada raro: ¿está trabada "
+                                                                   "o se suelta el cuerno (gira sin mover la compuerta)?"]:
+            print(f"      - {t}")
     if abs(carga) > 35:
         sentido = 1 if diferencia(cc.cerrada_deg[k], cc.abierta_deg[k]) > 0 else -1
         print(f"    ¡OJO! cerrada empuja contra algo ({abs(carga):.0f} %): se calienta. Correr 'cerrada' 2–3° hacia "

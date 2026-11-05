@@ -109,6 +109,32 @@ class CompuertasDXL:
                 "error": r(sid, dxl.ADDR_HW_ERROR, 1), "desfase": self.desfase(k), "carga": self.carga(k),
                 "limites_servo": (pasos_a_grados(r(sid, ADDR_MIN_POS, 4)), pasos_a_grados(r(sid, ADDR_MAX_POS, 4)))}
 
+    def diagnostico(self, k: int, grados: float) -> list:
+        """Por qué la compuerta k no fue a `grados`: lo que dice el servo (vacío si no se ve nada raro)."""
+        sid, r, out = self.ids[k], self.bus._r, []
+        err = r(sid, dxl.ADDR_HW_ERROR, 1)
+        if err:
+            bits = {0: "voltaje", 2: "temperatura", 3: "encoder", 4: "golpe eléctrico", 5: "sobrecarga"}
+            out.append(f"error de hardware {err} (" + ", ".join(v for b, v in bits.items() if err >> b & 1) +
+                       "): el servo apagó el torque (se reinicia solo antes de moverla)")
+        if not r(sid, dxl.ADDR_TORQUE_ENABLE, 1):
+            out.append("el torque está APAGADO")
+        modo = r(sid, dxl.ADDR_OPERATING_MODE, 1)
+        if modo != MODO_POSICION:
+            out.append(f"modo {modo} (debía ser {MODO_POSICION}, posición)")
+        lo, hi = r(sid, ADDR_MIN_POS, 4), r(sid, ADDR_MAX_POS, 4)
+        meta, goal = min(4095, grados_a_pasos(grados)), r(sid, dxl.ADDR_GOAL_POSITION, 4, signo=True)
+        if goal != meta:
+            out.append(f"el servo NO aceptó la meta ({meta} pasos; tiene {goal}; sus límites {lo}..{hi})")
+        crudo = r(sid, dxl.ADDR_PRESENT_POSITION, 4, signo=True)
+        if not 0 <= crudo < dxl.PASOS_POR_REV:
+            out.append(f"la posición cruda es {crudo} (fuera de una vuelta): reiniciarlo (python3 -m tools.compuertas "
+                       "recuperar o apagar y prender)")
+        pwm, lim_pwm = r(sid, dxl.ADDR_GOAL_PWM, 2), r(sid, dxl.ADDR_PWM_LIMIT, 2)
+        if pwm < 100 or lim_pwm < 100:
+            out.append(f"PWM muy bajo (meta {pwm}, límite {lim_pwm} de 885): no tiene fuerza")
+        return out
+
     # ------------------------------------------------------------------ configuración
     def configurar(self, k: int) -> list:
         """Modo posición, perfil suave, PWM limitado y los límites medidos. La EEPROM solo se escribe sin torque (y

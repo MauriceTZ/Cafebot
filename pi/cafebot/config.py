@@ -177,9 +177,11 @@ class ConfigCompuertas:
     tipo: str = "dxl"                  # "dxl" | "mega" (servos X 0 / X 1 del Mega, mision.compuerta_*_deg)
     ids: tuple = (2, 13)               # maduros, sobremaduros (4 nov noche: servos cambiados, la de maduros
                                        # quedó en el id 2; antes 12). Si salen cruzadas: (13, 2)
-    abierta_deg: tuple = (None, None)  #                                                                 [MEDIR]
-    cerrada_deg: tuple = (None, None)  #                                                                 [MEDIR]
-    limites_deg: tuple = (None, None)  # (mín, máx) de cada una: se graban en el servo y no pasa de ahí   [MEDIR]
+    # 4 nov noche, tools.compuertas calibrar con los servos nuevos (a mano). La prueba con torque NO las movió
+    # (las dos quedaron donde estaban): revisar antes de la ronda (docs/mision.md).                 [CONFIRMAR]
+    abierta_deg: tuple = (185.7, 81.9)
+    cerrada_deg: tuple = (271.1, 3.3)
+    limites_deg: tuple = ((180.7, 276.1), (0.0, 86.9))  # (mín, máx): se graban en el servo y no pasa de ahí
     pwm_limit: int = 450               # ~50 %: si algo traba la compuerta, no se calienta empujando    [AJUSTAR]
     t_mov_s: float = 0.6               # duración de cada movimiento (abrir / cerrar)
 

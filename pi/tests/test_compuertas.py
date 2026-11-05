@@ -34,6 +34,13 @@ def metas(sid):
     return [v for s, a, v in falso.escrituras if s == sid and a == ADDR_GOAL]
 
 
+def sin_calibrar(cfg):
+    """Las pruebas parten de compuertas sin calibrar (config.py ya trae los ángulos medidos en el robot)."""
+    cc = cfg.compuertas
+    cc.abierta_deg = cc.cerrada_deg = cc.limites_deg = (None, None)
+    return cfg
+
+
 def nuevo_bus(cfg):
     for sid in cfg.compuertas.ids:
         falso.agregar(sid, 2048)                         # 180°
@@ -195,7 +202,7 @@ def prueba_calibracion(tmp):
             accion()
         return r
     T.input = entrada
-    cfg = cargar()
+    cfg = sin_calibrar(cargar())
     cfg.mision.t_vaciado_s = 0.05
     escrituras_antes = len(falso.escrituras)
     bus = dxl.BusDXL("/dev/falso", 1_000_000, [dxl.ConfigServo(i) for i in cfg.compuertas.ids])
@@ -214,13 +221,13 @@ def prueba_calibracion(tmp):
 
 
 def main():
-    cfg = cargar()
+    cfg = sin_calibrar(cargar())
     print("1) Compuertas en el bus del brazo")
     bus = prueba_compuertas(cfg)
     print("2) Límites, compuerta trabada y sobrecarga")
     prueba_limites_y_fallas(cfg, bus)
     print("3) La misión arma las compuertas")
-    prueba_armar(cargar())
+    prueba_armar(sin_calibrar(cargar()))
     print("4) Botón de inicio")
     prueba_boton(cfg)
     print("5) Calibración guiada")
