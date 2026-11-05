@@ -12,8 +12,9 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Reinicio forzado: tocar línea perimetral o de alberca con las ruedas, mover una alberca >10 mm,
   sacar o botar 2+ granos a la vez (los jueces deben VER que sale uno a la vez).
 - Se puede reprogramar entre rondas. Clasifican las 2 mejores de 4 rondas.
-- 4 nov: las canastas reales se ven ROJAS las dos (el reglamento dice roja y azul): preguntar a los jueces cómo se
-  distingue la azul. Mientras: `mision.cajas` = colores / cercana / guardar (docs/mision.md).
+- 5 nov (confirmado en la cancha): canasta ROJA = maduros, AZUL = sobremaduros; las albercas (lagunas) son del mismo
+  azul que la canasta azul. Usar `--cajas colores` (lo normal); `cercana` / `guardar` quedan por si acaso
+  (docs/mision.md). La cámara mira las cajas desde el lado del beneficiadero, con las albercas detrás del robot.
 
 ## Hardware (verificado en el robot el 27 oct salvo que diga lo contrario)
 - Base 30 × 23 cm, 4 ruedas Ø53 mm (diámetro efectivo calibrado 52,6 mm el 28 oct, ruedas nuevas) con motor + encoder
