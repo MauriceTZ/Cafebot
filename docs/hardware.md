@@ -7,7 +7,7 @@
  Arduino Mega ◄────────► Raspberry Pi 5 ◄──────────► LD06   ◄──────────► U2D2 ─► 6× XL430 (brazo)
   + shield 4M&9S          │  CSI: cámara                                (TTL,   + 2 compuertas (id 2, 13)  
   ├─ 4 motores + encoder  │  I2C: MPU9250 (usar giroscopio, no magnetómetro)   1 Mbps)
-  ├─ 4 servos dirección   │  GPIO 23 (pin 16) + GND (pin 14): botón de inicio
+  ├─ 4 servos dirección   │  GPIO 16 (pin 36) + GND (pin 34): botón de inicio
   ├─ 1 inclinación de cámara (X 2; X 0 / X 1 quedaron libres: las compuertas son Dynamixel)
   └─ 4 sensores de línea QTR-1A (A8–A11)
 ```
@@ -17,9 +17,9 @@
 | Mega | reflejos | PI por rueda, dirección, odometría, primitivas, freno por borde, watchdog. |
 | Pi 5 | decisiones | Localización con mapa conocido, visión, brazo, misión, reloj de 8 min. |
 
-## Botón de inicio (4 nov)
-GPIO 23 = **pin físico 16** del conector de 40 pines; el otro lado del botón a un **GND** (pin 14, justo al lado, o el
-20). Sin resistencia: se usa el pull-up interno (suelto = 1, apretado = 0). Es un GPIO libre (no es I2C, SPI ni UART;
+## Botón de inicio (5 nov; antes GPIO 23)
+GPIO 16 = **pin físico 36** del conector de 40 pines; el otro lado del botón a un **GND** (pin 34, justo al lado, o el
+39). Sin resistencia: se usa el pull-up interno (suelto = 1, apretado = 0). Es un GPIO libre (no es I2C, SPI0 ni UART;
 el MPU9250 usa los pines 3 y 5). La misión parte al SOLTAR el botón y descarta pulsos de menos de 50 ms (ruido de los
 motores en el cable). Probarlo: `python3 -m tools.boton`. Necesita `python3-gpiozero` y `python3-lgpio` (vienen con
 Raspberry Pi OS Bookworm; si no: `sudo apt install python3-gpiozero python3-lgpio`).

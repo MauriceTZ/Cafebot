@@ -1,4 +1,4 @@
-"""Compuertas Dynamixel (config.compuertas.ids: maduros, sobremaduros) y botón de inicio (GPIO 23), SIN hardware.
+"""Compuertas Dynamixel (config.compuertas.ids: maduros, sobremaduros) y botón de inicio (GPIO 16), SIN hardware.
     python3 -m tests.test_compuertas
 
   1. Las compuertas quedan en modo posición con su PWM limitado y torque, en el MISMO bus que el brazo (el brazo
@@ -170,14 +170,14 @@ def prueba_boton(cfg):
         assert "t" in fin, "esperar() no terminó"
         return max(i for i, t in enumerate(marcas) if t <= fin["t"])
 
-    assert cfg.mision.pin_boton == 23
+    assert cfg.mision.pin_boton == 16
     # normal: apretar 0,2 s y soltar -> parte al soltar (paso 1)
     assert correr(False, [(0.1, True), (0.2, False)]) == 1
     # ruido de 10 ms, después un apretón de verdad -> parte al soltar el de verdad (paso 3)
     assert correr(False, [(0.1, True), (0.01, False), (0.2, True), (0.2, False)]) == 3
     # apretado desde antes (trabado): lo sueltan, lo aprietan y lo sueltan -> paso 2
     assert correr(True, [(0.2, False), (0.2, True), (0.2, False)]) == 2
-    print("  GPIO 23 con pull-up: parte al soltar; ignora un pulso de 10 ms; apretado al empezar no parte solo")
+    print("  GPIO 16 con pull-up: parte al soltar; ignora un pulso de 10 ms; apretado al empezar no parte solo")
 
 
 def prueba_calibracion(tmp):

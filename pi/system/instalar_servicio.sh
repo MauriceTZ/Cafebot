@@ -1,6 +1,6 @@
 #!/bin/bash
 # Instala el servicio de la misión en la Raspberry:   bash pi/system/instalar_servicio.sh
-#   sudo systemctl start cafebot-mision     una ronda: queda esperando el botón (GPIO 23)
+#   sudo systemctl start cafebot-mision     una ronda: queda esperando el botón (GPIO 16)
 #   journalctl -u cafebot-mision -f         ver lo que hace la misión
 #   sudo systemctl stop cafebot-mision      detenerla (como Ctrl+C)
 #   sudo systemctl enable cafebot-mision    que arranque solo al encender la Pi: SOLO en la competencia (mientras

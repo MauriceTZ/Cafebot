@@ -163,9 +163,9 @@ class ConfigMision:
     compuerta_cerrada_deg: tuple = (0.0, 0.0)     # (las Dynamixel usan la sección `compuertas`)
     t_vaciado_s: float = 2.5
     freno_ir: bool = False         # IS 1 durante la misión (cuando los IR estén integrados)
-    # Botón de inicio (4 nov): GPIO 23 = pin físico 16 del conector de la Pi, entre él y un GND (pin 14 o 20), con el
+    # Botón de inicio (5 nov): GPIO 16 = pin físico 36 del conector de la Pi, entre él y un GND (pin 34 o 39), con el
     # pull-up interno: suelto = alto, apretado = bajo. La misión parte al SOLTARLO.
-    pin_boton: int = 23            # numeración BCM (la de gpiozero)
+    pin_boton: int = 16            # numeración BCM (la de gpiozero)
 
 
 @dataclass

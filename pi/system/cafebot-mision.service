@@ -1,4 +1,4 @@
-# Servicio de la MISIÓN: corre `tools.mision --boton gpio` y espera el botón de inicio (GPIO 23).
+# Servicio de la MISIÓN: corre `tools.mision --boton gpio` y espera el botón de inicio (GPIO 16).
 # Lo instala pi/system/instalar_servicio.sh (pone @USUARIO@ y @PI@). Ver docs/mision.md, "Servicio".
 # Restart=no: al terminar la ronda el programa se cierra y el robot queda quieto (los jueces lo levantan para
 # contar los granos). Para otra ronda: sudo systemctl start cafebot-mision (o apagar y encender, si está enable).

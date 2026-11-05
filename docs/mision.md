@@ -17,7 +17,7 @@ python3 -m tests.test_mision 1 2 3                  # prueba automática (~2 min
 python3 -m tools.mision                             # solo navegación: va, mira y se acerca; no toca granos (botón = ENTER)
 python3 -m tools.mision --brazo --vision camara     # COMPLETA: brazo XL430 + cámara (calibrarlos antes: docs/brazo.md, docs/camara.md)
 python3 -m tools.mision --brazo --vision fija       # SOLO TALLER: árbol con puros maduros, para probar el brazo sin visión
-python3 -m tools.mision --boton gpio ...            # botón real (GPIO 23, mision.pin_boton)
+python3 -m tools.mision --boton gpio ...            # botón real (GPIO 16, mision.pin_boton)
 python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0 --brazo --camara    # con interfaz: tecla K
 ```
 Al terminar (entregó lo que alcanzó a recoger, o se acabó el tiempo) el programa se cierra solo: el brazo queda en su
@@ -43,7 +43,7 @@ python3 -m tools.navegacion --sim --brazo --mision        # con el mapa y la vis
 - En la Pi, la simulación compila el firmware del Mega: hace falta `g++` (`sudo apt install g++`).
 
 ## Botón de inicio y servicio (para la competencia)
-Botón entre el GPIO 23 (pin 16) y GND (pin 14), sin resistencia (pull-up interno): `docs/hardware.md`. Probarlo con
+Botón entre el GPIO 16 (pin 36) y GND (pin 34), sin resistencia (pull-up interno): `docs/hardware.md`. Probarlo con
 `python3 -m tools.boton`. Para que la misión corra sin el PC (la ronda va sin WiFi), instalar el servicio una vez:
 ```bash
 bash ~/Cafebot/pi/system/instalar_servicio.sh     # crea pi/system/mision.env con las opciones de la misión
@@ -180,6 +180,6 @@ hipótesis) y, ya pasadas las albercas, repite la localización con **todo el ma
 | Holgura de agarre que permite llegar a la fila alta (el brazo llega poco: `docs/brazo.md`) | `mision.holgura_agarre_m` |
 | Distancia e inclinación de la cámara para ver los 16 soportes | `mision.distancia_foto_m`, `camara.inclinacion_arbol_deg` (+ `pitch_servo_90_deg` / `pitch_por_grado`, medidos con `tools.cosecha` C) |
 | Ángulos y límites de las compuertas (Dynamixel 12 / 13); dónde caen los granos, a qué x retroceder | `tools.compuertas` (`compuertas.*`), `salida_x`, `x_entrega` |
-| Botón: GPIO 23, pin 16 (4 nov); probar el cableado | `python3 -m tools.boton` |
+| Botón: GPIO 16, pin 36 (5 nov); probar el cableado | `python3 -m tools.boton` |
 | ¿Hay líneas negras en las posiciones de alberca vacías? Si las hay, el A* debe evitarlas (hoy solo evita las albercas que ve). | reglamento Apéndice A |
 | IR: freno por borde desactivado en la misión hasta integrarlos (`freno_ir`). | |

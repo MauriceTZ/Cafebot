@@ -1,5 +1,5 @@
 """Probar el botón de inicio en la Raspberry: el mismo código que usa la misión (interfaces.BotonGPIO).
-4 nov: GPIO 23 = pin físico 16; el otro lado del botón a un GND (pin 14 o 20). Pull-up interno: no lleva resistencia.
+5 nov: GPIO 16 = pin físico 36; el otro lado del botón a un GND (pin 34 o 39). Pull-up interno: no lleva resistencia.
 
     python3 -m tools.boton            # avisa cada vez que la misión partiría (al SOLTAR el botón). Ctrl+C sale
     python3 -m tools.boton --pin 24   # probar otro GPIO (numeración BCM)

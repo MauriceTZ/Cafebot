@@ -249,7 +249,7 @@ class Boton:
 
 class BotonGPIO(Boton):
     """Pulsador entre el GPIO `pin` (numeración BCM) y GND, con el pull-up interno de la Pi: suelto = alto (1),
-    apretado = bajo (0). 4 nov: GPIO 23 = pin físico 16 (GND en el 14 o el 20), config.mision.pin_boton.
+    apretado = bajo (0). 5 nov: GPIO 16 = pin físico 36 (GND en el 34 o el 39), config.mision.pin_boton.
     Parte al SOLTAR (la mano ya no está sobre el robot). Un pulso de menos de MIN_APRETADO_S es ruido de los
     motores en el cable, no un dedo: se ignora. Si al empezar ya se lee apretado (botón trabado, cable a GND), se
     espera a que se suelte en vez de partir solo."""

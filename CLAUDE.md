@@ -46,7 +46,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Compuertas (4 nov): Dynamixel en el bus del brazo, **id 2 = maduros, id 13 = sobremaduros** (4 nov noche: servos cambiados; antes 12/13) (`config.compuertas`,
   `cafebot/arm/compuertas.py`); ángulos y límites por calibrar con `tools.compuertas` (sin calibrar no se mueven).
   `X 0`/`X 1` del Mega (46/11) quedaron sin uso.
-- Botón de inicio (4 nov): **GPIO 23** (pin 16) a GND (pin 14), pull-up interno; parte al soltar (`tools.boton`).
+- Botón de inicio (4 nov): **GPIO 16** (pin 36) a GND (pin 34), pull-up interno; parte al soltar (`tools.boton`).
 
 ## Arquitectura
 - **Mega = reflejos** (`firmware/mega_cafebot`): PI por rueda, primitivas `A` (avanzar), `W` (girar),
@@ -137,7 +137,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   al 50 %; "guardar" = no entregar, +3/+1 seguros), `--cajas` en `tools.mision` y `tools.navegacion`. Simulado (semilla
   1): colores 14, cercana −14 (le tocó la azul), guardar 6 (terminó a los 64 s). Cálculo de qué conviene: `tests.test_cajas`.
 - 4 nov: compuertas Dynamixel 12/13 (modo posición, PWM limitado, límites en el servo; sin calibrar no se mueven) con
-  `tools.compuertas`; botón en el GPIO 23 (descarta pulsos < 50 ms; apretado al empezar no parte) con `tools.boton`;
+  `tools.compuertas`; botón en el GPIO 16 (descarta pulsos < 50 ms; apretado al empezar no parte) con `tools.boton`;
   servicio `cafebot-mision` (`pi/system/instalar_servicio.sh`, opciones en `pi/system/mision.env`, no se reinicia
   solo). Al terminar, el programa se cierra y deja brazo y compuertas con torque. Probado con bus y gpiozero falsos.
 - 4 nov: frente al árbol, los IR DELANTEROS tocan la línea del cultivo (`Bordes.medir_adelante`: los dos cruces dan
