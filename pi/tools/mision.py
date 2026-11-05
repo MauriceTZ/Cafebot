@@ -9,6 +9,8 @@
     python3 -m tools.mision --boton gpio             # botón de inicio real (cfg.mision.pin_boton)
     python3 -m tools.mision --brazo --vision fija    # SOLO TALLER: árbol cargado solo con maduros
     python3 -m tools.mision ... --cajas cercana      # las dos cajas del mismo color (ver config: mision.cajas)
+    python3 -m tools.mision --brazo --vision camara --nivel 1 --max-granos 1   # PRUEBA de cosecha: sale, va al
+                                                     #   árbol, foto, línea del cultivo, un agarre y termina
 
 Para verlo en el mapa usar la interfaz: python3 -m tools.navegacion --sim  y tecla K.
 """
@@ -134,6 +136,8 @@ def main():
     ap.add_argument("--vision", choices=("nula", "camara", "fija"), default="nula",
                     help="(real) camara = la real; nula = no toca granos; fija = todo MADURO (solo taller)")
     ap.add_argument("--imu", action="store_true")
+    ap.add_argument("--max-granos", type=int, default=None,
+                    help="PRUEBA: terminar al recoger tantos granos (p. ej. 1 = un agarre y listo)")
     ap.add_argument("--cajas", choices=("colores", "cercana", "guardar"), default=None,
                     help="cómo distinguir las cajas (por defecto mision.cajas de la config): colores = con la "
                          "cámara; si las dos son del mismo color: cercana = maduros a la más cercana (apuesta), "
@@ -144,6 +148,8 @@ def main():
         cfg.mision.nivel = a.nivel
     if a.cajas:
         cfg.mision.cajas = a.cajas
+    if a.max_granos is not None:
+        cfg.mision.max_granos = a.max_granos
     if cfg.mision.nivel >= 3:
         cfg.mision.max_arboles = max(cfg.mision.max_arboles, 3)
         cfg.mision.recoger = tuple(sorted(set(cfg.mision.recoger) | {cancha.SOBREMADURO}))

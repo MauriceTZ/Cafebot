@@ -568,6 +568,9 @@ class Mision:
             if self.brazo.recoger(p, cat):
                 self.recogidos[cat] = self.recogidos.get(cat, 0) + 1
                 self.log(f"  {sop.fila} col {sop.col}: {cat} recogido ({intento}º intento)")
+                n = sum(self.recogidos.values())
+                if 0 < self.c.max_granos <= n:
+                    raise Abortar(f"prueba: ya recogí {n} grano(s) (--max-granos {self.c.max_granos})")
                 return True
             self._revisar()
         self.log(f"  {sop.fila} col {sop.col}: no se pudo, lo dejo")
