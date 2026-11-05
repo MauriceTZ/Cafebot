@@ -517,7 +517,7 @@ class Cosecha:
 
     def servo_camara(self, servo: float) -> bool:
         """X 2 <servo>: inclina la cámara de verdad; el modelo sigue la relación servo -> inclinación de la config."""
-        servo = int(min(180, max(0, round(servo))))
+        servo = int(min(self.cfg.camara.servo_pitch_max, max(self.cfg.camara.servo_pitch_min, round(servo))))   # 60..100 (5 nov)
         try:
             r = self.mega.comando(f"X 2 {servo}")
         except Exception as e:

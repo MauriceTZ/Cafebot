@@ -95,8 +95,13 @@ const uint8_t IR_PINES[IR_N] = { A8, A9, A10, A11 };   // [CONFIRMAR]
 #define N_SERVOS_AUX 4
 // 0 = compuerta maduros (roja), 1 = compuerta sobremaduros (azul), 2 = inclinación de la cámara, 3 = giro de la cámara
 const uint8_t PIN_SERVO_AUX[N_SERVOS_AUX] = { 46, 11, 44, 4 };
-const uint8_t AUX_INICIAL_DEG[N_SERVOS_AUX] = { 90, 90, 90, 90 };   // compuertas cerradas, cámara al frente [AJUSTAR]
+// 5 nov: cámara al frente = punto medio de cada rango (inclinación 60..100 -> 80, giro 50..150 -> 100)
+const uint8_t AUX_INICIAL_DEG[N_SERVOS_AUX] = { 90, 90, 80, 100 };
 const bool AUX_ACTIVO[N_SERVOS_AUX] = { true, true, true, false };  // 3: el yaw de la cámara falla (31 oct)
+// 5 nov, medido en el cabezal: inclinación (2) 60..100°, giro (3) 50..150°. "X k ángulo" se recorta a esto
+// (más allá el cabezal choca). Las compuertas del Mega ya no se usan (son Dynamixel): 0..180.
+const uint8_t AUX_MIN_DEG[N_SERVOS_AUX] = { 0, 0, 60, 50 };
+const uint8_t AUX_MAX_DEG[N_SERVOS_AUX] = { 180, 180, 100, 150 };
 
 // ---------------------------------------------------------------------
 // 2. PARÁMETROS CINEMÁTICOS  -- sin cambios respecto a v0

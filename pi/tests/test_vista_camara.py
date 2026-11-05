@@ -134,8 +134,8 @@ def prueba_aux_mega():
     m.conectar(serial_obj=SerialSimulado())
     try:
         assert m.aux == {}
-        assert m.comando("X 2 120").startswith("OK") and m.aux[2] == 120
-        assert m.comando("X 2 250").startswith("OK") and m.aux[2] == 180       # el firmware lo deja en 0..180
+        assert m.comando("X 2 80").startswith("OK") and m.aux[2] == 80
+        assert m.comando("X 2 250").startswith("OK") and m.aux[2] == 100       # el firmware lo deja en 60..100 (5 nov)
         assert m.comando("X 3 45").startswith("ERR") and 3 not in m.aux        # desactivado (AUX_ACTIVO)
         print(f"  servos auxiliares recordados: {m.aux} (X 3 desactivado: no cuenta)")
     finally:

@@ -237,8 +237,10 @@ class ConfigCamara:
     y: float = -0.0529              # adelante (el cubo_camara del modelo): 5,3 cm a la DERECHA del centro
     z: float = 0.3673
     inclinacion_arbol_deg: float = 18.0    # inclinación (pitch, + = hacia ARRIBA) para la foto del árbol: con la cámara
-                                           # a 37 cm, 16/16 soportes desde 55–65 cm con 15–20° (simulado, 31 oct)
-    inclinacion_cajas_deg: float = -25.0   # hacia ABAJO para ver las cajas                                 [AJUSTAR]
+                                           # a 37 cm, 16/16 soportes desde 55–65 cm con 15–20° (simulado, 31 oct).
+                                           # 5 nov: X 2 = 98 (llega hasta 100 = +20°)
+    inclinacion_cajas_deg: float = -20.0   # hacia ABAJO para ver las cajas: 5 nov, lo más abajo que deja el cabezal
+                                           # (X 2 = 60); antes −25                                         [AJUSTAR]
     yaw_deg: float = 0.0            # error de montaje: + = mirando hacia la izquierda                 [AJUSTAR: tecla C]
     roll_deg: float = 0.0           #                                                                [AJUSTAR: tecla C]
     cabezal: bool = True            # la posición del lente cambia al inclinar/girar (False = cámara fija en x, y, z)
@@ -246,11 +248,17 @@ class ConfigCamara:
     eje_pitch_z: float = 0.3690
     eje_yaw_x: float = 0.0907       # eje de GIRO (vertical): su x e y
     eje_yaw_y: float = -0.0678
-    pitch_servo_90_deg: float = 5.0  # inclinación de la cámara con X 2 = 90°: "un poquito hacia arriba" (31 oct)
-                                     #                                                          [AJUSTAR: tecla C]
+    pitch_servo_90_deg: float = 10.0  # inclinación de la cámara con X 2 = 90°. 5 nov: el centro del rango (X 2 = 80, de
+                                      # 60..100) es la cámara al frente (0°), así que 90 = +10° (antes 5)  [AJUSTAR: tecla C]
     pitch_por_grado: float = 1.0     # grados de cámara por grado de servo; NEGATIVO si al subir el ángulo de X 2 la
                                      # cámara baja                                              [CONFIRMAR: X 2 70 / X 2 110]
     yaw_cabezal_deg: float = 0.0     # giro del cabezal (X 3 desactivado): 0 = mirando adelante
+    servo_pitch_min: int = 60        # 5 nov, medido: el servo de inclinación (X 2) va de 60 a 100° y el de giro (X 3)
+    servo_pitch_max: int = 100       # de 50 a 150° (más allá choca). El firmware también los recorta
+    servo_yaw_min: int = 50          # (AUX_MIN_DEG / AUX_MAX_DEG en firmware/mega_cafebot/config.h)
+    servo_yaw_max: int = 150
+    servo_pitch_centro: int = 80     # 5 nov: punto medio de cada rango = cámara mirando al frente (AUX_INICIAL_DEG del
+    servo_yaw_centro: int = 100      # firmware); el giro (X 3) sigue desactivado en el firmware (AUX_ACTIVO)
     ancho_px: int = 1536
     alto_px: int = 864
     # Intrínsecos a 1536×864: 30 oct, tablero de ajedrez (tools.ver_camara, 39 fotos, 0,33 px; Pablo). Antes, de
@@ -271,7 +279,8 @@ class ConfigCamara:
 
     def servo_de_pitch(self, pitch_deg: float) -> int:
         """Ángulo para X 2 (0..180) que deja la cámara con esa inclinación."""
-        return int(round(min(180.0, max(0.0, 90.0 + (pitch_deg - self.pitch_servo_90_deg) / self.pitch_por_grado))))
+        s = 90.0 + (pitch_deg - self.pitch_servo_90_deg) / self.pitch_por_grado
+        return int(round(min(float(self.servo_pitch_max), max(float(self.servo_pitch_min), s))))
 
     def pitch_de_servo(self, servo_deg: float) -> float:
         return self.pitch_servo_90_deg + self.pitch_por_grado * (servo_deg - 90.0)

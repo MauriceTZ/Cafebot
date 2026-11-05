@@ -287,12 +287,12 @@ def prueba_sesion_simulada():
     posturas_sim(brazo)
     assert preparar_brazo(brazo, cfg, print)
     pasos = []
-    mover = brazo._mover
+    mover = brazo._mover_directo                 # cada movimiento al bus (también los de subir y girar)
 
     def espia(obj, t, que):
         pasos.append(que)
         return mover(obj, t, que)
-    brazo._mover = espia
+    brazo._mover_directo = espia
     ses = Cosecha(cfg, m, mundo.camara, mundo.lidar, mega, brazo, mundo, cl.Clasificador(), confianza_min=0.5,
                   ruta_local=str(tmp / "local.json"), ruta_referencias=str(tmp / "ref.json"), log=lambda t: None)
     try:
@@ -319,9 +319,9 @@ def prueba_sesion_simulada():
             assert "demasiado cerca" in str(err)
         # ESC durante el primer agarre: no se manda nada más y no cuenta como agarrado
         n_pasos = len(pasos)
-        brazo._mover = lambda obj, t, que: (brazo.parar.set(), espia(obj, t, que))[1] if len(pasos) > n_pasos else espia(obj, t, que)
+        brazo._mover_directo = lambda obj, t, que: (brazo.parar.set(), espia(obj, t, que))[1] if len(pasos) > n_pasos else espia(obj, t, que)
         assert ses.agarrar_todos() == 0 and "detenido" in brazo.ultimo_motivo, brazo.ultimo_motivo
-        brazo._mover = espia
+        brazo._mover_directo = espia
         ses.espera()
         n = ses.agarrar_todos()
         alcanzables = sorted(ModeloArbol.nombre_de(k) for k in ses.tomados)
@@ -332,9 +332,9 @@ def prueba_sesion_simulada():
         assert brazo.depositos["MADURO"] == maduros and brazo.depositos["SOBREMADURO"] == n - maduros
         assert all(mundo.colores[nm] is None for nm in alcanzables)            # ya no están en el árbol
         assert mundo.colores["media-4"] == "VERDE" and mundo.colores["media-2"] == "NEGRO"   # no se tocan
-        # camino a la canasta: plegar sin girar, girar plegado, recién ahí estirarse
-        i = pasos.index("plegar (transporte)")
-        assert pasos[i + 1] == "girar plegado (transporte)" and pasos[i + 2].startswith("postura deposito_"), pasos[i:i + 3]
+        # camino a la canasta (5 nov): estirarse hacia arriba sin girar, girar arriba, recién ahí bajar a la canasta
+        i = next(k for k, q in enumerate(pasos) if q.startswith("postura deposito_") and q.endswith("subir antes de girar"))
+        assert pasos[i + 1].endswith("girar arriba") and pasos[i + 2].startswith("postura deposito_"), pasos[i:i + 3]
         print(f"  camino a la canasta: {' -> '.join(pasos[i - 1:i + 3])}")
     finally:
         mega.cerrar()
@@ -353,7 +353,9 @@ def prueba_cabezal():
     assert cc.cabezal
     for p in (-25.0, 5.0, 18.0, 30.0):                          # ida y vuelta del lente
         assert np.allclose(lente_de_referencia(cc, lente_cabezal(cc, p, 7.0), p, 7.0), [cc.x, cc.y, cc.z])
+    for p in (-20.0, 0.0, 5.0, 18.0, 20.0):                     # el servo va de 60 a 100° (5 nov): -20..+20°
         assert abs(cc.pitch_de_servo(cc.servo_de_pitch(p)) - p) <= 0.5 * abs(cc.pitch_por_grado)
+    assert cc.servo_de_pitch(0.0) == cc.servo_pitch_centro and cc.servo_de_pitch(40.0) == cc.servo_pitch_max
     tmp = pathlib.Path(tempfile.mkdtemp())
     mega = Mega("sim")
     mega.conectar(serial_obj=SerialSimulado())
@@ -367,9 +369,9 @@ def prueba_cabezal():
         assert s0 == cc.servo_de_pitch(cc.inclinacion_arbol_deg), s0
         ses.analizar()
         ses.calibrar_con_arbol()
-        for _ in range(4):                                       # I x4: el servo sube 8°
-            ses.inclinar(+0.5)
-        assert ses.servo_pitch == s0 + 8, ses.servo_pitch
+        for _ in range(4):                                       # K x4: el servo baja 8° (a 98 ya casi no sube: tope 100)
+            ses.inclinar(-0.5)
+        assert ses.servo_pitch == s0 - 8, ses.servo_pitch
         ses.analizar()
         ses.calibrar_con_arbol()
         real_90 = mundo.cc.pitch_servo_90_deg + mundo.err_pitch

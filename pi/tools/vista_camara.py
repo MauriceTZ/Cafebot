@@ -4,7 +4,7 @@
                       (cafebot/vision/render.py: polígonos con el mismo modelo de cámara que la visión).
   Robot:              la cámara de verdad, compartida con la misión (cafebot/vision/camara.CamaraCompartida:
                       la misión sigue sacando sus fotos; la vista muestra la última o pide una nueva).
-La inclinación de la cámara es la del último `X 2` que aceptó el Mega (al encender, 90°).
+La inclinación de la cámara es la del último `X 2` que aceptó el Mega (al encender, 80°: al frente).
 
 Superposición (Shift+V): las líneas de la cancha (cian) y los 48 soportes donde DEBERÍAN verse según la pose que el
 robot CREE tener en la cancha (I o la misión) y la calibración de la cámara. Cada soporte con el color de lo que
@@ -27,7 +27,7 @@ from cafebot.vision.camara_modelo import CamaraPinhole
 
 TAMANOS = {"chica": 0.30, "grande": 0.50, "no": 0.0}      # fracción del ancho de la ventana
 SIGUIENTE = {"chica": "grande", "grande": "no", "no": "chica"}
-SERVO_INICIAL = 90.0                                       # AUX_INICIAL_DEG del firmware (cámara al frente)
+SERVO_INICIAL = 80.0                                       # AUX_INICIAL_DEG del firmware (cámara al frente, 5 nov)
 
 
 class VistaCamara:

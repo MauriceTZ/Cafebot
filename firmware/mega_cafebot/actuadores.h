@@ -168,7 +168,7 @@ Servo servos_aux[N_SERVOS_AUX];
 
 bool servo_aux(uint8_t k, int grados) {
     if (k >= N_SERVOS_AUX || !AUX_ACTIVO[k]) return false;   // desactivado: sin pulso (no se mueve)
-    servos_aux[k].write(constrain(grados, 0, 180));
+    servos_aux[k].write(constrain(grados, AUX_MIN_DEG[k], AUX_MAX_DEG[k]));
     return true;
 }
 
@@ -176,7 +176,7 @@ void actuadores_begin() {
     for (uint8_t k = 0; k < N_SERVOS_AUX; k++) {
         if (!AUX_ACTIVO[k]) continue;
         servos_aux[k].attach(PIN_SERVO_AUX[k]);
-        servos_aux[k].write(AUX_INICIAL_DEG[k]);
+        servos_aux[k].write(constrain(AUX_INICIAL_DEG[k], AUX_MIN_DEG[k], AUX_MAX_DEG[k]));
     }
     for (uint8_t i = 0; i < 4; i++) {
         pinMode(PIN_PWM[i], OUTPUT);

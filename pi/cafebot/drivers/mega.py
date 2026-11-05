@@ -101,6 +101,8 @@ def _pose_desde(tokens: list[str]) -> tuple[float, float, float]:
 
 
 class Mega:
+    AUX_RANGO = {0: (0, 180), 1: (0, 180), 2: (60, 100), 3: (50, 150)}   # firmware: AUX_MIN_DEG / AUX_MAX_DEG
+
     def __init__(self, puerto: str, baudios: int = 115200, log: Callable[[str], None] | None = None):
         self.puerto = puerto
         self.baudios = baudios
@@ -252,7 +254,8 @@ class Mega:
         if linea.startswith("X ") and r.startswith("OK"):
             try:
                 _, k, ang = linea.split()[:3]
-                self.aux[int(k)] = min(180.0, max(0.0, float(int(float(ang)))))   # como el firmware (int, 0..180)
+                lo, hi = self.AUX_RANGO.get(int(k), (0, 180))      # como el firmware (int, AUX_MIN/MAX_DEG)
+                self.aux[int(k)] = min(float(hi), max(float(lo), float(int(float(ang)))))
             except ValueError:
                 pass
         return r
