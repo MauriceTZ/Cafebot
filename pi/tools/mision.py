@@ -163,7 +163,7 @@ def main():
         mega.conectar()
         mega.telemetria(20)
         cc = cfg.camara          # la cámara al frente con lo calibrado (tools.cabezal calibrar), sin recargar el Mega
-        for k, ang in ((2, cc.servo_pitch_centro), (3, cc.servo_yaw_centro)):
+        for k, ang in ((2, cc.servo_pitch_centro),):    # el giro (X 3) está averiado: sin señal (5 nov)
             r = mega.comando(f"X {k} {ang}")
             if not r.startswith("OK"):
                 print(f"Cámara: X {k} {ang} -> {r}")

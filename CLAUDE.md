@@ -26,8 +26,8 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   descarta lo que ve en el cuadrado de 45 cm detrás de él (`geometria.lidar_caja_m`).
   Cámara Pi Module 3 **estándar** (29 oct) sobre un cabezal de 2 SG90 (31 oct) en la tapa de la base, a la derecha del
   brazo: inclinación con `X 2` (pin 44 = PL5; 90° = "un poquito hacia arriba"), giro con `X 3` (pin 4 = PG5;
-  5 nov: activado, rangos X 2 60..100 y X 3 50..150; "al frente" se calibra a mano con `tools.cabezal calibrar` y la
-  misión lo manda al conectarse). Lente a ~37 cm del suelo según el modelo de Fusion
+  5 nov tarde: AVERIADO, sin PWM). Inclinación 60..100°, al frente = 80 (`tools.cabezal calibrar`; la misión lo manda
+  al conectarse). Lente a ~37 cm del suelo según el modelo de Fusion
   (`description/fusion`, `camara.cabezal` en la config) [CONFIRMAR con huincha].
 - Brazo 5 GDL + garra (abre 6,5 cm) con Dynamixel XL430 (U2D2). Según el modelo de Fusion (31 oct) el eje de la base
   está 7,7 cm delante del centro y 6,3 cm a la izquierda. Altura: 31 oct, la garra horizontal con el brazo vertical
