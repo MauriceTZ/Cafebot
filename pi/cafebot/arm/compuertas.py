@@ -222,8 +222,11 @@ class CompuertasDXL:
         self.bus._w(sid, dxl.ADDR_GOAL_POSITION, 4, meta)
         if not esperar:
             return grados
-        fin = time.monotonic() + t + 1.0
-        time.sleep(min(t, 0.05))
+        # 5 nov: antes miraba "Moving" a los 50 ms; al partir la velocidad todavía es baja, el servo dice que está
+        # quieto y se leía el ángulo del comienzo (la prueba decía "no llegó" aunque la compuerta sí se movía).
+        # Como el brazo: esperar la duración del perfil y después lo que le falte.
+        time.sleep(t)
+        fin = time.monotonic() + 1.0
         while time.monotonic() < fin and self.bus._r(sid, dxl.ADDR_MOVING, 1):
             time.sleep(0.02)
         return self.angulo(k)

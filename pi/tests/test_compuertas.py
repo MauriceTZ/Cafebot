@@ -85,6 +85,9 @@ def prueba_limites_y_fallas(cfg, bus):
     comp.configurar(0)
     assert falso.leer(M, ADDR_MIN_POS) == grados_a_pasos(170) and falso.leer(M, ADDR_MAX_POS) == grados_a_pasos(260)
     comp.torque(0, True)
+    t0 = time.monotonic()
+    comp.mover(0, 200.0, t=0.3)        # lee el ángulo al TERMINAR el perfil (5 nov: lo leía a los 50 ms, al partir)
+    assert time.monotonic() - t0 >= 0.3, "leyó el ángulo antes de que terminara el movimiento"
     try:
         comp.mover(0, 300.0)
         raise AssertionError("debía rechazar 300°")
