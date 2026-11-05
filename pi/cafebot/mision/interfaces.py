@@ -11,6 +11,7 @@ Implementaciones reales: cafebot/arm/brazo.py (BrazoXL430) y cafebot/vision/visi
 """
 from __future__ import annotations
 
+import os
 import math
 import time
 from dataclasses import dataclass
@@ -247,41 +248,78 @@ class Boton:
         """Bloquea hasta que se aprieta el botón de inicio."""
 
 
-def fabrica_gpio_header(log=print):
-    """5 nov: en la Pi del robot (kernel nuevo) los gpiochip son 11..16, no 0 ni 4, y gpiozero/lgpio fallan con
-    "can not open gpiochip". Se busca el chip del conector de 40 pines (etiqueta pinctrl-rp1 en la Pi 5, o el de
-    54 líneas) y se le pasa a gpiozero. None = que gpiozero elija (si no hay lgpio o no se encuentra)."""
-    try:
-        import glob
-        import re
-        import lgpio
-        from gpiozero.pins.lgpio import LGPIOFactory
-    except Exception:
-        return None
+def chip_del_conector(log=print) -> int | None:
+    """Número del /dev/gpiochipN del conector de 40 pines (etiqueta pinctrl-rp1 en la Pi 5; 54 líneas o bcm2711/2835
+    en las anteriores). 5 nov: en la Pi del robot son 11..16, no 0 ni 4. Se pregunta con el ioctl del kernel
+    (GPIO_GET_CHIPINFO), SIN lgpio: abrir y cerrar cada chip con lgpio dejaba el del conector sin poder abrirse de
+    nuevo ("can not open gpiochip"). None si no hay gpiochip (no es una Raspberry) o no se reconoce."""
+    import fcntl
+    import glob
+    import re
+    import struct
     candidatos = []
     for ruta in glob.glob("/dev/gpiochip*"):
         m = re.fullmatch(r"/dev/gpiochip(\d+)", ruta)
         if not m:
             continue
-        n = int(m.group(1))
         try:
-            h = lgpio.gpiochip_open(n)
+            fd = os.open(ruta, os.O_RDONLY)
             try:
-                _, lineas, nombre, etiqueta = lgpio.gpio_get_chip_info(h)
+                info = fcntl.ioctl(fd, 0x8044B401, bytes(68))        # struct gpiochip_info: name[32], label[32], u32
             finally:
-                lgpio.gpiochip_close(h)
-        except Exception:
+                os.close(fd)
+        except OSError:
             continue
-        candidatos.append((n, lineas, str(nombre), str(etiqueta)))
-    elegido = next((c for c in candidatos if "rp1" in c[3].lower()), None)
+        etiqueta = info[32:64].split(b"\0")[0].decode(errors="replace")
+        candidatos.append((int(m.group(1)), struct.unpack_from("<I", info, 64)[0], etiqueta))
+    elegido = next((c for c in candidatos if "rp1" in c[2].lower()), None) or next(
+        (c for c in candidatos if c[1] == 54 or "bcm2835" in c[2].lower() or "bcm2711" in c[2].lower()), None)
     if elegido is None:
-        elegido = next((c for c in candidatos if c[1] == 54 or "bcm2835" in c[3].lower()
-                        or "bcm2711" in c[3].lower()), None)
-    if elegido is None:
-        log(f"[botón] no encontré el gpiochip del conector entre {candidatos}: dejo que gpiozero elija")
+        if candidatos:
+            log(f"[botón] no reconozco el gpiochip del conector entre {candidatos}: dejo que gpiozero elija")
         return None
-    log(f"[botón] conector de 40 pines = /dev/gpiochip{elegido[0]} ({elegido[3]}, {elegido[1]} líneas)")
-    return LGPIOFactory(chip=elegido[0])
+    log(f"[botón] conector de 40 pines = /dev/gpiochip{elegido[0]} ({elegido[2]}, {elegido[1]} líneas)")
+    return elegido[0]
+
+
+class BotonGpioget:
+    """Plan B si lgpio no abre el chip: lee el pin con `gpioget` (libgpiod, viene con Raspberry Pi OS) cada 10 ms,
+    con el pull-up. Misma interfaz que lo que usa BotonGPIO de gpiozero.Button."""
+
+    def __init__(self, chip: int, pin: int):
+        import subprocess
+        self.sp = subprocess
+        self.cmds = [["gpioget", "-B", "pull-up", f"gpiochip{chip}", str(pin)],              # libgpiod 1.x
+                     ["gpioget", "--bias=pull-up", "-c", f"gpiochip{chip}", str(pin)]]      # libgpiod 2.x
+        self.is_pressed                                                                   # falla aquí si no anda
+
+    @property
+    def is_pressed(self) -> bool:
+        for cmd in list(self.cmds):
+            r = self.sp.run(cmd, capture_output=True, text=True, timeout=2)
+            if r.returncode == 0:
+                self.cmds = [cmd]
+                salida = r.stdout.strip().lower()
+                if salida.endswith("inactive"):
+                    return True                 # 2.x: "16"=inactive = 0 = a GND
+                if salida.endswith("active"):
+                    return False
+                return salida.endswith("0")    # 1.x: imprime 0 / 1
+        raise OSError(f"gpioget no pudo leer el pin: {r.stderr.strip()}")
+
+    def _esperar(self, apretado: bool, timeout=None) -> bool:
+        fin = None if timeout is None else time.monotonic() + timeout
+        while self.is_pressed != apretado:
+            if fin is not None and time.monotonic() > fin:
+                return False
+            time.sleep(0.01)
+        return True
+
+    def wait_for_press(self, timeout=None):
+        return self._esperar(True, timeout)
+
+    def wait_for_release(self, timeout=None):
+        return self._esperar(False, timeout)
 
 
 class BotonGPIO(Boton):
@@ -295,8 +333,17 @@ class BotonGPIO(Boton):
     def __init__(self, pin, log=print, pin_factory=None):
         from gpiozero import Button          # viene con Raspberry Pi OS (usa lgpio en la Pi 5)
         self.pin, self.log = pin, log
+        chip = None
         if pin_factory is None:
-            pin_factory = fabrica_gpio_header(log)
+            chip = chip_del_conector(log)
+            if chip is not None:
+                try:
+                    from gpiozero.pins.lgpio import LGPIOFactory
+                    pin_factory = LGPIOFactory(chip=chip)
+                except Exception as e:
+                    log(f"[botón] lgpio no abrió /dev/gpiochip{chip} ({e}): leo el pin con gpioget")
+                    self.b = BotonGpioget(chip, pin)
+                    return
         self.b = Button(pin, pull_up=True, bounce_time=None, pin_factory=pin_factory)
 
     def esperar(self):
