@@ -5,7 +5,7 @@
 ```
                  USB                         USB                  USB
  Arduino Mega ◄────────► Raspberry Pi 5 ◄──────────► LD06   ◄──────────► U2D2 ─► 6× XL430 (brazo)
-  + shield 4M&9S          │  CSI: cámara                                (TTL,   + 2 compuertas (id 12, 13)
+  + shield 4M&9S          │  CSI: cámara                                (TTL,   + 2 compuertas (id 2, 13)  
   ├─ 4 motores + encoder  │  I2C: MPU9250 (usar giroscopio, no magnetómetro)   1 Mbps)
   ├─ 4 servos dirección   │  GPIO 23 (pin 16) + GND (pin 14): botón de inicio
   ├─ 1 inclinación de cámara (X 2; X 0 / X 1 quedaron libres: las compuertas son Dynamixel)

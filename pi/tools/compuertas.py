@@ -1,5 +1,5 @@
 """Calibrar y probar las COMPUERTAS de los depósitos: Dynamixel en el bus del brazo (U2D2). Detalle: docs/mision.md.
-4 nov: id 12 = maduros, id 13 = sobremaduros (config.compuertas.ids). Ángulos en grados del SERVO, 0..360.
+4 nov: id 2 = maduros, id 13 = sobremaduros (antes 12/13) (config.compuertas.ids). Ángulos en grados del SERVO, 0..360.
 
     python3 -m tools.compuertas calibrar                 # GUIADO, las dos (o: calibrar maduros): cerrada, abierta,
                                                          #   límites, paso por 0° y prueba con torque

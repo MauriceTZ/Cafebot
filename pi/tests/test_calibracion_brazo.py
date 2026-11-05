@@ -221,6 +221,11 @@ def prueba_escaneo_e_ids(cfg):
     dxl.cambiar_id("falso", 1, 12, 57_600, 1_000_000)
     h = dxl.escanear("falso")
     assert 57_600 not in h and 12 in h[1_000_000]
+    # las compuertas (4 nov: ids 2 y 13) se reconocen; una que falta se avisa
+    bus.agregar(13, 2048, 1_000_000)
+    lineas, _ = tb.analizar_escaneo(perfil, dxl.escanear("falso"), {12: "maduros", 13: "sobremaduros", 2: "x"})
+    assert "compuerta sobremaduros id 13: ok" in "\n".join(lineas) and "compuerta maduros id 12: ok" in "\n".join(lineas)
+    assert any("compuerta x id 2: NO RESPONDE" in l for l in lineas) and not any("id 13 a" in l for l in lineas), lineas
     # otro de fábrica que se quiere llamar como uno que ya existe: no se toca
     bus.agregar(1, 2048, 57_600)
     try:

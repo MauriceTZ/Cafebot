@@ -122,8 +122,9 @@ def sostener_o_soltar(b):
 
 
 # ---------------------------------------------------------------------------- cálculos (sin bus: se prueban)
-def analizar_escaneo(perfil, hallados: dict) -> tuple[list, int | None]:
+def analizar_escaneo(perfil, hallados: dict, compuertas: dict | None = None) -> tuple[list, int | None]:
     """Compara lo que respondió en el bus ({baudios: {id: (modelo, firmware)}}) con el perfil.
+    `compuertas` = {id: nombre} (config.compuertas): esos ids no son del brazo pero se esperan en el mismo bus.
     Devuelve (líneas para mostrar, baudios a los que conviene cambiar el perfil o None)."""
     from cafebot.arm import dxl
     ids = perfil.ids
@@ -137,9 +138,19 @@ def analizar_escaneo(perfil, hallados: dict) -> tuple[list, int | None]:
             otras = [bd for bd, s in sorted(hallados.items()) if sid in s]
             estado = f"responde a {otras[0]} baudios (el perfil usa {perfil.baudios})" if otras else "NO RESPONDE"
         lineas.append(f"  {MOSTRAR[n]:7s} id {sid:3d}: {estado}")
+    compuertas = compuertas or {}
+    for sid, nombre in sorted(compuertas.items()):
+        if sid in ids.values():
+            lineas.append(f"  compuerta {nombre} id {sid}: ¡el MISMO id que una articulación del brazo! (cambiar-id)")
+        elif sid in en_bus:
+            lineas.append(f"  compuerta {nombre} id {sid}: ok")
+        else:
+            otras = [bd for bd, s in sorted(hallados.items()) if sid in s]
+            lineas.append(f"  compuerta {nombre} id {sid}: " + (f"responde a {otras[0]} baudios (el bus usa "
+                          f"{perfil.baudios})" if otras else "NO RESPONDE (¿otro id? config.compuertas.ids)"))
     for bd, s in sorted(hallados.items()):
         for sid in sorted(s):
-            if sid not in ids.values():
+            if sid not in ids.values() and not (sid in compuertas and bd == perfil.baudios):
                 extra = (" (servo de FÁBRICA: cambiar-id 1 <id> con SOLO ese servo conectado)" if (sid, bd) == (1, 57_600)
                          else " (¿servo cambiado o ids cruzados? identificar)")
                 lineas.append(f"  id {sid} a {bd} baudios: no es de este perfil{extra}")
@@ -446,7 +457,9 @@ def cmd_escanear(a):
     for bd, servos in sorted(hallados.items()):
         print(f"  {bd:>9} baudios: " + ", ".join(f"id {sid} ({dxl.MODELOS.get(m, f'modelo {m}')}, fw {fw})"
                                                  for sid, (m, fw) in sorted(servos.items())))
-    lineas, sugerida = analizar_escaneo(b.perfil, hallados)
+    from cafebot.arm.compuertas import NOMBRES
+    comp = dict(zip(b.cfg.compuertas.ids, NOMBRES))
+    lineas, sugerida = analizar_escaneo(b.perfil, hallados, comp)
     print(f"Perfil '{b.perfil.nombre}' ({b.perfil.baudios} baudios):")
     print("\n".join(lineas))
     if sugerida and preguntar(f"Los 6 servos del perfil responden a {sugerida} baudios: ¿usar esa velocidad en el perfil?",

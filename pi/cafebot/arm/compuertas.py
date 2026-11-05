@@ -1,4 +1,4 @@
-"""Compuertas de los depósitos con Dynamixel (4 nov): id 12 = maduros, id 13 = sobremaduros (config.compuertas).
+"""Compuertas de los depósitos con Dynamixel (4 nov): id 2 = maduros, id 13 = sobremaduros (config.compuertas; antes 12/13).
 
 Van en el MISMO bus que el brazo (U2D2): se usa el BusDXL del brazo (una sola conexión al puerto) o, sin brazo, uno
 propio. A diferencia del brazo (posición extendida, varias vueltas), cada compuerta queda en MODO POSICIÓN (3), donde

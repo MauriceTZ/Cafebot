@@ -1,4 +1,4 @@
-"""Compuertas Dynamixel (id 12 maduros, 13 sobremaduros) y botón de inicio (GPIO 23), SIN hardware.
+"""Compuertas Dynamixel (config.compuertas.ids: maduros, sobremaduros) y botón de inicio (GPIO 23), SIN hardware.
     python3 -m tests.test_compuertas
 
   1. Las compuertas quedan en modo posición con su PWM limitado y torque, en el MISMO bus que el brazo (el brazo
@@ -27,6 +27,7 @@ from cafebot.arm.brazo import PerfilBrazo   # noqa: E402
 from cafebot.config import cargar   # noqa: E402
 
 ADDR_MODO, ADDR_PWM, ADDR_TORQUE, ADDR_GOAL, ADDR_HW = 11, 36, 64, 116, 70
+M, S = cargar().compuertas.ids          # maduros, sobremaduros
 
 
 def metas(sid):
@@ -55,16 +56,16 @@ def prueba_compuertas(cfg):
     brazo_ids = [c.id for c in perfil.servos()]
     assert all(falso.leer(s, ADDR_MODO) == 4 for s in brazo_ids), "el brazo cambió de modo"
     assert any("SIN CALIBRAR" in t for t in log)
-    n = len(metas(12))
-    assert dep.vaciar(0) is False and len(metas(12)) == n           # sin calibrar: no se mueve
+    n = len(metas(M))
+    assert dep.vaciar(0) is False and len(metas(M)) == n           # sin calibrar: no se mueve
     print(f"  ids {cc.ids} en modo posición, PWM {cc.pwm_limit}, con torque; el brazo ({brazo_ids}) sigue en modo 4; "
           "sin calibrar no se mueven")
 
     cc.cerrada_deg, cc.abierta_deg = (180.0, 180.0), (250.0, 110.0)
-    n12, n13 = len(metas(12)), len(metas(13))
+    n12, n13 = len(metas(M)), len(metas(S))
     assert dep.vaciar(0) is True and dep.vaciar(1) is True
-    assert metas(12)[n12:] == [grados_a_pasos(250), grados_a_pasos(180)], metas(12)[n12:]
-    assert metas(13)[n13:] == [grados_a_pasos(110), grados_a_pasos(180)], metas(13)[n13:]
+    assert metas(M)[n12:] == [grados_a_pasos(250), grados_a_pasos(180)], metas(M)[n12:]
+    assert metas(S)[n13:] == [grados_a_pasos(110), grados_a_pasos(180)], metas(S)[n13:]
     print("  calibradas: vaciar = abrir (250° / 110°), esperar y cerrar (180°)")
     return bus
 
@@ -75,7 +76,7 @@ def prueba_limites_y_fallas(cfg, bus):
     comp = CompuertasDXL(bus, cc, log=log.append)
     cc.limites_deg = ([170.0, 260.0], None)
     comp.configurar(0)
-    assert falso.leer(12, ADDR_MIN_POS) == grados_a_pasos(170) and falso.leer(12, ADDR_MAX_POS) == grados_a_pasos(260)
+    assert falso.leer(M, ADDR_MIN_POS) == grados_a_pasos(170) and falso.leer(M, ADDR_MAX_POS) == grados_a_pasos(260)
     comp.torque(0, True)
     try:
         comp.mover(0, 300.0)
@@ -86,7 +87,7 @@ def prueba_limites_y_fallas(cfg, bus):
     original = falso.escribir
 
     def trabada(sid, addr, val):
-        if sid == 13 and addr == ADDR_GOAL:
+        if sid == S and addr == ADDR_GOAL:
             val = max(val, grados_a_pasos(150))
         original(sid, addr, val)
     falso.escribir = trabada
@@ -95,9 +96,9 @@ def prueba_limites_y_fallas(cfg, bus):
     finally:
         falso.escribir = original
     # sobrecarga: el servo apagó el torque; antes de moverla se reinicia y se le devuelve el torque
-    falso.mem[(12, ADDR_HW)] = 32
-    falso.mem[(12, ADDR_TORQUE)] = 0
-    assert comp.abrir(0) is True and 12 in falso.reboots and falso.leer(12, ADDR_TORQUE) == 1
+    falso.mem[(M, ADDR_HW)] = 32
+    falso.mem[(M, ADDR_TORQUE)] = 0
+    assert comp.abrir(0) is True and M in falso.reboots and falso.leer(M, ADDR_TORQUE) == 1
     print("  límites 170..260° grabados en el servo (300° rechazado); trabada en 150° se informa; tras una "
           "sobrecarga se reinicia y vuelve el torque")
 
@@ -106,7 +107,7 @@ def prueba_armar(cfg):
     from tools.mision import armar_reales
     cfg.compuertas.tipo = "dxl"
     _, _, dep = armar_reales(cfg, False, "nula", mega=None)
-    assert isinstance(dep, DepositosDXL) and dep.preparar() and dep.comp.ids == (12, 13)
+    assert isinstance(dep, DepositosDXL) and dep.preparar() and dep.comp.ids == (M, S)
     cfg.compuertas.tipo = "mega"
     _, _, dep2 = armar_reales(cfg, False, "nula", mega=None)
     assert type(dep2).__name__ == "Depositos"
@@ -185,8 +186,8 @@ def prueba_calibracion(tmp):
         def f():
             falso.mem[(sid, 132)] = grados_a_pasos(grados)
         return f
-    respuestas = [(mano(12, 180.0), ""), (mano(12, 250.0), ""), (None, "s"),       # maduros + prueba con torque
-                  (mano(13, 350.0), ""), (mano(13, 20.0), "")]                     # sobremaduros: pasa por 0°
+    respuestas = [(mano(M, 180.0), ""), (mano(M, 250.0), ""), (None, "s"),       # maduros + prueba con torque
+                  (mano(S, 350.0), ""), (mano(S, 20.0), "")]                     # sobremaduros: pasa por 0°
 
     def entrada(prompt=""):
         accion, r = respuestas.pop(0)
@@ -204,10 +205,10 @@ def prueba_calibracion(tmp):
     guardado = json.loads(ruta.read_text())["compuertas"]
     assert guardado["cerrada_deg"] == [180.0, None] and guardado["abierta_deg"] == [250.0, None], guardado
     assert guardado["limites_deg"][0] == [175.0, 255.0], guardado
-    assert falso.leer(12, ADDR_MIN_POS) == grados_a_pasos(175) and falso.leer(12, ADDR_MAX_POS) == grados_a_pasos(255)
-    assert metas(12)[-3:] == [grados_a_pasos(180), grados_a_pasos(250), grados_a_pasos(180)], metas(12)[-3:]
+    assert falso.leer(M, ADDR_MIN_POS) == grados_a_pasos(175) and falso.leer(M, ADDR_MAX_POS) == grados_a_pasos(255)
+    assert metas(M)[-3:] == [grados_a_pasos(180), grados_a_pasos(250), grados_a_pasos(180)], metas(M)[-3:]
     nuevas = falso.escrituras[escrituras_antes:]
-    assert not any(s == 13 and a in (20, ADDR_MIN_POS, ADDR_MAX_POS, ADDR_GOAL) for s, a, _ in nuevas)
+    assert not any(s == S and a in (20, ADDR_MIN_POS, ADDR_MAX_POS, ADDR_GOAL) for s, a, _ in nuevas)
     print("  maduros: cerrada 180°, abierta 250°, límites 175..255° en el servo y la prueba cerró, abrió y cerró | "
           "sobremaduros 350° -> 20° pasa por 0°: no se guarda ni se mueve (pide montar el cuerno girado)")
 

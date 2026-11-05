@@ -43,7 +43,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
 - Sensores de línea: 4 × QTR-1A analógicos en A8–A11 (DI, DD, TI, TD), conector Analog IO del shield; A1/A4/A5
   son del motor M4. Montados en las 4 esquinas, a 45°, junto a cada rueda (posición = centro de la rueda,
   ±111,5 / ±108,5 mm). Calibración y umbrales: `docs/ir.md` (`python3 -m tools.ir`).
-- Compuertas (4 nov): Dynamixel en el bus del brazo, **id 12 = maduros, id 13 = sobremaduros** (`config.compuertas`,
+- Compuertas (4 nov): Dynamixel en el bus del brazo, **id 2 = maduros, id 13 = sobremaduros** (4 nov noche: servos cambiados; antes 12/13) (`config.compuertas`,
   `cafebot/arm/compuertas.py`); ángulos y límites por calibrar con `tools.compuertas` (sin calibrar no se mueven).
   `X 0`/`X 1` del Mega (46/11) quedaron sin uso.
 - Botón de inicio (4 nov): **GPIO 23** (pin 16) a GND (pin 14), pull-up interno; parte al soltar (`tools.boton`).

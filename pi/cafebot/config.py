@@ -170,12 +170,13 @@ class ConfigMision:
 
 @dataclass
 class ConfigCompuertas:
-    """Compuertas de los depósitos. 4 nov: son Dynamixel en el bus del brazo (U2D2), id 12 = maduros e id 13 =
+    """Compuertas de los depósitos. 4 nov: son Dynamixel en el bus del brazo (U2D2), id 2 = maduros e id 13 =
     sobremaduros. Ángulos en GRADOS DEL SERVO, 0..360 (180° = 2048 pasos), como los muestra
     `python3 -m tools.compuertas leer`. None = sin calibrar: esa compuerta no se mueve (sus granos quedan en el
     robot, +3 / +1). Calibrar con tools.compuertas (docs/mision.md) y copiar aquí lo que grabe en robot_local.json."""
     tipo: str = "dxl"                  # "dxl" | "mega" (servos X 0 / X 1 del Mega, mision.compuerta_*_deg)
-    ids: tuple = (12, 13)              # maduros, sobremaduros (4 nov)
+    ids: tuple = (2, 13)               # maduros, sobremaduros (4 nov noche: servos cambiados, la de maduros
+                                       # quedó en el id 2; antes 12). Si salen cruzadas: (13, 2)
     abierta_deg: tuple = (None, None)  #                                                                 [MEDIR]
     cerrada_deg: tuple = (None, None)  #                                                                 [MEDIR]
     limites_deg: tuple = (None, None)  # (mín, máx) de cada una: se graban en el servo y no pasa de ahí   [MEDIR]

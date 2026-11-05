@@ -55,14 +55,14 @@ sudo systemctl disable cafebot-mision             # de vuelta al taller (si corr
 Opciones (`--nivel`, `--cajas`, `--brazo`, `--vision`): en `pi/system/mision.env`, entre rondas. El servicio no se
 reinicia solo: después de una ronda, `sudo systemctl start cafebot-mision` (o apagar y encender, con `enable`).
 
-## Compuertas (Dynamixel id 12 = maduros, id 13 = sobremaduros)
+## Compuertas (Dynamixel id 2 = maduros, id 13 = sobremaduros; `config.compuertas.ids`)
 En el mismo bus que el brazo (U2D2). Quedan en modo posición, con el PWM limitado (si algo las traba no se queman) y
 con sus límites grabados en el servo: aunque se pida un ángulo equivocado, no pasan de ahí. **Sin calibrar no se
 mueven** (sus granos quedan en el robot: +3 / +1).
 
 **Calibración guiada** (ángulos del servo, 0..360°), con el brazo quieto y el U2D2 conectado:
 ```bash
-python3 -m tools.compuertas leer                       # ¿responden las dos (id 12 y 13)? modo, límites, °C
+python3 -m tools.compuertas leer                       # ¿responden las dos (id 2 y 13)? modo, límites, °C
 python3 -m tools.compuertas calibrar                   # las dos (o: calibrar maduros / calibrar sobremaduros)
 ```
 1. Deja la compuerta SIN torque. Se lleva **a mano** a CERRADA (tapando la salida, sin apretarla contra un tope) mirando
