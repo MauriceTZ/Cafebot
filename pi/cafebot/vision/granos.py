@@ -175,10 +175,16 @@ def circulo_visible(contorno: np.ndarray, r_min: float = 0.0, r_max: float = mat
     return float(u), float(v), float(r), cortada, 0.5 if cortada else 1.0
 
 
-def detectar(img_bgr, r_min: float, r_max: float, sat_min: int = 130, val_min: int = 60) -> list:
-    """Pelotas de color en la imagen: manchas saturadas y redondeadas de radio entre r_min y r_max px."""
+def detectar(img_bgr, r_min: float, r_max: float, sat_min: int = 130, val_min: int = 60, excluir_h=None) -> list:
+    """Pelotas de color en la imagen: manchas saturadas y redondeadas de radio entre r_min y r_max px.
+    excluir_h = (h0, h1) (OpenCV, 0..180): matiz que NO es pelota. 5 nov: el árbol de la cancha es VERDE (pintado,
+    saturado): sin esto todo el árbol es una mancha y las pelotas pegadas a él se pierden. Las pelotas verdes
+    también quedan fuera: no se recogen nunca (su soporte se lee "sin pelota": no se toca)."""
     hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
-    m = ((hsv[..., 1] > sat_min) & (hsv[..., 2] > val_min)).astype(np.uint8) * 255
+    sat = (hsv[..., 1] > sat_min) & (hsv[..., 2] > val_min)
+    if excluir_h is not None:
+        sat &= ~((hsv[..., 0] >= excluir_h[0]) & (hsv[..., 0] <= excluir_h[1]))
+    m = sat.astype(np.uint8) * 255
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     k = max(3, int(r_min / 3) | 1)
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
@@ -413,7 +419,7 @@ def buscar_inclinacion(dets: list, modelo: ModeloArbol, cam: CamaraPinhole, prio
 
 def analizar(imgs: list, cam: CamaraPinhole, modelo: ModeloArbol, prior, sig, clasif: cl.Clasificador | None = None,
              lidar: MedidaPie | None = None, sat_min=130, val_min=60, buscar=True, confianza_matiz=0.6,
-             sig_cam=None) -> Analisis:
+             sig_cam=None, excluir_h=None) -> Analisis:
     """Fotos (BGR, del tamaño de `cam`) + pose esperada del pie (prior ± sig) -> Analisis.
     sig_cam = (σpitch, σyaw, σroll) de la cámara (rad): SIG_CAM_DEF sin calibrar, ~0,5° calibrada.
     `lidar`, si hay, es la medida que dio el prior (solo se guarda para mostrarla)."""
@@ -422,7 +428,7 @@ def analizar(imgs: list, cam: CamaraPinhole, modelo: ModeloArbol, prior, sig, cl
         cam = cam.escalada(img.shape[1], img.shape[0])
     proy0 = proyectar_soportes(cam, modelo, prior)
     radios = [p[2] for p in proy0.values()] or [cam.f * modelo.radio_grano_m / 0.6]
-    dets = detectar(img, 0.5 * min(radios), 1.6 * max(radios), sat_min, val_min)
+    dets = detectar(img, 0.5 * min(radios), 1.6 * max(radios), sat_min, val_min, excluir_h)
     mensajes = []
     dp0 = 0.0
     if buscar and sig_cam is None:
