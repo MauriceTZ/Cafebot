@@ -8,7 +8,8 @@
                                                    # pie con el frente a --dist; se dibujan los 16 soportes donde el
                                                    # modelo los espera. w/s mueve la cámara; i/k corre los círculos
                                                    # (corrige cuánto mira la cámara con cada X 2) hasta que calcen con
-                                                   # los soportes reales; g guarda las dos cosas
+                                                   # los soportes reales; g guarda las dos cosas.
+                                                   # En VERDE las pelotas que detecta (si una no sale, ver sat_min)
     python3 -m tools.cabezal                       # círculo: 2 vueltas, ventana con la cámara en vivo (en la pantalla HDMI
                                                    # si se lanza por SSH); al final un mosaico en pi/capturas/
     python3 -m tools.cabezal --vueltas 1 --periodo 10 --radio 0.5
@@ -327,7 +328,11 @@ def calibrar_arbol(cfg, mega, cam, pantalla, dist: float):
                 if (w, h) != (c.ancho, c.alto):
                     c = c.escalada(w, h)
                 vis = 0
-                for clave, (u, v, r, _) in granos.proyectar_soportes(c, modelo, pie).items():
+                proy = granos.proyectar_soportes(c, modelo, pie)
+                rs = [q[2] for q in proy.values()] or [40.0]
+                for d in granos.detectar(img, 0.5 * min(rs), 1.6 * max(rs), cc.sat_min, cc.val_min, cc.excluir_h):
+                    cv2.circle(img, (int(d.u), int(d.v)), int(d.r), (0, 255, 0), 3)       # pelotas detectadas
+                for clave, (u, v, r, _) in proy.items():
                     if 0 <= u < w and 0 <= v < h:
                         vis += 1
                     cv2.circle(img, (int(u), int(v)), max(3, int(r)), (255, 0, 255), 2)

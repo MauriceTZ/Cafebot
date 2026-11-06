@@ -35,6 +35,27 @@ def tablero_desde_pose(arbol: int, pose_robot_cancha) -> tuple[float, float, flo
     return float(r[0]), float(r[1]), float(-pose_robot_cancha[2])
 
 
+def dibujar_ubicacion(img, dets, cam, modelo, prior, corr, texto):
+    """Para revisar la foto sin LiDAR: VERDE = pelotas detectadas, MORADO = soportes donde los ponía la pose,
+    AMARILLO = donde quedaron con la corrección."""
+    import cv2
+    from cafebot.vision import granos
+    out = img.copy()
+    for d in dets:
+        cv2.circle(out, (int(d.u), int(d.v)), int(d.r), (0, 255, 0), 3)
+    dx, dy, dp = corr
+    for t, col in ((prior, (255, 0, 255)), ((prior[0] + dx, prior[1] + dy, prior[2]), (0, 255, 255))):
+        c = cam if t is prior else cam.con(pitch=cam.pitch + dp)
+        for (u, v, r, _) in granos.proyectar_soportes(c, modelo, t).values():
+            cv2.circle(out, (int(u), int(v)), max(3, int(r * 0.6)), col, 2)
+    for i, linea in enumerate(("verde = pelota detectada | morado = soporte según la pose | amarillo = corregido",
+                               texto)):
+        y = 40 + 40 * i
+        cv2.putText(out, linea, (15, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 5)
+        cv2.putText(out, linea, (15, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+    return out
+
+
 class VisionCamara(Vision):
     def __init__(self, cfg, camara=None, clasificador=None, log=print):
         self.cfg, self.cc = cfg, cfg.camara
@@ -95,8 +116,12 @@ class VisionCamara(Vision):
         dx, dy, dp, n, p0, otro = granos.buscar_lateral(dets, modelo, cam, prior)
         msg = (f"{len(dets)} pelotas, {n} calzan con el árbol corrido {100 * dx:+.1f} / {100 * dy:+.1f} cm "
                f"(cámara {math.degrees(dp):+.0f}°)")
-        if n < 2 or p0 - otro < 1.0:
-            self._guardar(imgs[0], f"arbol{arbol}_dudoso")
+        ok = n >= 2 and p0 - otro >= 1.0
+        ruta = self._guardar(dibujar_ubicacion(imgs[0], dets, cam, modelo, prior, (dx, dy, dp), msg),
+                             f"arbol{arbol}_ubicar" + ("" if ok else "_dudoso"))
+        if ruta:
+            msg += f" [foto: {os.path.basename(ruta)}]"
+        if not ok:
             return None, imgs, msg + (": muy pocas" if n < 2 else ": otro corrimiento calza casi igual") + ", no le creo"
         return (prior[0] + dx, prior[1] + dy, prior[2]), imgs, msg
 
