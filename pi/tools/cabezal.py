@@ -4,6 +4,11 @@
                                                    # a/d o ←/→ giro (1°; con MAYÚSCULA 5°), c = volver al guardado,
                                                    # g = guardar como "al frente", q = salir. La cámara en vivo con una
                                                    # cruz en el centro (en la pantalla HDMI si se lanza por SSH)
+    python3 -m tools.cabezal arbol [--dist 0.55]   # la inclinación para la FOTO DEL ÁRBOL: el robot centrado frente al
+                                                   # pie con el frente a --dist; se dibujan los 16 soportes donde el
+                                                   # modelo los espera. w/s mueve la cámara; i/k corre los círculos
+                                                   # (corrige cuánto mira la cámara con cada X 2) hasta que calcen con
+                                                   # los soportes reales; g guarda las dos cosas
     python3 -m tools.cabezal                       # círculo: 2 vueltas, ventana con la cámara en vivo (en la pantalla HDMI
                                                    # si se lanza por SSH); al final un mosaico en pi/capturas/
     python3 -m tools.cabezal --vueltas 1 --periodo 10 --radio 0.5
@@ -58,13 +63,15 @@ def mosaico(fotos, columnas: int = 6, ancho: int = 320):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("modo", nargs="?", choices=("circulo", "calibrar"), default="circulo")
+    ap.add_argument("modo", nargs="?", choices=("circulo", "calibrar", "arbol"), default="circulo")
     ap.add_argument("--mega", default=None, help="puerto del Mega (por defecto el de la config)")
     ap.add_argument("--sim", action="store_true", help="Mega simulado (sin robot)")
     ap.add_argument("--vueltas", type=int, default=2)
     ap.add_argument("--periodo", type=float, default=8.0, help="segundos por vuelta")
     ap.add_argument("--pasos", type=int, default=24, help="puntos por vuelta")
     ap.add_argument("--radio", type=float, default=0.9, help="fracción del medio rango (0..1)")
+    ap.add_argument("--dist", type=float, default=None, help="(arbol) frente del robot -> pie del árbol (m); "
+                    "por defecto mision.distancia_foto_m")
     ap.add_argument("--sin-camara", action="store_true")
     ap.add_argument("--sin-ventana", action="store_true", help="no abrir la ventana en vivo (igual guarda el mosaico)")
     from tools.pantalla import agregar_opcion
@@ -102,9 +109,12 @@ def main():
         except Exception as e:
             print(f"(sin ventana: {e}) — igual guardo el mosaico")
 
-    if a.modo == "calibrar":
+    if a.modo in ("calibrar", "arbol"):
         try:
-            calibrar(cfg, mega, cam, pantalla)
+            if a.modo == "arbol":
+                calibrar_arbol(cfg, mega, cam, pantalla, a.dist or cfg.mision.distancia_foto_m)
+            else:
+                calibrar(cfg, mega, cam, pantalla)
         finally:
             mega.cerrar()
             if cam is not None:
@@ -278,6 +288,74 @@ def calibrar(cfg, mega, cam, pantalla):
             else:
                 continue
             mandar()
+    finally:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, viejo)
+        print()
+
+
+def calibrar_arbol(cfg, mega, cam, pantalla, dist: float):
+    """La inclinación de la cámara para la foto del árbol (misión: camara.inclinacion_arbol_deg), con los 16 soportes
+    dibujados donde el modelo los espera desde `dist` (frente del robot -> pie, robot centrado y derecho)."""
+    import sys
+    import termios
+    import tty
+    import numpy as np
+    from cafebot.config import guardar_local
+    from cafebot.vision import granos
+    from cafebot.vision.arbol import ModeloArbol
+    from cafebot.vision.camara_modelo import CamaraPinhole
+    cc = cfg.camara
+    p = cc.servo_de_pitch(cc.inclinacion_arbol_deg)
+    modelo = ModeloArbol.cargar(cc.arbol)
+    pie = (dist + cfg.geometria.largo / 2, 0.0, 0.0)          # cara del pie en el robot (centrado, derecho)
+    print("Robot CENTRADO y DERECHO frente al pie, el frente a "
+          f"{100 * dist:.0f} cm. w/s ↑/↓ mueven la cámara (X 2); i/k corren los círculos (0,5°) hasta que calcen con "
+          "los soportes reales; g guarda; q sale.\n")
+    viejo = termios.tcgetattr(sys.stdin)
+    tty.setcbreak(sys.stdin.fileno())
+    try:
+        mega.comando(f"X 2 {p}")
+        while True:
+            incl = cc.pitch_de_servo(p)
+            txt = f"X 2 = {p}  -> camara {incl:+.1f} grados (X2=90 -> {cc.pitch_servo_90_deg:+.1f})"
+            print(f"\r  {txt}     ", end="", flush=True)
+            if cam is not None and pantalla is not None:
+                import cv2
+                img = cam.capturar()
+                h, w = img.shape[:2]
+                c = CamaraPinhole.desde_config(cc, incl)
+                if (w, h) != (c.ancho, c.alto):
+                    c = c.escalada(w, h)
+                vis = 0
+                for clave, (u, v, r, _) in granos.proyectar_soportes(c, modelo, pie).items():
+                    if 0 <= u < w and 0 <= v < h:
+                        vis += 1
+                    cv2.circle(img, (int(u), int(v)), max(3, int(r)), (255, 0, 255), 2)
+                cv2.line(img, (0, h // 2), (w, h // 2), (0, 160, 160), 1)
+                t2 = f"{txt} | soportes en la foto {vis}/16"
+                cv2.putText(img, t2, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 6)
+                cv2.putText(img, t2, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
+                if mostrar(pantalla, img):
+                    break
+            k = leer_tecla(0.03 if cam is not None else 0.5)
+            if not k:
+                continue
+            paso = 5 if k in "WS" and len(k) == 1 else 1
+            k = {"arriba": "w", "abajo": "s"}.get(k, k.lower())
+            if k == "q":
+                break
+            if k == "g":
+                cc.inclinacion_arbol_deg = round(cc.pitch_de_servo(p), 2)
+                ruta = guardar_local("camara", {"inclinacion_arbol_deg": cc.inclinacion_arbol_deg,
+                                                "pitch_servo_90_deg": cc.pitch_servo_90_deg})
+                print(f"\r\nGuardado en {ruta}: inclinacion_arbol_deg = {cc.inclinacion_arbol_deg} (X 2 = {p}), "
+                      f"pitch_servo_90_deg = {cc.pitch_servo_90_deg}. Subir robot_local.json al repo.\r")
+                continue
+            if k in "ws":
+                p = min(cc.servo_pitch_max, max(cc.servo_pitch_min, p + (paso if k == "w" else -paso)))
+                mega.comando(f"X 2 {p}")
+            elif k in "ik":                        # misma X 2, la cámara mira distinto de lo que se creía
+                cc.pitch_servo_90_deg = round(cc.pitch_servo_90_deg + (0.5 if k == "i" else -0.5), 2)
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, viejo)
         print()
