@@ -298,6 +298,35 @@ class ConfigCamara:
 
 
 @dataclass
+class ConfigAscensor:
+    """Cosecha por PISOS (tools.ascensor, docs/ascensor.md; 6 nov): la cámara solo dice qué pelotas hay y de qué
+    color en cada piso; la línea del árbol (IR delanteros) da la distancia, el LiDAR el lado y las alturas son las
+    del reglamento. El brazo sube al piso (ascensor), entra derecho con la garra abierta y cierra. Todo se AJUSTA a
+    mano con el robot de verdad (teclas de tools.ascensor; t guarda aquí, en robot_local.json)."""
+    linea_a_cara_m: float = 0.119      # borde cercano de la línea del árbol -> cara del tablero (reglamento) [MEDIR]
+    grano_delante_m: float = 0.035     # centro de la pelota por delante de la cara del tablero            [MEDIR]
+    z_baja_m: float = 0.407            # altura del CENTRO de la pelota en cada piso (reglamento: soporte + 1,7 cm)
+    z_media_m: float = 0.557
+    z_alta_m: float = 0.707            # con la base del brazo a ~35 cm, fuera de alcance
+    retroceso_baja_m: float = 0.06     # para agarrar en ese piso el robot se aleja esto de la línea (con los IR
+    retroceso_media_m: float = 0.04    # sobre la línea la fila baja queda muy pegada a la base del brazo). Con la IK
+    retroceso_alta_m: float = 0.0      # (6 nov): baja alcanza con 4–19 cm, media con 0–15 cm (menos = menos carga)
+    dx_baja_m: float = 0.0             # corrección del punto de agarre por piso: + = más hacia el árbol
+    dx_media_m: float = 0.0
+    dx_alta_m: float = 0.0
+    dy_baja_m: float = 0.0             # + = más a la izquierda
+    dy_media_m: float = 0.0
+    dy_alta_m: float = 0.0
+    pisos: tuple = ("media", "baja")   # dónde se recoge (la alta no se alcanza)
+    prioridad: tuple = (("media", "MADURO"), ("baja", "MADURO"), ("media", "SOBREMADURO"), ("baja", "SOBREMADURO"))
+    negros: bool = False               # buscar pelotas negras (oscuras sobre un soporte; una sombra se parece)
+    cangrejo_min_m: float = 0.008      # correr el robot de lado solo si la pelota está más corrida que esto del brazo
+    linea_tras_cangrejo: bool = True   # después de cada cangrejo, volver a tocar la línea (rumbo y distancia)
+    dist_foto_m: float = 0.55          # frente del robot -> cara del árbol para la foto
+    vel_mm_s: float = 100.0
+
+
+@dataclass
 class Config:
     geometria: GeometriaRobot = field(default_factory=GeometriaRobot)
     puertos: Puertos = field(default_factory=Puertos)
@@ -307,6 +336,7 @@ class Config:
     compuertas: ConfigCompuertas = field(default_factory=ConfigCompuertas)
     brazo: ConfigBrazo = field(default_factory=ConfigBrazo)
     camara: ConfigCamara = field(default_factory=ConfigCamara)
+    ascensor: ConfigAscensor = field(default_factory=ConfigAscensor)
 
     def a_dict(self) -> dict:
         return asdict(self)

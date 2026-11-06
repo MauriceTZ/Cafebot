@@ -73,6 +73,7 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
     test_dxl_falso, test_brazo_falso, test_calibracion_brazo, test_vision_sintetica, test_inicio, test_landmarks,
     test_navegacion, test_mision, test_ir, test_borde, test_cosecha, test_pantalla, test_vista_camara,
     test_cajas, test_compuertas, test_puertos, test_linea_arbol, test_brazo_hibrido).
+  - Cosecha por pisos en el robot (prueba y error, con teclas): `tools.ascensor` (docs/ascensor.md).
   - En el robot, paso a paso: `tools.prueba_navegacion` (base), `tools.visor_lidar` / `tools.navegacion` (LiDAR),
     `tools.ir` (sensores de línea, docs/ir.md), `tools.brazo` (docs/brazo.md), `tools.camara` (docs/camara.md),
     `tools.ver_camara` (la cámara en el navegador + intrínsecos con el tablero, docs/camara.md),
@@ -155,6 +156,10 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   (ángulo en vivo), límites con margen en la EEPROM, prueba con torque (avisa si sujetándola cerrada empuja un tope).
   Sin parámetro de sentido (se graban los ángulos reales). Si entre cerrada y abierta se pasa por 0°/360° no se guarda:
   montar el cuerno girado (en modo posición el servo no cruza el 0; el Homing Offset no lo arregla).
+- 6 nov: cosecha por PISOS, el brazo como ascensor (`tools.ascensor`, docs/ascensor.md): la cámara solo dice qué pelotas
+  hay en cada piso y su color (`vision/pisos.py`, sin modelo de cámara: copa verde + soportes cafés + grilla 5/6/5); la
+  línea del árbol (IR) da la distancia, el LiDAR el lado y las alturas son las del reglamento (`config.ascensor`,
+  ajustables con las teclas). Base del árbol de 45 cm (`ARBOL_ANCHO_PIE`), verde del árbol fuera de las pelotas.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de
