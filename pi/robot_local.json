@@ -27,5 +27,9 @@
       475
     ],
     "histeresis": 60
+  },
+  "camara": {
+    "inclinacion_arbol_deg": 18.5,
+    "pitch_servo_90_deg": 26.5
   }
 }
