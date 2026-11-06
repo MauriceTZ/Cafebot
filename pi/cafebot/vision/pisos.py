@@ -25,7 +25,8 @@ from cafebot.mundo import cancha
 N_COLUMNAS = {"alta": 5, "media": 6, "baja": 5}
 
 # matiz OpenCV (0..180) -> color; [AJUSTAR con fotos de la cancha: la terminal muestra el H de cada pelota]
-COLORES_H = (("ROJO", 0, 9), ("NARANJO", 9, 19), ("AMARILLO", 19, 36), ("AZUL", 90, 135), ("ROJO", 160, 181))
+COLORES_H = (("ROJO", 0, 9), ("NARANJO", 9, 19), ("AMARILLO", 19, 45), ("VERDE", 45, 90), ("AZUL", 90, 135),
+             ("ROJO", 160, 181))       # 6 nov, árbol del taller: naranja H 10, amarilla 21–35, verde 75, azul 106, roja 177
 CATEGORIA = {"ROJO": cancha.MADURO, "NARANJO": cancha.MADURO, "AMARILLO": cancha.MADURO,
              "AZUL": cancha.SOBREMADURO, "NEGRO": cancha.SOBREMADURO}
 
@@ -187,8 +188,12 @@ def analizar(img_bgr, excluir_h=(40, 88), sat_min: int = 130, val_min: int = 60,
         res.mensajes.append(info)
         return res
     res.superficie = info
-    sup = cv2.morphologyEx(sup, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
-    n, lab, st, _ = cv2.connectedComponentsWithStats(sup)
+    # tamaños según la resolución (1536 px de ancho: 5 / 13 / 38 / 61)
+    k_abrir, k_cerrar, k_anillo = max(3, round(W / 320)), max(5, round(W / 120)), max(9, round(W / 40))
+    k_region = max(15, round(W / 25))
+    region = cv2.morphologyEx(sup, cv2.MORPH_CLOSE, np.ones((k_region, k_region), np.uint8))   # junta lo que
+    region = cv2.morphologyEx(region, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))               # cortan las sombras
+    n, lab, st, _ = cv2.connectedComponentsWithStats(region)
     if n < 2:
         res.mensajes.append(f"no veo el árbol ({info})")
         return res
@@ -201,14 +206,16 @@ def analizar(img_bgr, excluir_h=(40, 88), sat_min: int = 130, val_min: int = 60,
     copa = np.zeros((H, W), np.uint8)
     cv2.drawContours(copa, cont, -1, 1, thickness=-1)
     copa_llena = copa.copy()
-    # tamaños según la resolución (1536 px de ancho: 5 / 13 / 38)
-    k_abrir, k_cerrar, k_anillo = max(3, round(W / 320)), max(5, round(W / 120)), max(9, round(W / 40))
     copa = cv2.erode(copa, np.ones((k_cerrar, k_cerrar), np.uint8))
+    cerca_copa = cv2.dilate(copa_llena, np.ones((k_anillo, k_anillo), np.uint8))
+    # distancia de cada punto al borde del árbol (adentro y afuera): un soporte justo en el borde puede no verse
+    d_dentro = cv2.distanceTransform(copa_llena, cv2.DIST_L2, 3)
+    d_fuera = cv2.distanceTransform((1 - copa_llena).astype(np.uint8), cv2.DIST_L2, 3)
 
     # pelotas: color saturado y redondas, dentro de la copa
     dets = granos.detectar(img_bgr, max(6.0, 0.008 * W), 0.06 * W, sat_min, val_min, excl)
     for d in dets:
-        if not copa[min(H - 1, int(d.v)), min(W - 1, int(d.u))]:
+        if not cerca_copa[min(H - 1, int(d.v)), min(W - 1, int(d.u))]:
             continue
         m = np.zeros((H, W), np.uint8)
         cv2.circle(m, (int(d.u), int(d.v)), max(2, int(0.6 * d.r)), 1, -1)
@@ -226,8 +233,12 @@ def analizar(img_bgr, excluir_h=(40, 88), sat_min: int = 130, val_min: int = 60,
     # la fila de arriba quedan en el borde del contorno.
     # gris: sin el color de la superficie y no más claro que ella (la pared y una toalla son claras), o muy oscuro
     S_, V_ = hsv[..., 1], hsv[..., 2]
-    oscuro = ((S_ < 0.65 * res.s0) & (V_ < 0.85 * res.v0)) | ((V_ < 0.55 * res.v0) & (S_ < 0.8 * res.s0))
-    anillo = cv2.dilate(copa_llena, np.ones((k_anillo, k_anillo), np.uint8)).astype(bool) & ~copa.astype(bool)
+    muy_oscuro = (V_ < 0.45 * res.v0) & (S_ < 0.8 * res.s0)
+    gris_claro = (S_ < 0.65 * res.s0) & (V_ >= 0.6 * res.v0) & (V_ < 0.95 * res.v0)
+    oscuro = muy_oscuro | gris_claro         # (la sombra fuerte, ~0,5 del brillo y sin color, queda entre los dos)
+    anillo = cerca_copa.astype(bool) & ~copa.astype(bool)
+    ys_copa = np.nonzero(copa_llena.any(axis=1))[0]
+    anillo[int(0.5 * (ys_copa[0] + ys_copa[-1])):, :] = False     # solo arriba y a los lados (abajo está el suelo)
     if res.s0 >= 100:      # árbol de color fuerte (el verde): soporte = lo que no es de ese color (madera, hueco)
         dentro = ~sup.astype(bool) | oscuro
     else:                  # árbol de madera: la veta y la luz cambian su brillo; soporte = lo gris (borde quemado,
@@ -293,7 +304,10 @@ def analizar(img_bgr, excluir_h=(40, 88), sat_min: int = 130, val_min: int = 60,
                     asign[(f, col)] = i
                     total += 1
                 elif 0.2 * paso < u < W - 0.2 * paso and 0 <= v < H:
-                    total -= 1 if copa_llena[int(v), int(u)] else 2
+                    if copa_llena[int(v), int(u)]:
+                        total -= 1 if d_dentro[int(v), int(u)] > 0.4 * paso else 0     # en el borde: puede no verse
+                    else:
+                        total -= 2 if d_fuera[int(v), int(u)] > 0.3 * paso else 0.5
             total -= 0.5 * len(libres)
         return total, asign
 

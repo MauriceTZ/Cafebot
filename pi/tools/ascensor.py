@@ -10,6 +10,7 @@ entra derecho, cierra, saca la pelota y la deja en el robot.
     python3 -m tools.ascensor --sin-lidar --dist 0.55  # sin LiDAR: el robot CENTRADO y derecho frente al pie,
                                                        # el frente a 0,55 m (huincha)
     python3 -m tools.ascensor --sin-brazo              # probar foto + acercamiento + cangrejos
+    python3 -m tools.ascensor --sin-lidar --dist 0.55 --sin-linea   # en casa: sin LiDAR ni cinta en el piso
     python3 -m tools.ascensor --auto --boton enter     # la ronda completa sola (como la tecla r)
 
 TECLAS (en la terminal, también por SSH; la foto se ve en la pantalla HDMI):
@@ -60,15 +61,19 @@ class Cancelado(Exception):
 
 
 class Ascensor:
-    def __init__(self, cfg, mega, lidar=None, brazo=None, cam=None, pantalla=None, dist_inicial=None, log=print):
+    def __init__(self, cfg, mega, lidar=None, brazo=None, cam=None, pantalla=None, dist_inicial=None, log=print,
+                 usar_linea=True):
         self.cfg, self.ca, self.cc = cfg, cfg.ascensor, cfg.camara
         self.mega, self.lidar, self.brazo, self.cam, self.pantalla = mega, lidar, brazo, cam, pantalla
         self.dist_inicial = dist_inicial
+        self.usar_linea = usar_linea
         self.log = log
         self.medio = cfg.geometria.largo / 2
         self.sx = 0.5 * (cfg.ir.posiciones[0][0] + cfg.ir.posiciones[1][0])       # x de los IR delanteros
+        self.x_linea_nominal = self.sx + cfg.ascensor.linea_a_cara_m     # la cara con los IR justo sobre la línea
         self.arbol_odo = None        # cara del árbol (centro, normal hacia el árbol) en el marco de la odometría
         self.x_linea = None          # x de la cara (en el robot) con los IR delanteros sobre la línea
+        self.linea_vista = False     # False: x_linea es la del reglamento, no se tocó la línea
         self.pisos = None            # última foto analizada (vision/pisos.py)
         self.img = None              # última imagen para la pantalla
         self.fila, self.col = "media", 2
@@ -200,6 +205,8 @@ class Ascensor:
         return med.dist_m
 
     def retocar_linea(self):
+        if not self.usar_linea:
+            return False
         rel = self.arbol_rel()
         d = rel[0] - self.ca.linea_a_cara_m - self.sx          # de los IR delanteros a la línea
         if d < 0.025:
@@ -212,6 +219,7 @@ class Ascensor:
             return False
         y = self.arbol_rel()[1]
         self.x_linea = dist + self.ca.linea_a_cara_m
+        self.linea_vista = True
         self.fijar_arbol(self.x_linea, y, 0.0)
         return True
 
@@ -238,6 +246,11 @@ class Ascensor:
         from cafebot.vision.clasificador import CARPETA_CAPTURAS
         if self.cam is None:
             raise RuntimeError("sin cámara")
+        if self.arbol_odo is not None:          # de cerca no se ven los 3 pisos: primero a la distancia de la foto
+            frente = self.arbol_rel()[0] - self.medio
+            if abs(frente - self.ca.dist_foto_m) > 0.05:
+                self.log(f"  la foto se saca a {100 * self.ca.dist_foto_m:.0f} cm (estoy a {100 * frente:.0f}): me muevo")
+                self.avanzar(frente - self.ca.dist_foto_m, "a la distancia de la foto")
         servo = self.cc.servo_de_pitch(self.cc.inclinacion_arbol_deg)
         self.mega.comando(f"X 2 {servo}")
         time.sleep(0.8)
@@ -292,6 +305,12 @@ class Ascensor:
             self.avanzar(rel[0] - self.medio - self.ca.dist_foto_m, "a la distancia de la foto")
             self.foto()
         # línea
+        if not self.usar_linea:
+            self.x_linea = self.x_linea_nominal
+            self.log("sin línea (--sin-linea): la distancia al árbol queda por " + ("LiDAR y " if self.lidar else "")
+                     + "odometría")
+            self.lidar_lado()
+            return True
         rel = self.arbol_rel()
         d = rel[0] - self.ca.linea_a_cara_m - self.sx
         if d < 0.025:
@@ -300,12 +319,14 @@ class Ascensor:
         rel = self.arbol_rel()
         dist = self.tocar_linea(min(d + 0.06, rel[0] - self.medio - FRENTE_MIN_M))
         if dist is None:
-            self.log("NO vi la línea del árbol con los IR delanteros: la distancia queda por LiDAR/odometría "
-                     "(¿IR calibrados en esta cancha?)")
-            self.x_linea = self.arbol_rel()[0] if self.x_linea is None else self.x_linea
+            self.log("NO vi la línea del árbol con los IR delanteros (revisar con  python3 -m tools.ir  que DI y DD la "
+                     "vean en este piso; sin cinta: --sin-linea). La distancia queda por "
+                     + ("LiDAR y " if self.lidar else "") + "odometría")
+            self.x_linea = self.x_linea_nominal
             return False
         y = self.arbol_rel()[1]
         self.x_linea = dist + self.ca.linea_a_cara_m
+        self.linea_vista = True
         self.fijar_arbol(self.x_linea, y, 0.0)
         self.log(f"en la línea: la cara del árbol a {100 * (self.x_linea - self.medio):.1f} cm del frente")
         self.lidar_lado()
@@ -488,7 +509,7 @@ class Ascensor:
             t.append(f"| pelota x {100 * q[0]:.1f} y {100 * q[1]:+.1f} z {100 * q[2]:.1f} cm")
         else:
             t.append("| árbol: no sé dónde (a)")
-        t.append(f"| línea {'sí' if self.x_linea is not None else 'no'} | brazo "
+        t.append(f"| línea {'tocada' if self.linea_vista else 'supuesta' if self.x_linea is not None else 'no'} | brazo "
                  f"{['en el piso', 'entrando', 'en la pelota', 'arriba', 'retirado'][self.paso] if self.paso is not None else 'esperando'}")
         self.log(" ".join(t))
 
@@ -621,6 +642,8 @@ def main():
     ap.add_argument("--sin-camara", action="store_true")
     ap.add_argument("--dist", type=float, default=None,
                     help="frente del robot -> pie del árbol al partir (m), si no hay LiDAR (robot centrado y derecho)")
+    ap.add_argument("--sin-linea", action="store_true",
+                    help="no buscar la línea negra con los IR (en casa, sin cinta): la distancia por LiDAR / odometría")
     ap.add_argument("--auto", action="store_true", help="la ronda completa sola al apretar el botón")
     ap.add_argument("--boton", choices=("enter", "gpio"), default="enter")
     ap.add_argument("--max-granos", type=int, default=0)
@@ -682,7 +705,7 @@ def main():
         except Exception as e:
             print(f"(sin ventana: {e}) — las fotos quedan en pi/capturas/")
 
-    asc = Ascensor(cfg, mega, lidar, brazo, cam, pantalla, a.dist)
+    asc = Ascensor(cfg, mega, lidar, brazo, cam, pantalla, a.dist, usar_linea=not a.sin_linea)
     print(f"LiDAR {'sí' if lidar else 'NO'} | brazo {'sí' if brazo else 'NO'} | cámara {'sí' if cam else 'NO'} | "
           f"pisos {cfg.ascensor.pisos} | aproximación {100 * cfg.brazo.aproximacion_m:.0f} cm")
     try:
