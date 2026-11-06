@@ -919,7 +919,6 @@ def main():
         if a.auto:
             from cafebot.mision import interfaces as I
             boton = I.BotonGPIO(cfg.mision.pin_boton) if a.boton == "gpio" else I.BotonEnter()
-            boton.esperar()
 
             def ronda_auto():
                 if a.linea_inicio is not None:
@@ -945,24 +944,66 @@ def main():
                         raise RuntimeError("la foto no muestra los pisos (ver pi/capturas/)")
                 asc.ronda(a.max_granos)
 
-            asc.lanzar("ronda", ronda_auto)
             pin = getattr(boton, "b", None) if a.boton == "gpio" else None
-            t_ini = time.monotonic()
             from tools.cabezal import mostrar
-            try:
-                while asc.ocupado():
-                    if asc.pantalla is not None and asc.img is not None:
-                        img, asc.img = asc.img, None
-                        mostrar(asc.pantalla, img)
-                    if pin is not None and time.monotonic() - t_ini > 1.0 and pin.is_pressed:
-                        print("\n>>> BOTÓN durante la ronda: REINICIO (paro y cierro)")
-                        asc.parar()
-                        asc.hilo.join(5)
-                        break
+
+            def refrescar():
+                if asc.pantalla is not None and asc.img is not None:
+                    img, asc.img = asc.img, None
+                    mostrar(asc.pantalla, img)
+
+            def esperar_boton():
+                """Apretar y soltar (>= 50 ms). Si está apretado (el mismo toque del reinicio), primero que lo suelten."""
+                if pin is None:
+                    boton.esperar()
+                    return
+                print(">>> ESPERANDO EL BOTÓN para partir")
+                while pin.is_pressed:
+                    refrescar()
                     time.sleep(0.05)
+                while True:
+                    while not pin.is_pressed:
+                        refrescar()
+                        time.sleep(0.02)
+                    t0 = time.monotonic()
+                    while pin.is_pressed:
+                        time.sleep(0.02)
+                    if time.monotonic() - t0 >= 0.05:
+                        return
+
+            def reiniciar():
+                """Todo de nuevo, como recién lanzado (lo del árbol, la foto, lo hecho)."""
+                asc.arbol_odo, asc.x_linea, asc.linea_vista, asc.en_linea, asc.pisos = None, None, False, False, None
+                asc.hechos = set()
+                asc.recogidos = {cancha.MADURO: 0, cancha.SOBREMADURO: 0}
+                if asc.brazo is not None:
+                    asc.brazo.parar.clear()
+
+            # 1er toque = parte; 2º toque (durante la ronda) = para y vuelve a esperar el botón, sin cerrar el programa
+            try:
+                while True:
+                    esperar_boton()
+                    reiniciar()
+                    print(">>> ¡PARTE!")
+                    asc.lanzar("ronda", ronda_auto)
+                    t_ini = time.monotonic()
+                    while asc.ocupado():
+                        refrescar()
+                        if pin is not None and time.monotonic() - t_ini > 1.0 and pin.is_pressed:
+                            print("\n>>> BOTÓN durante la ronda: REINICIO (paro y vuelvo a esperar el botón)")
+                            asc.parar()
+                            asc.hilo.join(15)
+                            break
+                        time.sleep(0.05)
+                    try:
+                        mega.parar()
+                    except Exception:
+                        pass
+                    print(f">>> ronda terminada (en el robot: {asc.recogidos}). Poner el robot en la partida.")
             except KeyboardInterrupt:
                 asc.parar()
-                asc.hilo.join(5)
+                if asc.hilo is not None:
+                    asc.hilo.join(5)
         else:
             bucle(asc)
     finally:
