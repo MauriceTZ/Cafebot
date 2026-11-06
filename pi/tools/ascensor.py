@@ -802,6 +802,9 @@ def main():
     ap.add_argument("--auto", action="store_true", help="la ronda completa sola al apretar el botón")
     ap.add_argument("--boton", choices=("enter", "gpio"), default="enter")
     ap.add_argument("--max-granos", type=int, default=0)
+    ap.add_argument("--linea-inicio", type=float, default=None, metavar="DIST_M",
+                    help="(--auto) parte en el cuadrado de inicio MIRANDO al árbol: avanza recto hasta que los IR "
+                         "delanteros tocan la primera línea negra y desde ahí el pie del árbol está a DIST_M (~1.80)")
     from tools.pantalla import agregar_opcion
     agregar_opcion(ap)
     a = ap.parse_args()
@@ -879,10 +882,30 @@ def main():
             from cafebot.mision import interfaces as I
             boton = I.BotonGPIO(cfg.mision.pin_boton) if a.boton == "gpio" else I.BotonEnter()
             boton.esperar()
-            asc.lanzar("ronda", asc.ronda, a.max_granos)
+
+            def ronda_auto():
+                if a.linea_inicio is not None:
+                    asc.log("salida: avanzo recto hasta la línea del cuadrado de inicio")
+                    if not asc.tocar_linea(0.8, despegar=False):
+                        raise RuntimeError("no vi la línea del cuadrado de inicio en 80 cm")
+                    # tocar_linea anotó el árbol como si fuera su línea: lo pongo donde dice la distancia
+                    asc.x_linea, asc.linea_vista, asc.pisos, asc.en_linea = None, False, None, False
+                    asc.fijar_arbol(asc.sx + a.linea_inicio, 0.0, 0.0)
+                    asc.log(f"línea de inicio tocada: el pie del árbol a ~{100 * a.linea_inicio:.0f} cm de los IR")
+                    asc.acercarse()
+                asc.ronda(a.max_granos)
+
+            asc.lanzar("ronda", ronda_auto)
+            pin = getattr(boton, "b", None) if a.boton == "gpio" else None
+            t_ini = time.monotonic()
             try:
                 while asc.ocupado():
-                    time.sleep(0.2)
+                    if pin is not None and time.monotonic() - t_ini > 1.0 and pin.is_pressed:
+                        print("\n>>> BOTÓN durante la ronda: REINICIO (paro y cierro)")
+                        asc.parar()
+                        asc.hilo.join(5)
+                        break
+                    time.sleep(0.05)
             except KeyboardInterrupt:
                 asc.parar()
                 asc.hilo.join(5)
