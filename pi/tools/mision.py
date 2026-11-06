@@ -13,6 +13,8 @@
                                                      #   árbol, foto, línea del cultivo, un agarre y termina
     python3 -m tools.mision --brazo --vision camara --reducida --max-granos 1  # lo mismo en una cancha REDUCIDA:
                                                      #   parte mirando al árbol (<= 90 cm), sin el mapa de la cancha
+    python3 -m tools.mision --brazo --vision camara --reducida 0.55 --sin-lidar --max-granos 1   # ídem SIN LiDAR:
+                                                     #   el robot centrado frente al pie, el frente a 0,55 m (huincha)
 
 Para verlo en el mapa usar la interfaz: python3 -m tools.navegacion --sim  y tecla K.
 """
@@ -124,6 +126,7 @@ def armar_sim(cfg, semilla=None, t_agarre=4.0, zona=None, frente_arbol=None):
                             alcanzable_fn=alcanzable)
     # Como la cámara real: los soportes fuera de la foto salen FUERA y desde la partida no ve las cajas
     vision = I.VisionSimulada(esc, rng, cfg_camara=cfg.camara, ve_cajas_al_partir=False)
+    vision.real_fn = real
     depositos = I.DepositosSimulados(mega, c, brazo, esc, real)
     return esc, mega, lidar, brazo, vision, depositos
 
@@ -146,6 +149,9 @@ def main():
     ap.add_argument("--reducida", nargs="?", type=float, const=0.0, default=None, metavar="DIST_M",
                     help="cancha REDUCIDA: parte mirando al árbol, sin ubicarse con el mapa; el LiDAR mide el pie "
                          "(DIST_M: frente del robot -> pie, por si no lo ve)")
+    ap.add_argument("--sin-lidar", action="store_true",
+                    help="(con --reducida DIST_M) sin LiDAR: el pie se supone justo delante a DIST_M; la "
+                         "navegación es solo odometría (+ IMU) y la distancia exacta la da la línea del árbol")
     ap.add_argument("--cajas", choices=("colores", "cercana", "guardar"), default=None,
                     help="cómo distinguir las cajas (por defecto mision.cajas de la config): colores = con la "
                          "cámara; si las dos son del mismo color: cercana = maduros a la más cercana (apuesta), "
@@ -158,6 +164,8 @@ def main():
         cfg.mision.cajas = a.cajas
     if a.max_granos is not None:
         cfg.mision.max_granos = a.max_granos
+    if a.sin_lidar and not a.reducida:
+        ap.error("--sin-lidar solo con --reducida DIST_M (frente del robot -> pie del árbol, medido con huincha)")
     if a.reducida is not None:
         cfg.mision.reducida, cfg.mision.reducida_dist_m = True, a.reducida
         if cfg.mision.nivel >= 2:
@@ -189,7 +197,7 @@ def main():
                 print(f"Cámara: X {k} {ang} -> {r}")
         if cfg.ir.umbrales is not None or cfg.ir.histeresis is not None:
             mega.ir_aplicar(cfg.ir.umbrales, cfg.ir.histeresis)
-        lidar = LD06(cfg.puertos.lidar, cfg.geometria.config_ld06())
+        lidar = I.LidarNulo() if a.sin_lidar else LD06(cfg.puertos.lidar, cfg.geometria.config_ld06())
         brazo, vision, depositos = armar_reales(cfg, a.brazo, a.vision, mega)
         if a.imu:
             from cafebot.drivers.imu import Giroscopio
@@ -198,6 +206,9 @@ def main():
     boton = I.BotonGPIO(cfg.mision.pin_boton) if a.boton == "gpio" else boton()
 
     lidar.iniciar()
+    lidar_sim = None
+    if a.sim and a.sin_lidar:                  # el LiDAR simulado sigue (lleva la pose real), pero la misión no lo ve
+        lidar_sim, lidar = lidar, I.LidarNulo()
     vision.iniciar()
     depositos.preparar()                       # compuertas conectadas y sujetas antes del botón (fuera del reloj)
     nav = SistemaNavegacion(cfg, lidar, mega, gyro)
@@ -225,6 +236,8 @@ def main():
     if getattr(mega, "ir_sim", None):
         mega.ir_sim.detener()
     lidar.detener()
+    if lidar_sim is not None:
+        lidar_sim.detener()
     mega.cerrar()
     if hasattr(vision, "cerrar"):
         vision.cerrar()                        # (libcamera tiene hilos propios: que no dejen el programa colgado)

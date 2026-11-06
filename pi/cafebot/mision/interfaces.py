@@ -103,7 +103,17 @@ class VisionSimulada(Vision):
         self.cfg_camara = cfg_camara
         self.ve_cajas_al_partir = ve_cajas_al_partir
 
-    def clasificar_arbol(self, arbol, pose_robot_cancha, tablero=None):
+    real_fn = None          # (sim) pose real del robot: para ubicar_arbol, lo que la foto daría sin LiDAR
+
+    def ubicar_arbol(self, arbol, pose_robot_cancha, imagenes=None):
+        if self.real_fn is None:
+            return None, None, "sin pose real"
+        from cafebot.vision.vision import tablero_desde_pose
+        t = tablero_desde_pose(arbol, self.real_fn())
+        e = self.rng.normal(0, (0.006, 0.004, 0.0))
+        return (t[0] + e[0], t[1] + e[1], t[2]), None, "simulada (la verdad ± 4–6 mm)"
+
+    def clasificar_arbol(self, arbol, pose_robot_cancha, tablero=None, imagenes=None):
         time.sleep(0.5)
         visibles = None
         if self.cfg_camara is not None:
@@ -243,6 +253,25 @@ class VisionFija(Vision):
 
 
 # ====================================================================== botón de inicio
+class LidarNulo:
+    """Sin LiDAR (5 nov: problemas de alimentación): no entrega barridos. La navegación queda con la odometría del
+    Mega (+ IMU) y la misión con las líneas; ver --sin-lidar en tools.mision (solo con --reducida)."""
+    sin_datos = True
+
+    def iniciar(self):
+        pass
+
+    def ultimo_scan(self):
+        return None
+
+    def esperar_scan(self, timeout: float = 1.0):
+        time.sleep(min(timeout, 0.05))
+        return None
+
+    def detener(self):
+        pass
+
+
 class Boton:
     def esperar(self):
         """Bloquea hasta que se aprieta el botón de inicio."""

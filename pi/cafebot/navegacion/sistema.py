@@ -107,8 +107,8 @@ class SistemaNavegacion:
             t_ms, pm = self._pose_mega()
             if t_ms and t_ms != self._ult_t_mega:
                 self._ult_t_mega = t_ms
-                if not self.ekf.inicializada and self.slam.inicializado:
-                    self.ekf.inicializar(self.slam.pose, pm, self._yaw_gyro())
+                if not self.ekf.inicializada and (self.slam.inicializado or getattr(self.lidar, "sin_datos", False)):
+                    self.ekf.inicializar(self.slam.pose, pm, self._yaw_gyro())     # sin LiDAR: desde el origen
                 else:
                     self.ekf.predecir(pm, self._yaw_gyro())
             self._procesar_ir()

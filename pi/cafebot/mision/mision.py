@@ -24,7 +24,7 @@ import numpy as np
 
 from cafebot.drivers.ld06 import Scan
 from cafebot.localizacion.inicio import estimar_inicio
-from cafebot.mision.interfaces import Boton, Brazo, Depositos, Vision
+from cafebot.mision.interfaces import Boton, Brazo, Depositos, LecturaSoporte, Vision
 from cafebot.mundo import cancha
 from cafebot.vision.arbol import cara_recta
 from cafebot.navegacion.geometria import componer, envolver, relativo, transformar
@@ -489,10 +489,31 @@ class Mision:
 
     def _foto_arbol(self, arbol, yt):
         """Clasificar los soportes con el tablero medido por el LiDAR (dice dónde cae cada uno en la foto)."""
+        if getattr(self.lidar, "sin_datos", False) and hasattr(self.vision, "ubicar_arbol"):
+            return self._foto_arbol_sin_lidar(arbol)
         pc = self.pose_cancha()
         esperado = relativo(pc, np.array([cancha.ARBOL_X_FRENTE, yt, 0.0]))
         med = self._medir_tablero(esperado[:2])
         return self.vision.clasificar_arbol(arbol, pc, tablero=med[:3] if med else None)
+
+    def _foto_arbol_sin_lidar(self, arbol):
+        """Sin LiDAR: las pelotas que se ven dicen dónde está el árbol (corrige la pose en la cancha) y con eso se
+        clasifica. Si la foto no lo deja claro, no se recoge nada (con el árbol corrido una columna se agarraría el
+        grano del lado)."""
+        pc = self.pose_cancha()
+        tablero, imgs, msg = self.vision.ubicar_arbol(arbol, pc)
+        self.log(f"árbol {arbol}: sin LiDAR, la foto: {msg}")
+        if tablero is None:
+            return [LecturaSoporte(s.clave, "NO_SE", 0.0) for s in cancha.soportes(arbol)]
+        # el árbol está en `tablero` (robot) y no donde decía la pose: correr la cancha entera
+        from cafebot.vision.vision import tablero_desde_pose
+        prior = tablero_desde_pose(arbol, pc)
+        c, s_ = math.cos(pc[2]), math.sin(pc[2])
+        d = np.array([tablero[0] - prior[0], tablero[1] - prior[1]])
+        self.inicio = np.array([self.inicio[0] - (c * d[0] - s_ * d[1]), self.inicio[1] - (s_ * d[0] + c * d[1]),
+                                self.inicio[2]])
+        self.log(f"árbol {arbol}: corrijo la posición {100 * d[0]:+.1f} cm adelante, {100 * d[1]:+.1f} cm de lado")
+        return self.vision.clasificar_arbol(arbol, self.pose_cancha(), tablero=tablero, imagenes=imgs)
 
     def _p_robot(self, sop):
         """Centro del grano en el sistema del robot, usando el tablero medido por el LiDAR (más fino que la pose).

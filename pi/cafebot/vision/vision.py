@@ -78,6 +78,28 @@ class VisionCamara(Vision):
         return ruta
 
     # ------------------------------------------------------------------ árbol
+    def ubicar_arbol(self, arbol, pose_robot_cancha, imagenes=None):
+        """SIN LiDAR: dónde está el árbol según las pelotas que se ven (la pose solo da el punto de partida).
+        Devuelve (tablero (x, y, ang) en el robot | None si la foto no lo deja claro, imágenes, mensaje)."""
+        from cafebot.vision import granos
+        from cafebot.vision.arbol import ModeloArbol
+        from cafebot.vision.camara_modelo import CamaraPinhole
+        imgs = imagenes if imagenes is not None else self.fotos()
+        prior = tablero_desde_pose(arbol, pose_robot_cancha)
+        modelo = ModeloArbol.cargar(self.cc.arbol)
+        cam = CamaraPinhole.desde_config(self.cc, self.cc.inclinacion_arbol_deg)
+        if (imgs[0].shape[1], imgs[0].shape[0]) != (cam.ancho, cam.alto):
+            cam = cam.escalada(imgs[0].shape[1], imgs[0].shape[0])
+        r = [p[2] for p in granos.proyectar_soportes(cam, modelo, prior).values()] or [40.0]
+        dets = granos.detectar(imgs[0], 0.5 * min(r), 1.6 * max(r), self.cc.sat_min, self.cc.val_min, self.cc.excluir_h)
+        dx, dy, dp, n, p0, otro = granos.buscar_lateral(dets, modelo, cam, prior)
+        msg = (f"{len(dets)} pelotas, {n} calzan con el árbol corrido {100 * dx:+.1f} / {100 * dy:+.1f} cm "
+               f"(cámara {math.degrees(dp):+.0f}°)")
+        if n < 2 or p0 - otro < 1.0:
+            self._guardar(imgs[0], f"arbol{arbol}_dudoso")
+            return None, imgs, msg + (": muy pocas" if n < 2 else ": otro corrimiento calza casi igual") + ", no le creo"
+        return (prior[0] + dx, prior[1] + dy, prior[2]), imgs, msg
+
     def clasificar_arbol(self, arbol, pose_robot_cancha, tablero=None, imagenes=None):
         if tablero is None:
             tablero = tablero_desde_pose(arbol, pose_robot_cancha)

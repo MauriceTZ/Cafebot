@@ -575,3 +575,27 @@ def calibrar_camara(dets: list, asig: dict, modelo: ModeloArbol, pose, cam: Cama
     obs = np.array([[dets[asig[c]].u, dets[asig[c]].v] for c in claves])
     k = np.array([incertidumbre_relativa(dets[asig[c]]) for c in claves])
     return calibrar_extrinsecos(P, obs, cam, k, mover_pos, sig_pos)
+
+
+def buscar_lateral(dets: list, modelo: ModeloArbol, cam: CamaraPinhole, prior, rango_m: float = 0.10,
+                   paso_m: float = 0.01, pitch_deg: float = 3.0, paso_pitch_deg: float = 1.0, rango_x_m: float = 0.06,
+                   paso_x_m: float = 0.015):
+    """Sin LiDAR la posición del árbol se sabe solo por cómo se puso el robot: búsqueda FINA del corrimiento lateral
+    (y de distancia e inclinación de la cámara) que más pelotas detectadas calce con los soportes. Puntaje =
+    calzadas − 0,5 × detecciones sin soporte − 0,3 × error: un árbol corrido una columna (12 cm) calza casi igual
+    pero deja pelotas sin soporte. Devuelve (dx, dy, dpitch (rad), calzadas, puntaje, mejor puntaje con otro dy)."""
+    mejores = []
+    for dp in np.radians(np.arange(-pitch_deg, pitch_deg + 1e-9, paso_pitch_deg)):
+        c = cam.con(pitch=cam.pitch + dp)
+        for dx in np.arange(-rango_x_m, rango_x_m + 1e-9, paso_x_m):
+            for dy in np.arange(-rango_m, rango_m + 1e-9, paso_m):
+                proy = proyectar_soportes(c, modelo, (prior[0] + dx, prior[1] + dy, prior[2]))
+                a = asignar(dets, proy, gate=0.6)
+                err = sum(math.hypot(dets[i].u - proy[k][0], dets[i].v - proy[k][1]) / proy[k][2] for k, i in a.items())
+                mejores.append((len(a) - 0.5 * (len(dets) - len(a)) - 0.3 * err, float(dx), float(dy), float(dp), len(a)))
+    if not mejores:
+        return 0.0, 0.0, 0.0, 0, -math.inf, -math.inf
+    mejores.sort(reverse=True)
+    p0, dx0, dy0, dp0, n0 = mejores[0]
+    otro = next((m[0] for m in mejores if abs(m[2] - dy0) > 0.04), -math.inf)
+    return dx0, dy0, dp0, n0, p0, otro
