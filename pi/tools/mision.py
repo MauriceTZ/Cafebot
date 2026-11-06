@@ -232,9 +232,29 @@ def main():
         nav.actualizar()
         time.sleep(0.02)
     m.iniciar()
+    # 6 nov: con el botón real, apretarlo DURANTE la ronda reinicia: para el robot al tiro y el programa se cierra
+    # (system/bucle.sh lo vuelve a lanzar y espera el botón de nuevo)
+    pin = getattr(boton, "b", None) if a.boton == "gpio" else None
+    apretado_desde = None
+    reinicio = False
     try:
         while not m.terminada:
             nav.actualizar()
+            if pin is not None and m.t0 is not None and m.tiempo() > 1.0:
+                if pin.is_pressed:
+                    apretado_desde = apretado_desde or time.monotonic()
+                    if time.monotonic() - apretado_desde >= 0.05:
+                        print("\n>>> BOTÓN durante la ronda: REINICIO (paro y cierro el programa)")
+                        reinicio = True
+                        m.detener()
+                        try:
+                            mega.parar()
+                        except Exception:
+                            pass
+                        m.esperar(5)
+                        break
+                else:
+                    apretado_desde = None
             time.sleep(0.02)
     except KeyboardInterrupt:
         m.detener()
@@ -256,7 +276,8 @@ def main():
         vision.cerrar()                        # (libcamera tiene hilos propios: que no dejen el programa colgado)
     # El brazo y las compuertas quedan con torque: el brazo en su postura de descanso y las compuertas cerradas
     # mientras los jueces levantan el robot (sin torque, una compuerta podría abrirse y botar granos).
-    print("FIN: la misión terminó y el programa se cierra.")
+    print("FIN: REINICIO con el botón: el programa se cierra (bucle.sh lo vuelve a lanzar)." if reinicio else
+          "FIN: la misión terminó y el programa se cierra.")
 
 
 if __name__ == "__main__":
