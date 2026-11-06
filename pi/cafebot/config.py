@@ -116,6 +116,12 @@ class ConfigMision:
     reducida: bool = False
     reducida_dist_m: float = 0.0
     recoger: tuple = ("MADURO",)   # nivel 3 agrega "SOBREMADURO"
+    # 6 nov: cómo se cosecha frente al árbol.
+    #   "soportes"  lo de antes: VisionCamara + modelo de cámara, estaciones laterales y la IK de cada grano
+    #   "pisos"     el brazo como ASCENSOR (tools.ascensor, docs/ascensor.md): la foto dice qué pelota hay en cada piso,
+    #               la línea del árbol la distancia, y las poses del brazo son las calibradas con tools.calibrar_cosecha
+    #               (tools.mision --cosecha pisos)
+    cosecha: str = "soportes"
     confianza_min: float = 0.70    # bajo esto la visión cuenta como NO_SE (no tocar)
     # Brazo: eje de giro de la base en el sistema del robot; z = altura de la BASE del brazo sobre
     # el SUELO (el hombro está 6,7 cm más arriba). Se comprueba con `tools.brazo leer`.        [MEDIR]

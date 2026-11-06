@@ -165,6 +165,10 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   `x_retraido_*`, `pitch_*`; `brazo.plan_agarre(p, aproximacion, pitch_deg)`). `tools.ascensor` toca la línea antes de
   cada agarre y agarra ahí (`tocar_para_agarrar`). Según el modelo, el piso bajo en la línea solo entrando ~3 cm con la
   garra a ~110°. Arreglado: `x_linea` sumaba el sobrepaso del IR en vez de restarlo.
+- 6 nov: la MISIÓN puede cosechar por pisos (`--cosecha pisos`, `mision.cosecha`; por defecto `soportes`, lo de
+  antes): frente al árbol usa el `Ascensor` de `tools.ascensor` (`Mision._arbol_pisos`) y después entrega como
+  siempre: `tools.mision --brazo --vision camara --nivel 2 --boton gpio --cosecha pisos` (docs/mision.md). Simulado
+  (firmware + LiDAR + IR, bus falso, foto real del árbol).
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de

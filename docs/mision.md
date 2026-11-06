@@ -23,6 +23,24 @@ python3 -m tools.navegacion --mega /dev/ttyUSB1 --lidar /dev/ttyUSB0 --brazo --c
 Al terminar (entregó lo que alcanzó a recoger, o se acabó el tiempo) el programa se cierra solo: el brazo queda en su
 postura de descanso y las compuertas cerradas, con torque, mientras los jueces levantan el robot.
 
+## La ronda completa con la cosecha POR PISOS (6 nov, `--cosecha pisos` / `mision.cosecha`)
+```bash
+python3 -m tools.mision --brazo --vision camara --nivel 2 --boton gpio --cosecha pisos      # botón, árbol, maduros a la roja
+python3 -m tools.mision --brazo --vision camara --nivel 3 --boton gpio --cosecha pisos      # + sobremaduros y más árboles
+python3 -m tools.mision --brazo --vision camara --reducida --max-granos 1 --cosecha pisos   # prueba en la cancha reducida
+```
+Sin `--cosecha pisos` (por defecto, `soportes`) cosecha como antes.
+Igual que antes hasta llegar frente al árbol (ubicarse con el LiDAR, ir a la foto). Ahí cosecha como
+`tools.ascensor` (docs/ascensor.md): el LiDAR cuadra el robot con el pie, la foto dice qué pelota hay en cada piso
+y su color, los IR delanteros tocan la línea del árbol y, para cada pelota (las de `mision.recoger`, en el orden de
+`ascensor.prioridad`): cangrejo hasta tenerla delante del brazo, tocar la línea y el brazo como ascensor con las
+poses calibradas (`tools.calibrar_cosecha pisos`). Para cuando no queda tiempo para otra pelota y la entrega
+(`_reserva_entrega` + 20 s). Después retrocede 25 cm y sigue con la entrega como siempre. En `--sim` (sin cámara de
+verdad) cosecha por soportes.
+
+Antes de la ronda: las poses de cada piso (`tools.calibrar_cosecha pisos --mega`), las canastas internas
+(`tools.calibrar_cosecha canastas`), las compuertas (`tools.compuertas calibrar`) y los IR en la cancha (`tools.ir`).
+
 ## Prueba híbrida: ronda simulada con el BRAZO REAL (4 nov)
 Todo simulado (cancha, Mega, LiDAR, visión) menos el brazo: el de verdad hace cada agarre completo (acercarse, cerrar
 la garra, ir a la canasta, soltar) en los mismos puntos que tendría frente al árbol, y la simulación decide si el

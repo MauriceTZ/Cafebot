@@ -173,6 +173,7 @@ def crear_mision(cfg, nav, lidar, mega, esc, usar_brazo=False, usar_camara=False
     from tools.mision import armar_reales
     c = cfg.mision
     if esc is not None:
+        c.cosecha = "soportes"               # la cosecha por pisos necesita la cámara de verdad
         real = lambda: tuple(lidar.real)
         try:        # el alcance con la cinemática y el plan de agarre del brazo de verdad, como tools.mision --sim
             from cafebot.arm.brazo import BrazoXL430

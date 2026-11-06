@@ -4,6 +4,11 @@
     N2  + volver al beneficiadero y vaciar la compuerta de maduros en la caja roja (+7)
     N3  + sobremaduros a la caja azul (+5) y más árboles mientras alcance el tiempo
 
+Frente al árbol (mision.cosecha): "soportes" = lo de antes (VisionCamara, estaciones laterales, la IK de cada grano);
+"pisos" (--cosecha pisos) = el brazo como ASCENSOR (tools.ascensor: la foto dice qué pelota hay en cada piso, los IR
+delanteros tocan la línea del árbol antes de cada agarre y el brazo usa las poses calibradas con
+tools.calibrar_cosecha). En la simulación (sin cámara de verdad) siempre "soportes".
+
 La misión corre en su propio hilo y solo usa:
     SistemaNavegacion (ir_a, pose)       Mega (A / L / X directos)       LiDAR (medir el tablero)
     Brazo / Vision / Depositos / Boton   (cafebot/mision/interfaces.py: reales o simulados)
@@ -60,6 +65,9 @@ class Mision:
         self.scan_inicio = None
         self.zonas_caja = set()       # sectores con caja (LiDAR), con o sin color conocido
         self._ref_linea = None        # (pose en la cancha, pose del Mega) al tocar la línea del cultivo (_pose_linea)
+        self._asc = None              # el Ascensor mientras cosecha por pisos (detener() lo para)
+        if self.c.cosecha not in ("pisos", "soportes"):
+            raise ValueError(f"mision.cosecha = {self.c.cosecha!r}: debe ser 'pisos' o 'soportes'")
         self._cancelar = threading.Event()
         self._hilo = None
 
@@ -141,6 +149,8 @@ class Mision:
         self._cancelar.set()
         self.nav.detener()
         self.brazo.detener()                 # el brazo termina el movimiento en curso y no empieza otro
+        if self._asc is not None:
+            self._asc.parar()                # para el movimiento de la base en curso (cosecha por pisos)
 
     def esperar(self, timeout=None):
         if self._hilo:
@@ -409,6 +419,8 @@ class Mision:
             y_foto = yt - self.cfg.camara.y
             self.log(f"en realidad estoy frente al árbol {arbol}")
             self._ir((x_foto, y_foto), 0.0, f"ir al árbol {arbol}", max_s=30)
+        if self._cosecha_pisos():
+            return self._arbol_pisos(arbol, yt)
 
         # Foto y clasificación de los 16 soportes
         self.mega.comando(f"X 2 {self.cfg.camara.servo_de_pitch(self.cfg.camara.inclinacion_arbol_deg)}")
@@ -485,6 +497,65 @@ class Mision:
         self.log(f"árbol {arbol}: listo | depósitos {self.brazo.estado()}")
         # Retroceder antes de planificar (lejos del tablero el A* tiene espacio)
         self._ok(self.mega.avanzar(-250, 150, timeout=15), "retroceso")
+        return arbol
+
+    # ------------------------------------------------------------------ cosecha por pisos (ascensor)
+    def _cosecha_pisos(self) -> bool:
+        """mision.cosecha == "pisos" y una cámara de verdad (la simulación cosecha por soportes)."""
+        if self.c.cosecha != "pisos":
+            return False
+        from cafebot.vision.vision import VisionCamara
+        if isinstance(self.vision, VisionCamara):
+            return True
+        self.log("cosecha por pisos sin la cámara de verdad (--vision camara): cosecho por soportes")
+        return False
+
+    def _arbol_pisos(self, arbol, yt):
+        """Cosecha por PISOS (tools.ascensor, docs/ascensor.md): el LiDAR cuadra el robot con el pie, la foto dice qué
+        pelota hay en cada piso y de qué color, los IR delanteros tocan la línea del árbol y, para cada pelota:
+        cangrejo hasta tenerla delante del brazo, tocar la línea y el brazo como ascensor con las poses calibradas
+        (tools.calibrar_cosecha). La base se mueve con la odometría del Mega (el SLAM la sigue)."""
+        from tools.ascensor import Ascensor, Cancelado      # la misma cosecha que se prueba con tools.ascensor
+        brazo = self.brazo if hasattr(self.brazo, "plan_agarre") else None      # el brazo real (BrazoXL430)
+        if brazo is None:
+            self.log(f"árbol {arbol}: sin el brazo real (--brazo): solo foto y acercamiento")
+        lidar = None if getattr(self.lidar, "sin_datos", False) else self.lidar
+        cam = self.vision.cam
+        try:
+            cam.enfocar(self.cfg.ascensor.dist_foto_m + self.cfg.geometria.largo / 2 - self.cfg.camara.x)
+        except Exception:
+            pass
+        asc = Ascensor(self.cfg, self.mega, lidar, brazo, cam, log=self.log, usar_linea=self.c.linea_cultivo,
+                       revisar_fn=self._revisar)
+        rel = relativo(self.pose_cancha(), np.array([cancha.ARBOL_X_FRENTE, yt, 0.0]))
+        asc.fijar_arbol(rel[0], rel[1], rel[2])              # donde lo pone la pose en la cancha: el LiDAR lo corrige
+        self._asc = asc
+        resto = self.c.max_granos - sum(self.recogidos.values()) if self.c.max_granos else 0
+        try:
+            self.log(f"árbol {arbol}: cosecha por pisos (cuadrarme, foto, línea)")
+            asc.acercarse()
+            if asc.pisos is None:
+                self.log(f"árbol {arbol}: la foto no mostró los pisos: no recojo")
+            else:
+                asc.ronda(max(resto, 0), categorias=self.c.recoger,
+                          seguir_fn=lambda: self.queda() > self._reserva_entrega() + 20)
+        except Cancelado:
+            raise Abortar("cancelada")
+        except RuntimeError as e:
+            self.log(f"árbol {arbol}: {e}")
+        finally:
+            self._asc = None
+            for cat, n in asc.recogidos.items():
+                self.recogidos[cat] = self.recogidos.get(cat, 0) + n
+            try:
+                self.mega.seguridad_ir(self.c.freno_ir)
+            except Exception:
+                pass
+        self.log(f"árbol {arbol}: listo | en el robot {self.recogidos}")
+        n = sum(self.recogidos.values())
+        if 0 < self.c.max_granos <= n:
+            raise Abortar(f"prueba: ya recogí {n} grano(s) (--max-granos {self.c.max_granos})")
+        self._ok(self.mega.avanzar(-250, 150, timeout=15), "retroceso")      # lejos del árbol el A* tiene espacio
         return arbol
 
     def _foto_arbol(self, arbol, yt):

@@ -6,6 +6,10 @@
     python3 -m tools.mision --sim --nivel 3 --semilla 7
     python3 -m tools.mision                          # robot real: Mega + LD06, botón = ENTER, sin brazo ni visión
     python3 -m tools.mision --brazo --vision camara  # robot real COMPLETO (brazo XL430 + cámara)
+    python3 -m tools.mision --brazo --vision camara --nivel 2 --boton gpio   # LA RONDA: botón, árbol, maduros a la
+                                                     #   caja roja (--nivel 3: + sobremaduros a la azul y más árboles)
+    python3 -m tools.mision ... --cosecha pisos      # frente al árbol cosecha POR PISOS (tools.ascensor, con las
+                                                     #   poses calibradas con tools.calibrar_cosecha)
     python3 -m tools.mision --boton gpio             # botón de inicio real (cfg.mision.pin_boton)
     python3 -m tools.mision --brazo --vision fija    # SOLO TALLER: árbol cargado solo con maduros
     python3 -m tools.mision ... --cajas cercana      # las dos cajas del mismo color (ver config: mision.cajas)
@@ -152,6 +156,9 @@ def main():
     ap.add_argument("--sin-lidar", action="store_true",
                     help="(con --reducida DIST_M) sin LiDAR: el pie se supone justo delante a DIST_M; la "
                          "navegación es solo odometría (+ IMU) y la distancia exacta la da la línea del árbol")
+    ap.add_argument("--cosecha", choices=("pisos", "soportes"), default=None,
+                    help="frente al árbol: soportes = lo de antes (VisionCamara + IK de cada grano; por defecto) | "
+                         "pisos = el brazo como ascensor (tools.ascensor). En --sim siempre soportes")
     ap.add_argument("--cajas", choices=("colores", "cercana", "guardar"), default=None,
                     help="cómo distinguir las cajas (por defecto mision.cajas de la config): colores = con la "
                          "cámara; si las dos son del mismo color: cercana = maduros a la más cercana (apuesta), "
@@ -162,6 +169,12 @@ def main():
         cfg.mision.nivel = a.nivel
     if a.cajas:
         cfg.mision.cajas = a.cajas
+    if a.cosecha:
+        cfg.mision.cosecha = a.cosecha
+    if a.sim:
+        cfg.mision.cosecha = "soportes"          # la cosecha por pisos necesita la cámara y el brazo de verdad
+    elif cfg.mision.cosecha == "pisos" and (a.vision != "camara" or not a.brazo):
+        print("cosecha por pisos: hace falta --brazo --vision camara (sin eso no toca granos)")
     if a.max_granos is not None:
         cfg.mision.max_granos = a.max_granos
     if a.sin_lidar and not a.reducida:

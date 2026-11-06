@@ -71,7 +71,9 @@ class Cancelado(Exception):
 
 class Ascensor:
     def __init__(self, cfg, mega, lidar=None, brazo=None, cam=None, pantalla=None, dist_inicial=None, log=print,
-                 usar_linea=True, gyro=None):
+                 usar_linea=True, gyro=None, revisar_fn=None):
+        """revisar_fn(): lo llama antes de cada movimiento; la misión lo usa para parar (cancelada o sin tiempo:
+        levanta su excepción)."""
         self.cfg, self.ca, self.cc = cfg, cfg.ascensor, cfg.camara
         self.mega, self.lidar, self.brazo, self.cam, self.pantalla = mega, lidar, brazo, cam, pantalla
         self.dist_inicial = dist_inicial
@@ -96,11 +98,15 @@ class Ascensor:
         self.recogidos = {cancha.MADURO: 0, cancha.SOBREMADURO: 0}
         self.cancelar = threading.Event()
         self.hilo = None
+        self.revisar_fn = revisar_fn
+        self.categorias = None       # ronda(): solo estas categorías (None = las de ascensor.prioridad)
 
     # ------------------------------------------------------------------ básico
     def revisar(self):
         if self.cancelar.is_set():
             raise Cancelado()
+        if self.revisar_fn is not None:
+            self.revisar_fn()
 
     def _ok(self, r, que):
         if not r.ok:
@@ -569,7 +575,7 @@ class Ascensor:
         if self.pisos is None:
             return None
         for fila, cat in self.ca.prioridad:
-            if fila not in self.ca.pisos:
+            if fila not in self.ca.pisos or (self.categorias is not None and cat not in self.categorias):
                 continue
             cand = [p for p in self.pisos.pelotas
                     if p.fila == fila and p.categoria == cat and p.clave not in self.hechos]
@@ -578,8 +584,11 @@ class Ascensor:
                 return fila, p.col, cat
         return None
 
-    def ronda(self, max_granos=0):
+    def ronda(self, max_granos=0, categorias=None, seguir_fn=None):
+        """Todas las pelotas de la foto en el orden de ascensor.prioridad. categorias: solo esas (la misión: las de
+        mision.recoger); seguir_fn(): False = no empezar otra (la misión guarda tiempo para entregar)."""
         t0 = time.monotonic()
+        self.categorias = None if categorias is None else set(categorias)
         if self.arbol_odo is None or self.x_linea is None:
             self.acercarse()
         if self.pisos is None:
@@ -587,6 +596,9 @@ class Ascensor:
         n = 0
         while True:
             self.revisar()
+            if seguir_fn is not None and not seguir_fn():
+                self.log("no queda tiempo para otra pelota")
+                break
             obj = self.siguiente()
             if obj is None:
                 break
@@ -598,6 +610,7 @@ class Ascensor:
             if max_granos and n >= max_granos:
                 break
         self.log(f"RONDA: {n} pelota(s) en el robot en {time.monotonic() - t0:.0f} s {self.recogidos}")
+        return n
 
     # ------------------------------------------------------------------ ajustes en vivo
     def ajustar(self, que, delta):
