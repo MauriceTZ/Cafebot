@@ -3,8 +3,11 @@
 6 nov. La proyección de los soportes con el modelo de la cámara no calzaba (cabezal girado, cámara torcida), así
 que la cámara ahora solo dice **qué** hay. El **dónde** sale de medidas conocidas:
 
-- **Cámara** (`cafebot/vision/pisos.py`): en la foto del árbol busca la copa verde, los soportes cafés y los agrupa
-  en los 3 pisos (el de 6 soportes es el del medio). Las columnas se cuentan de 0, de izquierda a derecha en la
+- **Cámara** (`cafebot/vision/pisos.py`): en la foto del árbol busca la superficie del árbol (el color que más hay
+  al centro: la copa verde de la cancha o la madera del árbol del taller) y los soportes sobre ella (en el verde, lo
+  que no es verde; en la madera, lo gris: borde quemado, hueco y repisa; las sombras conservan el color y no
+  cuentan). Los agrupa en los 3 pisos (el de 6 soportes es el del medio; la grilla se acomoda para que ningún
+  soporte que debería verse caiga fuera del árbol). En gris, en la foto anotada, todo lo que pudo ser soporte. Las columnas se cuentan de 0, de izquierda a derecha en la
   foto. Para cada soporte dice si tiene pelota y de qué color, por el matiz:
   - rojo, naranjo o amarillo = MADURO;
   - azul = SOBREMADURO;
