@@ -928,9 +928,21 @@ def main():
                         raise RuntimeError("no vi la línea del cuadrado de inicio en 80 cm")
                     # tocar_linea anotó el árbol como si fuera su línea: lo pongo donde dice la distancia
                     asc.x_linea, asc.linea_vista, asc.pisos, asc.en_linea = None, False, None, False
-                    asc.fijar_arbol(asc.sx + a.linea_inicio, 0.0, 0.0)
                     asc.log(f"línea de inicio tocada: el pie del árbol a ~{100 * a.linea_inicio:.0f} cm de los IR")
-                    asc.acercarse()
+                    # la distancia la da la LÍNEA DEL ÁRBOL, no la odometría: rápido hasta ~45 cm antes de donde
+                    # debería estar, despacio hasta tocarla, y desde ahí atrás a la distancia de la foto
+                    rapido = a.linea_inicio - asc.ca.linea_a_cara_m - 0.45
+                    if rapido > 0.05:
+                        asc.avanzar(rapido, "hacia el árbol")
+                    asc.arbol_odo = None
+                    if not asc.tocar_linea(0.9, despegar=True):
+                        raise RuntimeError("no vi la línea del árbol en 90 cm")
+                    rel = asc.arbol_rel()
+                    asc.avanzar(rel[0] - asc.medio - asc.ca.dist_foto_m, "atrás, a la distancia de la foto")
+                    asc.cangrejo(asc.arbol_rel()[1] - asc.cc.y, "centrar la cámara en el árbol")
+                    asc.foto()
+                    if asc.pisos is None:
+                        raise RuntimeError("la foto no muestra los pisos (ver pi/capturas/)")
                 asc.ronda(a.max_granos)
 
             asc.lanzar("ronda", ronda_auto)
