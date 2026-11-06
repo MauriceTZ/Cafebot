@@ -8,7 +8,7 @@
                                                    # pie con el frente a --dist; se dibujan los 16 soportes donde el
                                                    # modelo los espera. w/s mueve la cámara; i/k corre los círculos
                                                    # (corrige cuánto mira la cámara con cada X 2) hasta que calcen con
-                                                   # los soportes reales; g guarda las dos cosas.
+                                                   # los soportes reales (j/l giro, u/o roll); g guarda.
                                                    # En VERDE las pelotas que detecta (si una no sale, ver sat_min)
     python3 -m tools.cabezal                       # círculo: 2 vueltas, ventana con la cámara en vivo (en la pantalla HDMI
                                                    # si se lanza por SSH); al final un mosaico en pi/capturas/
@@ -310,15 +310,17 @@ def calibrar_arbol(cfg, mega, cam, pantalla, dist: float):
     modelo = ModeloArbol.cargar(cc.arbol)
     pie = (dist + cfg.geometria.largo / 2, 0.0, 0.0)          # cara del pie en el robot (centrado, derecho)
     print("Robot CENTRADO y DERECHO frente al pie, el frente a "
-          f"{100 * dist:.0f} cm. w/s ↑/↓ mueven la cámara (X 2); i/k corren los círculos (0,5°) hasta que calcen con "
-          "los soportes reales; g guarda; q sale.\n")
+          f"{100 * dist:.0f} cm. w/s ↑/↓ mueven la cámara (X 2). Para que los círculos calcen con los soportes reales: "
+          "i/k suben/bajan (inclinación), j/l izquierda/derecha (giro), u/o los rotan (roll), 0,5° por tecla. "
+          "g guarda; q sale.\n")
     viejo = termios.tcgetattr(sys.stdin)
     tty.setcbreak(sys.stdin.fileno())
     try:
         mega.comando(f"X 2 {p}")
         while True:
             incl = cc.pitch_de_servo(p)
-            txt = f"X 2 = {p}  -> camara {incl:+.1f} grados (X2=90 -> {cc.pitch_servo_90_deg:+.1f})"
+            txt = (f"X 2 = {p} -> camara {incl:+.1f} (X2=90 -> {cc.pitch_servo_90_deg:+.1f}) | giro {cc.yaw_deg:+.1f}"
+                   f" roll {cc.roll_deg:+.1f}")
             print(f"\r  {txt}     ", end="", flush=True)
             if cam is not None and pantalla is not None:
                 import cv2
@@ -352,15 +354,21 @@ def calibrar_arbol(cfg, mega, cam, pantalla, dist: float):
             if k == "g":
                 cc.inclinacion_arbol_deg = round(cc.pitch_de_servo(p), 2)
                 ruta = guardar_local("camara", {"inclinacion_arbol_deg": cc.inclinacion_arbol_deg,
-                                                "pitch_servo_90_deg": cc.pitch_servo_90_deg})
+                                                "pitch_servo_90_deg": cc.pitch_servo_90_deg,
+                                                "yaw_deg": cc.yaw_deg, "roll_deg": cc.roll_deg})
                 print(f"\r\nGuardado en {ruta}: inclinacion_arbol_deg = {cc.inclinacion_arbol_deg} (X 2 = {p}), "
-                      f"pitch_servo_90_deg = {cc.pitch_servo_90_deg}. Subir robot_local.json al repo.\r")
+                      f"pitch_servo_90_deg = {cc.pitch_servo_90_deg}, yaw_deg = {cc.yaw_deg}, roll_deg = {cc.roll_deg}. "
+                      "Subir robot_local.json al repo.\r")
                 continue
             if k in "ws":
                 p = min(cc.servo_pitch_max, max(cc.servo_pitch_min, p + (paso if k == "w" else -paso)))
                 mega.comando(f"X 2 {p}")
             elif k in "ik":                        # misma X 2, la cámara mira distinto de lo que se creía
                 cc.pitch_servo_90_deg = round(cc.pitch_servo_90_deg + (0.5 if k == "i" else -0.5), 2)
+            elif k in "jl":                        # el cabezal mira corrido de lado (el servo del giro está suelto)
+                cc.yaw_deg = round(cc.yaw_deg + (0.5 if k == "j" else -0.5), 2)
+            elif k in "uo":                        # la cámara está montada torcida
+                cc.roll_deg = round(cc.roll_deg + (0.5 if k == "u" else -0.5), 2)
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, viejo)
         print()
