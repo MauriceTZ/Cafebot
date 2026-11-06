@@ -92,6 +92,7 @@ class Ascensor:
         self.en_linea = False        # los IR delanteros tocando la línea AHORA (se tocó y la base no se movió)
         self.pisos = None            # última foto analizada (vision/pisos.py)
         self.img = None              # última imagen para la pantalla
+        self.cam_lock = threading.Lock()     # la vista en vivo y la foto comparten la cámara
         self.fila, self.col = "media", 2
         self.plan, self.p, self.paso = None, None, None     # paso del plan del brazo donde está (0 antes, 2 grano)
         self.hechos = set()
@@ -364,7 +365,8 @@ class Ascensor:
         servo = self.cc.servo_de_pitch(self.cc.inclinacion_arbol_deg)
         self.mega.comando(f"X 2 {servo}")
         time.sleep(0.8)
-        img = self.cam.capturar()
+        with self.cam_lock:
+            img = self.cam.capturar()
         res = pisos.analizar(img, self.cc.excluir_h, self.cc.sat_min, self.cc.val_min, negros=self.ca.negros)
         anotada = pisos.dibujar(img, res)
         os.makedirs(CARPETA_CAPTURAS, exist_ok=True)
@@ -691,6 +693,38 @@ class Ascensor:
         self.hilo = threading.Thread(target=correr, daemon=True)
         self.hilo.start()
 
+    def vivo(self, fps=1.5):
+        """Hilo: la cámara EN VIVO con lo que detecta la visión por pisos (pisos, soportes, pelotas y su color)
+        dibujado encima, a `fps` cuadros por segundo, en la pantalla (self.img)."""
+        import cv2
+        from cafebot.vision import pisos
+        if self.cam is None or self.pantalla is None:
+            return
+
+        def correr():
+            while True:
+                t0 = time.monotonic()
+                try:
+                    with self.cam_lock:
+                        img = self.cam.capturar()
+                    res = pisos.analizar(img, self.cc.excluir_h, self.cc.sat_min, self.cc.val_min,
+                                         negros=self.ca.negros)
+                    out = pisos.dibujar(img, res)
+                    h = out.shape[0]
+                    txt = (f"EN VIVO  {len(res.pelotas)} pelotas  pisos {'/'.join(res.soportes) or '-'}  "
+                           f"en el robot {self.recogidos[cancha.MADURO]}M {self.recogidos[cancha.SOBREMADURO]}S")
+                    esc = max(0.6, h / 700)
+                    cv2.putText(out, txt, (10, h - int(20 * esc)), cv2.FONT_HERSHEY_SIMPLEX, esc, (0, 0, 0), int(5 * esc))
+                    cv2.putText(out, txt, (10, h - int(20 * esc)), cv2.FONT_HERSHEY_SIMPLEX, esc, (255, 255, 255),
+                                int(2 * esc))
+                    self.img = out
+                except Exception as e:
+                    self.log(f"(vista en vivo: {e})")
+                    time.sleep(2)
+                time.sleep(max(0.0, 1.0 / fps - (time.monotonic() - t0)))
+
+        threading.Thread(target=correr, daemon=True).start()
+
     def parar(self):
         self.cancelar.set()
         try:
@@ -802,6 +836,8 @@ def main():
     ap.add_argument("--auto", action="store_true", help="la ronda completa sola al apretar el botón")
     ap.add_argument("--boton", choices=("enter", "gpio"), default="enter")
     ap.add_argument("--max-granos", type=int, default=0)
+    ap.add_argument("--vivo", type=float, default=1.5, metavar="FPS",
+                    help="la cámara en vivo con lo detectado encima, en la pantalla (0 = no)")
     ap.add_argument("--linea-inicio", type=float, default=None, metavar="DIST_M",
                     help="(--auto) parte en el cuadrado de inicio MIRANDO al árbol: avanza recto hasta que los IR "
                          "delanteros tocan la primera línea negra y desde ahí el pie del árbol está a DIST_M (~1.80)")
@@ -877,6 +913,8 @@ def main():
     print(f"LiDAR {'sí' if lidar else 'NO'} | brazo {'sí' if brazo else 'NO'} | cámara {'sí' if cam else 'NO'} | "
           f"IMU {'sí' if gyro else 'NO'} | línea {'NO' if a.sin_linea else 'sí'} | "
           f"pisos {cfg.ascensor.pisos} | aproximación {100 * cfg.brazo.aproximacion_m:.0f} cm")
+    if a.vivo > 0:
+        asc.vivo(a.vivo)
     try:
         if a.auto:
             from cafebot.mision import interfaces as I
@@ -898,8 +936,12 @@ def main():
             asc.lanzar("ronda", ronda_auto)
             pin = getattr(boton, "b", None) if a.boton == "gpio" else None
             t_ini = time.monotonic()
+            from tools.cabezal import mostrar
             try:
                 while asc.ocupado():
+                    if asc.pantalla is not None and asc.img is not None:
+                        img, asc.img = asc.img, None
+                        mostrar(asc.pantalla, img)
                     if pin is not None and time.monotonic() - t_ini > 1.0 and pin.is_pressed:
                         print("\n>>> BOTÓN durante la ronda: REINICIO (paro y cierro)")
                         asc.parar()
