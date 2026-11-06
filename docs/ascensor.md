@@ -23,13 +23,21 @@ que la cámara ahora solo dice **qué** hay. El **dónde** sale de medidas conoc
 ## Cómo agarra
 
 Para cada pelota:
-1. El robot se aleja de la línea lo que pide ese piso (`retroceso_*`).
-2. Se corre en cangrejo hasta tener la pelota **delante del brazo** (la base del brazo no gira).
-3. El brazo **sube al piso** con la garra abierta, `brazo.aproximacion_m` antes de la pelota.
-4. Entra derecho, cierra, revisa que tomó algo, sube, retrocede y la deja en el robot (`deposito_maduro` /
-   `deposito_sobremaduro`).
+1. Se corre en cangrejo (lejos de la línea) hasta tener la pelota **delante del brazo** (la base del brazo no gira).
+2. Avanza despacio hasta que los IR delanteros **tocan la línea** y se queda ahí (`tocar_para_agarrar`): así se
+   calibraron las poses del brazo. Un piso con `retroceso_*` > 0 (sin calibrar) se agarra a esa distancia de la
+   línea, por odometría.
+3. El brazo **sube al piso** con la garra abierta: pose **RETRAÍDA**.
+4. Entra derecho (la garra con la misma inclinación) hasta la pose **ADELANTADA**, cierra, revisa que tomó algo,
+   sube, retrocede y la deja en el robot (`deposito_maduro` / `deposito_sobremaduro`).
 
-La fila alta no se alcanza con la base del brazo a ~35 cm.
+Las poses de cada piso (altura, x de la garra adelantada y retraída, lado e inclinación) se calibran con
+`tools.calibrar_cosecha pisos` (abajo). Sin calibrar: la pelota a `grano_delante_m` de la cara, la retraída
+`brazo.aproximacion_m` antes y la inclinación que elija la IK.
+
+Con el robot en la línea, el piso **bajo** queda a solo 5,5 cm sobre la base del brazo: según el modelo, con la
+garra horizontal no se alcanza entrando 6 cm; sí entrando ~3 cm con la garra apuntando 15–20° hacia abajo. La fila
+**alta** no se alcanza con la base del brazo a ~35 cm.
 
 ## La línea del árbol sin pisarla (6 nov)
 Los IR delanteros están junto a las ruedas: cuando ven la línea, la rueda ya está en su borde. Por eso:
@@ -64,10 +72,10 @@ python3 -m tools.ascensor --auto --boton enter     # la ronda completa sola
    - **j l** lado.
 
    El brazo se mueve con cada tecla.
-4. **e** entra hasta la pelota; **i k** corrige la profundidad. **c** cierra y dice si tomó algo. **s** la saca y
-   **d** la deja en el robot.
+4. **e** entra hasta la pelota (pose adelantada); **i k** mueve la pose donde está el brazo (en el piso: la
+   retraída; en la pelota: la adelantada). **c** cierra y dice si tomó algo. **s** la saca y **d** la deja en el robot.
 5. Cuando quede bien, **t** guarda en `robot_local.json` (sección `ascensor`, más `brazo.aproximacion_m`). Subirlo
-   al repo.
+   al repo. (Mejor calibrar las poses con `tools.calibrar_cosecha pisos`, sin mover la base.)
 6. Lo mismo con **1** (piso bajo).
 7. **g** hace todo el agarre de la columna elegida y **r** la ronda completa: foto, línea, maduros del medio,
    maduros de abajo, sobremaduros.
@@ -76,19 +84,32 @@ Las demás teclas:
 - **ESPACIO** para todo;
 - **h** lleva el brazo a esperar;
 - **v** muestra el estado;
-- **+ / -** cambia la aproximación;
+- **+ / -** aleja / acerca la pose retraída de la pelota (1 cm);
 - **q** sale.
 
-## Calibrar alturas y canastas sin mover la base (`tools.calibrar_cosecha`)
+## Calibrar las poses de cada piso y las canastas (`tools.calibrar_cosecha`)
 ```
-python3 -m tools.calibrar_cosecha pisos      # alturas de cada piso (y profundidad / lado), sección ascensor
-python3 -m tools.calibrar_cosecha canastas   # posturas del brazo sobre cada canasta interna (perfil del brazo)
+python3 -m tools.calibrar_cosecha pisos          # altura, pose retraída y adelantada de cada piso (sección ascensor)
+python3 -m tools.calibrar_cosecha pisos --mega   # además: l toca la línea sola, como tools.ascensor, y se ven los IR
+python3 -m tools.calibrar_cosecha canastas       # posturas del brazo sobre cada canasta interna (perfil del brazo)
 ```
-**Pisos:**
-1. Poner el robot derecho frente al árbol, con el frente a la distancia que indica cada piso (la misma de
-   `tools.ascensor`) y la base del brazo frente a una pelota.
-2. **1 2 3** lleva el brazo al piso. Se corrige con **↑↓** (altura) y **← →** (lado). **e** entra y **i k** corrige
-   la profundidad. **c** cierra y **t** guarda.
+**Pisos** (siempre con los IR delanteros TOCANDO la línea del árbol, como agarra `tools.ascensor`):
+1. Poner el robot derecho frente al árbol, detrás de la línea, con la base del brazo (6,3 cm a la izquierda del
+   centro) frente a una pelota. Con `--mega`, **l** avanza despacio hasta tocar la línea y se endereza (igual que el
+   ascensor: mejor así). Sin Mega, ponerlo a mano con los IR justo en el borde de la cinta.
+2. **1 2 3** lleva el brazo al piso, a la pose **RETRAÍDA** (garra abierta, antes de la pelota), desde el descanso
+   como en un agarre. Corregir:
+   - **↑ ↓** altura (±5 mm; **, .** ±1 mm);
+   - **← →** lado;
+   - **i k** adelante / atrás la pose donde está el brazo (±5 mm; **I K** ±1 mm);
+   - **u o** inclinación de la garra (±5°).
+3. **e** entra derecho hasta la pose **ADELANTADA** (lista para cerrar): corregirla igual con **i k**, **↑ ↓**.
+   **r** vuelve a la retraída. **c** cierra (dice si tomó algo), **s** la saca, **d** la deja en la canasta.
+4. **t** guarda el piso en `robot_local.json` (sección `ascensor`): altura, `x_adelantado_*`, `x_retraido_*`, lado,
+   `pitch_*` y `retroceso_* = 0`. Subirlo al repo.
+
+Si una pose no se alcanza, el ajuste no se aplica y dice con qué entrada e inclinación sí. Un piso sin calibrar
+donde lo del reglamento no alcanza parte de algo que sí (p. ej. el bajo: entrar 3 cm con la garra a 110°).
 
 **Canastas:**
 1. **m / n** llevan el brazo a la canasta de maduros o de sobremaduros.

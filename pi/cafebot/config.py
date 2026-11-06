@@ -317,6 +317,22 @@ class ConfigAscensor:
     dy_baja_m: float = 0.0             # + = más a la izquierda
     dy_media_m: float = 0.0
     dy_alta_m: float = 0.0
+    # 6 nov: POSES del brazo en cada piso calibradas con tools.calibrar_cosecha, con los IR delanteros TOCANDO la línea
+    # del árbol: x de la garra en el robot (m desde el centro, + adelante) ADELANTADA (en la pelota, lista para
+    # cerrar) y RETRAÍDA (abierta, antes de entrar), y la inclinación de la garra (90 = horizontal, menos = la punta
+    # hacia arriba). None = sin calibrar: la pelota grano_delante_m delante de la cara (+ dx_*), la retraída
+    # brazo.aproximacion_m antes y la inclinación que alcance. Calibradas, dx_* no se usa.
+    x_adelantado_baja_m: float | None = None
+    x_adelantado_media_m: float | None = None
+    x_adelantado_alta_m: float | None = None
+    x_retraido_baja_m: float | None = None
+    x_retraido_media_m: float | None = None
+    x_retraido_alta_m: float | None = None
+    pitch_baja_deg: float | None = None
+    pitch_media_deg: float | None = None
+    pitch_alta_deg: float | None = None
+    tocar_para_agarrar: bool = True    # el piso sin retroceso: antes de cada agarre, tocar la línea con los IR delanteros
+                                       # y agarrar ahí, sin despegarse (como se calibraron las poses)
     pisos: tuple = ("media", "baja")   # dónde se recoge (la alta no se alcanza)
     prioridad: tuple = (("media", "MADURO"), ("baja", "MADURO"), ("media", "SOBREMADURO"), ("baja", "SOBREMADURO"))
     negros: bool = False               # buscar pelotas negras (oscuras sobre un soporte; una sombra se parece)

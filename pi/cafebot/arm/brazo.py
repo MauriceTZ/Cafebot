@@ -499,9 +499,11 @@ class BrazoXL430(Brazo):
                 return {i["base"]: yaw, i["hombro"]: q[0], i["codo1"]: q[1], i["codo2"]: q[2], i["muneca"]: q[3]}, s
         return None
 
-    def plan_agarre(self, p_robot):
-        """Puntos de la secuencia (nombre, ángulos, duración) con la MISMA inclinación de garra, o None."""
-        sol = self.ik(p_robot)
+    def plan_agarre(self, p_robot, aproximacion: float | None = None, pitch_deg: float | None = None):
+        """Puntos de la secuencia (nombre, ángulos, duración) con la MISMA inclinación de garra, o None.
+        aproximacion: cuánto antes del grano parte (la pose "retraída"; por defecto brazo.aproximacion_m); pitch_deg:
+        inclinación de la garra fija (90 = horizontal; por defecto la preferida o la que alcance)."""
+        sol = self.ik(p_robot, pitch_deg)
         if sol is None:
             return None
         pitch = math.degrees(sol[1].pitch)
@@ -512,13 +514,17 @@ class BrazoXL430(Brazo):
         # Nunca por encima del propio robot: si el grano está cerca del eje de la base, la aproximación y el retiro
         # se acortan (si no, el punto quedaría DETRÁS del eje y la base giraría 180° en medio de la secuencia).
         libre = r - self.cb.r_min_m
-        a, rt = min(self.cb.aproximacion_m, libre), max(0.0, min(self.cb.retirar_m, libre))
+        a = min(self.cb.aproximacion_m if aproximacion is None else aproximacion, libre)
+        rt = max(0.0, min(max(self.cb.retirar_m, a), libre))
         if a < 0.015:
             return None
 
-        def resolver(q):
+        def libre_(q):
             return self.ik(q, pitch) or self.ik(q)      # misma inclinación; si no alcanza, otra
 
+        # con la inclinación pedida, la entrada (antes -> grano) va toda con ella; ya con el grano, sacarlo puede
+        # cambiarla
+        resolver = (lambda q: self.ik(q, pitch)) if pitch_deg is not None else libre_
         plan = []
         for nombre, q, t in (("antes", p - a * u, self.cb.t_mov_s),
                              ("entrando", p - a / 2 * u, self.cb.t_fino_s),
@@ -528,15 +534,17 @@ class BrazoXL430(Brazo):
                 return None
             plan.append((nombre, s[0], t))
         # Subir lo más que se pueda (la fila alta queda al límite del alcance): basta ~1 cm para sacar
-        # la esfera del hueco de 25 mm (su fondo queda ~4 mm bajo la cara del soporte).
-        for lv in (self.cb.levantar_m, 0.02, 0.015, 0.01):
-            s1, s2 = resolver(p + lv * up), resolver(p + lv * up - rt * u)
-            if s1 is not None and s2 is not None:
-                return plan + [("subir", s1[0], self.cb.t_fino_s), ("retirar", s2[0], self.cb.t_mov_s * 0.7)]
+        # la esfera del hueco de 25 mm (su fondo queda ~4 mm bajo la cara del soporte). Retroceder lo más que se
+        # pueda (al menos hasta donde se partió, que se sabe libre).
+        for rr in dict.fromkeys((rt, a, a / 2)):
+            for lv in (self.cb.levantar_m, 0.02, 0.015, 0.01):
+                s1, s2 = libre_(p + lv * up), libre_(p + lv * up - rr * u)
+                if s1 is not None and s2 is not None:
+                    return plan + [("subir", s1[0], self.cb.t_fino_s), ("retirar", s2[0], self.cb.t_mov_s * 0.7)]
         return None
 
-    def alcanzable(self, p_robot) -> bool:
-        return self.plan_agarre(p_robot) is not None
+    def alcanzable(self, p_robot, aproximacion: float | None = None, pitch_deg: float | None = None) -> bool:
+        return self.plan_agarre(p_robot, aproximacion, pitch_deg) is not None
 
     # ------------------------------------------------------------------ giro de la base por arriba
     def postura_giro(self, yaw: float) -> dict:
@@ -605,8 +613,10 @@ class BrazoXL430(Brazo):
             self.log(f"[brazo] al abortar: {e}")
         self.ultimo_motivo = motivo
 
-    def recoger(self, p_robot, categoria: str, depositar: bool = True) -> bool:
-        """Saca UN grano en p_robot y lo deja en el depósito de su categoría. True si quedó en el robot."""
+    def recoger(self, p_robot, categoria: str, depositar: bool = True, aproximacion: float | None = None,
+                pitch_deg: float | None = None) -> bool:
+        """Saca UN grano en p_robot y lo deja en el depósito de su categoría. True si quedó en el robot.
+        aproximacion / pitch_deg: como en plan_agarre (las poses de cada piso de tools.ascensor)."""
         if self.bus is None:
             return False
         destino = "deposito_maduro" if categoria == cancha.MADURO else "deposito_sobremaduro"
@@ -625,7 +635,7 @@ class BrazoXL430(Brazo):
                 self.ultimo_motivo = motivo
                 self.log(f"[brazo] {motivo}: no agarro")
                 return False
-            plan = self.plan_agarre(p_robot)
+            plan = self.plan_agarre(p_robot, aproximacion, pitch_deg)
             if plan is None:
                 self.ultimo_motivo = "fuera de alcance"
                 return False

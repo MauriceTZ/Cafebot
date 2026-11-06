@@ -160,6 +160,11 @@ Reglamento: `docs/reglamento/` (v1.0 2025 y v2.0 2026, casi iguales). Plan y pri
   hay en cada piso y su color (`vision/pisos.py`, sin modelo de cámara: copa verde + soportes cafés + grilla 5/6/5); la
   línea del árbol (IR) da la distancia, el LiDAR el lado y las alturas son las del reglamento (`config.ascensor`,
   ajustables con las teclas). Base del árbol de 45 cm (`ARBOL_ANCHO_PIE`), verde del árbol fuera de las pelotas.
+- 6 nov: POSES por piso con los IR delanteros tocando la línea (`tools.calibrar_cosecha pisos [--mega]`): altura, x de
+  la garra RETRAÍDA (abierta, antes de entrar) y ADELANTADA (lista para cerrar), lado e inclinación (`x_adelantado_*`,
+  `x_retraido_*`, `pitch_*`; `brazo.plan_agarre(p, aproximacion, pitch_deg)`). `tools.ascensor` toca la línea antes de
+  cada agarre y agarra ahí (`tocar_para_agarrar`). Según el modelo, el piso bajo en la línea solo entrando ~3 cm con la
+  garra a ~110°. Arreglado: `x_linea` sumaba el sobrepaso del IR en vez de restarlo.
 - Por hacer en el robot: calibrar los IR (`tools.ir`) y confirmar el punto del piso que mira cada uno; calibrar el brazo
   (pasos de `docs/brazo.md`: cero, sentidos, límites, garra, posturas de depósito, `fila`; medir `mision.brazo_x/z`) y la
   cámara (sentido de `X 2`, `tools.camara intrinseca`, `tools.cosecha` C con 2 ángulos del servo y referencias de

@@ -13,9 +13,11 @@ entra derecho, cierra, saca la pelota y la deja en el robot.
     python3 -m tools.ascensor --sin-lidar --dist 0.55 --sin-linea   # en casa: sin LiDAR ni cinta en el piso
     ... --imu                                          # el rumbo con la IMU (lo que el cangrejo gira la base)
 
-LA LÍNEA DEL ÁRBOL se toca UNA vez al llegar (despacio, sin seguir de largo: el IR está junto a la rueda) y el robot
-se despega 2,5 cm. Los cangrejos se hacen a 7 cm de la línea (al girar a ±90° las ruedas se corren) y después avanza
-derecho hasta la distancia del piso. Volver a tocarla cada N cangrejos: ascensor.retocar_cada.
+LA LÍNEA DEL ÁRBOL se toca al llegar (despacio, sin seguir de largo: el IR está junto a la rueda) y el robot se
+despega 2,5 cm. Los cangrejos se hacen a 7 cm de la línea (al girar a ±90° las ruedas se corren). Para AGARRAR, el
+robot vuelve a tocar la línea y queda ahí (ascensor.tocar_para_agarrar), como se calibraron las poses del brazo de
+cada piso (python3 -m tools.calibrar_cosecha pisos: altura, pose retraída y adelantada); un piso con retroceso_* se
+agarra a esa distancia de la línea, por odometría. Volver a tocarla cada N cangrejos: ascensor.retocar_cada.
     python3 -m tools.ascensor --auto --boton enter     # la ronda completa sola (como la tecla r)
 
 TECLAS (en la terminal, también por SSH; la foto se ve en la pantalla HDMI):
@@ -23,14 +25,16 @@ TECLAS (en la terminal, también por SSH; la foto se ve en la pantalla HDMI):
   a  ACERCARSE: (LiDAR) se cuadra y se centra frente al pie, va a la distancia de la foto, saca la foto si no hay,
      y avanza hasta que los IR delanteros tocan la línea del árbol (se endereza con ella)
   1 2 3  piso BAJA / MEDIA / ALTA            ← →  columna (0 = la de más a la izquierda en la foto)
-  p  PISO: se aleja de la línea lo de ese piso, cangrejo hasta tener la columna delante del brazo y el brazo SUBE
-     al piso con la garra abierta, unos cm antes de la pelota (aproximación)
-  e  ENTRAR hasta la pelota     c  CERRAR la garra (dice si tomó algo)     s  SACAR (sube y retrocede)
+  p  PISO: cangrejo hasta tener la columna delante del brazo, toca la línea y el brazo SUBE al piso con la garra
+     abierta: pose RETRAÍDA (unos cm antes de la pelota)
+  e  ENTRAR hasta la pelota (pose ADELANTADA)   c  CERRAR la garra (dice si tomó algo)   s  SACAR (sube y retrocede)
   d  DEPOSITAR en el robot (maduro / sobremaduro según la foto) y el brazo a esperar
   g  AGARRE COMPLETO de la columna elegida (p + e + c + s + d)
   r  RONDA: foto, acercarse y todas las pelotas en orden (maduros del medio, maduros de abajo, sobremaduros...)
-  ↑ ↓  altura del piso ±5 mm    i k  hacia el árbol / hacia atrás ±5 mm    j l  izquierda / derecha ±5 mm
-  + -  aproximación ±1 cm       (si el brazo está en el piso o en la pelota, se vuelve a mover con el ajuste)
+  ↑ ↓  altura del piso ±5 mm    j l  izquierda / derecha ±5 mm
+  i k  hacia el árbol / hacia atrás ±5 mm la pose donde está el brazo (la retraída si está en el piso, si no la
+       adelantada)                 + -  la retraída 1 cm más lejos / más cerca de la pelota
+       (si el brazo está en el piso o en la pelota, se vuelve a mover con el ajuste)
   t  GUARDAR los ajustes en robot_local.json    h  brazo a esperar    v  estado    ?  ayuda
   ESPACIO  PARAR todo           q  salir
 """
@@ -83,6 +87,7 @@ class Ascensor:
         self.arbol_odo = None        # cara del árbol (centro, normal hacia el árbol) en el marco de la odometría
         self.x_linea = None          # x de la cara (en el robot) con los IR delanteros sobre la línea
         self.linea_vista = False     # False: x_linea es la del reglamento, no se tocó la línea
+        self.en_linea = False        # los IR delanteros tocando la línea AHORA (se tocó y la base no se movió)
         self.pisos = None            # última foto analizada (vision/pisos.py)
         self.img = None              # última imagen para la pantalla
         self.fila, self.col = "media", 2
@@ -118,10 +123,36 @@ class Ascensor:
     def fijar_arbol(self, x_cara, y_centro, ang=0.0):
         self.arbol_odo = componer(self.pose_odo(), np.array([x_cara, y_centro, ang]))
 
+    def prof(self, fila):
+        """Dónde se cierra la garra respecto de la cara del árbol (marco del árbol, − = delante de la cara). Con la
+        pose calibrada (tools.calibrar_cosecha, los IR sobre la línea): su x en el robot menos donde quedó la cara al
+        tocar la línea. Sin calibrar: la pelota grano_delante_m delante de la cara (+ dx)."""
+        ad = getattr(self.ca, f"x_adelantado_{fila}_m")
+        if ad is None:
+            return -self.ca.grano_delante_m + self.aj(fila, "dx")
+        return float(ad) - (self.x_linea if self.x_linea is not None else self.x_linea_nominal)
+
+    def x_garra(self, fila, pose="adelantado"):
+        """x de la garra en el robot con los IR delanteros sobre la línea: ADELANTADA (lista para cerrar) o
+        RETRAÍDA (abierta, antes de entrar)."""
+        ad = self.prof(fila) + (self.x_linea if self.x_linea is not None else self.x_linea_nominal)
+        if pose == "adelantado":
+            return ad
+        re = getattr(self.ca, f"x_retraido_{fila}_m")
+        return float(re) if re is not None else ad - self.cfg.brazo.aproximacion_m
+
+    def aprox(self, fila):
+        """De la pose retraída a la adelantada (cuánto entra la garra)."""
+        return max(0.0, self.x_garra(fila) - self.x_garra(fila, "retraido"))
+
+    def pitch(self, fila):
+        v = getattr(self.ca, f"pitch_{fila}_deg")
+        return None if v is None else float(v)
+
     def punto(self, fila, col):
-        """Centro de la pelota (fila, col) en el robot (x adelante, y izquierda, z desde el suelo), con los ajustes."""
+        """Donde se cierra la garra en la pelota (fila, col), en el robot (x adelante, y izquierda, z desde el suelo)."""
         rel = self.arbol_rel()
-        loc = np.array([[-self.ca.grano_delante_m + self.aj(fila, "dx"), COL_Y[fila][col] + self.aj(fila, "dy")]])
+        loc = np.array([[self.prof(fila), COL_Y[fila][col] + self.aj(fila, "dy")]])
         xy = transformar(loc, rel)[0]
         return np.array([xy[0], xy[1], self.aj(fila, "z")])
 
@@ -143,6 +174,7 @@ class Ascensor:
             return
         self.revisar()
         self.plegar()
+        self.en_linea = False
         vel = self.ca.vel_mm_s * (0.6 if abs(m) < 0.10 else 1.0)
         self._ok(self.mega.avanzar(1000 * m, vel, timeout=1000 * abs(m) / vel + 8), que)
         time.sleep(0.2)
@@ -152,6 +184,7 @@ class Ascensor:
             return
         self.revisar()
         self.plegar()
+        self.en_linea = False
         vel = self.ca.vel_mm_s
         self._ok(self.mega.cangrejo(90 if dy > 0 else -90, 1000 * abs(dy), vel, timeout=1000 * abs(dy) / vel + 10), que)
         time.sleep(0.3)
@@ -161,6 +194,7 @@ class Ascensor:
             return
         self.revisar()
         self.plegar()
+        self.en_linea = False
         self._ok(self.mega.girar(math.degrees(rad), timeout=10), que)
         time.sleep(0.3)
 
@@ -194,11 +228,11 @@ class Ascensor:
             return float(np.median(xc)), centro, ang, ancho
         return None
 
-    def tocar_linea(self, max_m):
+    def tocar_linea(self, max_m, despegar=True):
         """Avanza DESPACIO hasta que un IR delantero toca el borde de la línea y NO sigue (está junto a la rueda: la
         rueda queda en el borde de la cinta). Se endereza con toques cortos (Bordes.tocar: retrocede 2,5 cm, gira
-        hacia el sensor que faltó y vuelve a tocar, por bisección), anota dónde está el árbol y se despega
-        `despegue_m`. True si la tocó."""
+        hacia el sensor que faltó y vuelve a tocar, por bisección), anota dónde está el árbol y, si `despegar`, se
+        despega `despegue_m` (si no, queda tocándola: así se agarra). True si la tocó."""
         from cafebot.navegacion.bordes import Bordes, Detenido
         if max_m < 0.01:
             self.log(f"  (la línea debería estar a {100 * max_m:.1f} cm: no avanzo)")
@@ -216,16 +250,19 @@ class Ascensor:
         if res is None:
             return False
         y = self.arbol_rel()[1] if self.arbol_odo is not None else 0.0
-        self.x_linea = self.sx + self.ca.sobrepaso_m + self.ca.linea_a_cara_m
+        self.x_linea = self.sx - self.ca.sobrepaso_m + self.ca.linea_a_cara_m     # el IR entró sobrepaso en la línea
         self.linea_vista = True
         self.fijar_arbol(self.x_linea, y, 0.0)
         self.fijar_rumbo_ref()
         self.log(f"  línea: tocada" + (f", estaba torcido {res.giro_deg:+.1f}°" if res.giro_deg else ", derecho")
-                 + f"; me despego {100 * self.ca.despegue_m:.1f} cm")
-        self.avanzar(-self.ca.despegue_m, "despegarse de la línea")
+                 + (f"; me despego {100 * self.ca.despegue_m:.1f} cm" if despegar else "; me quedo en ella"))
+        if despegar:
+            self.avanzar(-self.ca.despegue_m, "despegarse de la línea")
+        else:
+            self.en_linea = True
         return True
 
-    def retocar_linea(self):
+    def retocar_linea(self, despegar=True):
         if not self.usar_linea:
             return False
         rel = self.arbol_rel()
@@ -234,7 +271,7 @@ class Ascensor:
             self.avanzar(-(0.045 - d), "atrás antes de la línea")
             d = 0.045
         rel = self.arbol_rel()
-        if not self.tocar_linea(min(d + 0.05, rel[0] - self.medio - FRENTE_MIN_M)):
+        if not self.tocar_linea(min(d + 0.05, rel[0] - self.medio - FRENTE_MIN_M), despegar):
             self.log("  no vi la línea con los IR delanteros (¿calibrados?): sigo con la odometría")
             return False
         return True
@@ -425,15 +462,22 @@ class Ascensor:
             if abs(dy) > max(0.01, self.ca.cangrejo_min_m):          # quedó corrido (la IMU o el LiDAR lo vieron)
                 self.cangrejo(dy, f"corrección de lado hasta {fila}-{col}")
         if self.x_linea is not None:
-            self.avanzar(self.arbol_rel()[0] - (self.x_linea + self.aj(fila, "retroceso")), f"distancia del piso {fila}")
-        self.corregir_rumbo()
+            r = self.aj(fila, "retroceso")
+            if self.usar_linea and self.ca.tocar_para_agarrar and r < 0.002:
+                # como se calibraron las poses: los IR delanteros tocando la línea (y derecho con ella)
+                if not self.en_linea and not self.retocar_linea(despegar=False):
+                    self.avanzar(self.arbol_rel()[0] - self.x_linea, f"a la línea para el piso {fila} (odometría)")
+            else:
+                self.avanzar(self.arbol_rel()[0] - (self.x_linea + r), f"distancia del piso {fila}")
+        if not self.en_linea:
+            self.corregir_rumbo()
         return self.punto(fila, col)
 
     def _plan(self, p):
-        plan = self.brazo.plan_agarre(p)
+        plan = self.brazo.plan_agarre(p, self.aprox(self.fila), self.pitch(self.fila))
         if plan is None:
-            raise RuntimeError(f"el brazo no alcanza ({100 * p[0]:.1f}, {100 * p[1]:+.1f}, {100 * p[2]:.1f}) cm: probar "
-                               f"otro retroceso del piso o la altura")
+            raise RuntimeError(f"el brazo no alcanza ({100 * p[0]:.1f}, {100 * p[1]:+.1f}, {100 * p[2]:.1f}) cm: calibrar "
+                               f"las poses del piso (python3 -m tools.calibrar_cosecha pisos) o probar otra altura")
         self.plan, self.p = plan, p
         return plan
 
@@ -459,8 +503,8 @@ class Ascensor:
         self._plan(p)
         self.brazo.garra(abrir=True)
         self.ir_paso(0)
-        self.log(f"  brazo en el piso {self.fila}, garra abierta, {100 * self.cfg.brazo.aproximacion_m:.0f} cm antes "
-                 "de la pelota")
+        self.log(f"  brazo en el piso {self.fila}, garra abierta, {100 * self.aprox(self.fila):.1f} cm antes de la "
+                 "pelota (pose retraída)")
 
     def paso_entrar(self):
         self.sin_brazo()
@@ -506,12 +550,13 @@ class Ascensor:
         if self.brazo is None:
             self.log("  (sin brazo: solo me alineé)")
             return False
-        if not self.brazo.alcanzable(p):
-            self.log("  el brazo no alcanza: probar otro retroceso del piso o la altura")
+        a, g = self.aprox(fila), self.pitch(fila)
+        if not self.brazo.alcanzable(p, a, g):
+            self.log("  el brazo no alcanza: calibrar las poses del piso (python3 -m tools.calibrar_cosecha pisos)")
             return False
         self.revisar()
         self.brazo.parar.clear()
-        ok = self.brazo.recoger(p, cat)
+        ok = self.brazo.recoger(p, cat, aproximacion=a, pitch_deg=g)
         self.paso = None
         if ok:
             self.recogidos[cat] = self.recogidos.get(cat, 0) + 1
@@ -556,13 +601,23 @@ class Ascensor:
 
     # ------------------------------------------------------------------ ajustes en vivo
     def ajustar(self, que, delta):
-        if que == "aprox":
-            self.cfg.brazo.aproximacion_m = round(max(0.02, self.cfg.brazo.aproximacion_m + delta), 3)
-            self.log(f"aproximación {100 * self.cfg.brazo.aproximacion_m:.0f} cm")
+        f = self.fila
+        if que == "aprox" or (que == "dx" and self.paso == 0):
+            # la pose RETRAÍDA: + aprox = más lejos de la pelota; i (dx +) con el brazo en ella = más cerca. Nunca a
+            # menos de brazo.r_min_m del eje de la base del brazo (plan_agarre la acortaría)
+            a_max = self.x_garra(f) - self.cfg.mision.brazo_x - self.cfg.brazo.r_min_m
+            a = min(a_max, max(0.015, self.aprox(f) + (delta if que == "aprox" else -delta)))
+            setattr(self.ca, f"x_retraido_{f}_m", round(self.x_garra(f) - a, 4))
+        elif que == "dx":                    # la pose ADELANTADA (la retraída no se mueve)
+            re = self.x_garra(f, "retraido")
+            ad = self.x_garra(f) + delta
+            setattr(self.ca, f"x_adelantado_{f}_m", round(ad, 4))
+            setattr(self.ca, f"x_retraido_{f}_m", round(min(re, ad - 0.015), 4))
         else:
-            self.poner(self.fila, que, self.aj(self.fila, que) + delta)
-            self.log(f"{self.fila}: z {100 * self.aj(self.fila, 'z'):.1f}  dx {100 * self.aj(self.fila, 'dx'):+.1f}  "
-                     f"dy {100 * self.aj(self.fila, 'dy'):+.1f} cm")
+            self.poner(f, que, self.aj(f, que) + delta)
+        self.log(f"{f}: altura {100 * self.aj(f, 'z'):.1f} | garra adelantada x {100 * self.x_garra(f):.1f}, retraída x "
+                 f"{100 * self.x_garra(f, 'retraido'):.1f} (entra {100 * self.aprox(f):.1f}) | lado "
+                 f"{100 * self.aj(f, 'dy'):+.1f} cm")
         if self.brazo is not None and self.paso in (0, 2) and self.arbol_odo is not None:
             i = self.paso
             self._plan(self.punto(self.fila, self.col))
@@ -570,6 +625,10 @@ class Ascensor:
 
     def guardar(self):
         claves = {f"{q}_{f}_m": self.aj(f, q) for f in ("baja", "media", "alta") for q in ("z", "dx", "dy", "retroceso")}
+        for f in ("baja", "media", "alta"):
+            for k in (f"x_adelantado_{f}_m", f"x_retraido_{f}_m", f"pitch_{f}_deg"):
+                if getattr(self.ca, k) is not None:
+                    claves[k] = getattr(self.ca, k)
         claves.update(linea_a_cara_m=self.ca.linea_a_cara_m, grano_delante_m=self.ca.grano_delante_m)
         ruta = guardar_local("ascensor", claves)
         guardar_local("brazo", {"aproximacion_m": self.cfg.brazo.aproximacion_m})
@@ -587,7 +646,11 @@ class Ascensor:
             t.append(f"| pelota x {100 * q[0]:.1f} y {100 * q[1]:+.1f} z {100 * q[2]:.1f} cm")
         else:
             t.append("| árbol: no sé dónde (a)")
-        t.append(f"| línea {'tocada' if self.linea_vista else 'supuesta' if self.x_linea is not None else 'no'} | brazo "
+        g = self.pitch(self.fila)
+        t.append(f"| garra con los IR en la línea: adelantada x {100 * self.x_garra(self.fila):.1f}, entra "
+                 f"{100 * self.aprox(self.fila):.1f} cm, " + (f"{g:.0f}°" if g is not None else "inclinación de la IK")
+                 + ("" if getattr(self.ca, f"x_adelantado_{self.fila}_m") is not None else " (sin calibrar)"))
+        t.append(f"| línea {'TOCÁNDOLA' if self.en_linea else 'tocada' if self.linea_vista else 'supuesta' if self.x_linea is not None else 'no'} | brazo "
                  f"{['en el piso', 'entrando', 'en la pelota', 'arriba', 'retirado'][self.paso] if self.paso is not None else 'esperando'}")
         self.log(" ".join(t))
 
