@@ -107,7 +107,9 @@ de subida de A (1600 con `ENCODER_X2`). Reductora 1:8.
    1. **`L 45 200`** (no `L 90`: a ±90° una rueda girada a la izquierda y una girada a la derecha quedan en la misma línea y no se distinguen a simple vista). Vistas desde arriba (frente arriba), las 4 ruedas deben quedar **paralelas, con la punta delantera hacia la izquierda** ( \\ \\ ). La que quede en la otra diagonal ( / ) → cambiar su signo en `SIGNO_SERVO`. Si una rueda no responde como se espera, `Y i 1200` mueve solo el servo i (0 = M1 … 3 = M4) para comprobar qué rueda mueve cada pin. *No* usar `W 90` para esto.
    2. Anotar en `ESQUINA_X` / `ESQUINA_Y` dónde está físicamente M1…M4 (delantera/trasera, izquierda/derecha).
    3. `W 90`: las ruedas forman un **rombo** (cada una perpendicular a la línea hacia el centro) y el robot gira a la **izquierda** (antihorario visto desde arriba). Si quedan en X apuntando al centro → `SIGNO_GIRO -1`.
-4. **Calibrar los servos de dirección (HS-311) en microsegundos** — corrige el desfase del estriado sin desarmar nada:
+4. **Calibrar los servos de dirección (HS-311) en microsegundos** — corrige el desfase del estriado sin desarmar nada.
+   Con teclado (6 nov): `python3 -m tools.direccion` (prueba +45°, invierte el sentido de una rueda con x, ajusta
+   −90/0/+90 con las flechas y guarda en la EEPROM; sin subir firmware). A mano:
    - `Y` muestra la tabla actual (µs para -90°, 0°, +90° de M1..M4).
    - Para cada rueda `i` (0 = M1 … 3 = M4): `Y i 1450`, `Y i 1460`… hasta que quede **paralela al chasis** (usar una regla apoyada en el costado). Anotar el valor y fijarlo: `YS i 0 <us>`.
    - Igual para +90° (`YS i 1 <us>`) y -90° (`YS i -1 <us>`), con una escuadra contra el chasis.
