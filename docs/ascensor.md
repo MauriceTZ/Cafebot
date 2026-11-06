@@ -31,6 +31,19 @@ Para cada pelota:
 
 La fila alta no se alcanza con la base del brazo a ~35 cm.
 
+## La línea del árbol sin pisarla (6 nov)
+Los IR delanteros están junto a las ruedas: cuando ven la línea, la rueda ya está en su borde. Por eso:
+- La línea se toca **una vez** al llegar, despacio y **sin seguir de largo** (`Bordes.tocar`: al primer toque
+  retrocede 2,5 cm, gira hacia el sensor que faltó y vuelve a tocar). Antes seguía hasta 6 cm buscando el segundo
+  sensor (las ruedas entraban en la cinta). Después se despega `despegue_m` (2,5 cm).
+- Los **cangrejos** se hacen con los IR a `margen_cangrejo_m` (7 cm) de la línea: al girar a ±90° cada rueda se
+  corre por la L que la une a su servo. Después avanza **derecho** hasta la distancia del piso (`retroceso_*`).
+- El **rumbo** que el cangrejo le cambia a la base (las ruedas la arrastran al girar) lo corrige la IMU (`--imu`:
+  un giro de prueba de 6° le enseña el signo). Si hay LiDAR, corrige el lado.
+- Volver a tocar la línea cada N cangrejos: `retocar_cada` (0 = nunca).
+- Reglamento: reinicio solo por tocar las líneas del **perímetro** o de las **albercas** con las ruedas; la del
+  cultivo no está en esa lista (confirmar con los jueces).
+
 ## Prueba y error en el robot
 
 ```

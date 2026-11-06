@@ -321,7 +321,12 @@ class ConfigAscensor:
     prioridad: tuple = (("media", "MADURO"), ("baja", "MADURO"), ("media", "SOBREMADURO"), ("baja", "SOBREMADURO"))
     negros: bool = False               # buscar pelotas negras (oscuras sobre un soporte; una sombra se parece)
     cangrejo_min_m: float = 0.008      # correr el robot de lado solo si la pelota está más corrida que esto del brazo
-    linea_tras_cangrejo: bool = True   # después de cada cangrejo, volver a tocar la línea (rumbo y distancia)
+    # 6 nov: los IR están junto a las ruedas (ver la línea = la rueda en su borde) y al girar a ±90° para el cangrejo
+    # cada rueda se corre por la L que la une a su servo: con el robot pegado a la línea, las ruedas la pisaban.
+    margen_cangrejo_m: float = 0.07    # los cangrejos se hacen con los IR delanteros a esto (o más) de la línea
+    retocar_cada: int = 0              # volver a tocar la línea cada N cangrejos (0 = solo al llegar al árbol)
+    despegue_m: float = 0.025          # después de tocar la línea, retroceder esto (la rueda fuera de la cinta)
+    sobrepaso_m: float = 0.004         # cuánto entra el IR en la línea al frenar (despacio, en el primer toque)
     dist_foto_m: float = 0.55          # frente del robot -> cara del árbol para la foto
     vel_mm_s: float = 100.0
 

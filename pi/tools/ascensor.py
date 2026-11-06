@@ -11,6 +11,11 @@ entra derecho, cierra, saca la pelota y la deja en el robot.
                                                        # el frente a 0,55 m (huincha)
     python3 -m tools.ascensor --sin-brazo              # probar foto + acercamiento + cangrejos
     python3 -m tools.ascensor --sin-lidar --dist 0.55 --sin-linea   # en casa: sin LiDAR ni cinta en el piso
+    ... --imu                                          # el rumbo con la IMU (lo que el cangrejo gira la base)
+
+LA LÍNEA DEL ÁRBOL se toca UNA vez al llegar (despacio, sin seguir de largo: el IR está junto a la rueda) y el robot
+se despega 2,5 cm. Los cangrejos se hacen a 7 cm de la línea (al girar a ±90° las ruedas se corren) y después avanza
+derecho hasta la distancia del piso. Volver a tocarla cada N cangrejos: ascensor.retocar_cada.
     python3 -m tools.ascensor --auto --boton enter     # la ronda completa sola (como la tecla r)
 
 TECLAS (en la terminal, también por SSH; la foto se ve en la pantalla HDMI):
@@ -43,7 +48,7 @@ import numpy as np
 
 from cafebot.config import cargar, guardar_local
 from cafebot.mundo import cancha
-from cafebot.navegacion.geometria import componer, relativo, transformar
+from cafebot.navegacion.geometria import componer, envolver, relativo, transformar
 
 FILAS_TECLA = {"1": "baja", "2": "media", "3": "alta"}
 COL_Y = {}                                   # fila -> {col: lado respecto del centro del árbol (+ = izquierda)}
@@ -62,11 +67,15 @@ class Cancelado(Exception):
 
 class Ascensor:
     def __init__(self, cfg, mega, lidar=None, brazo=None, cam=None, pantalla=None, dist_inicial=None, log=print,
-                 usar_linea=True):
+                 usar_linea=True, gyro=None):
         self.cfg, self.ca, self.cc = cfg, cfg.ascensor, cfg.camara
         self.mega, self.lidar, self.brazo, self.cam, self.pantalla = mega, lidar, brazo, cam, pantalla
         self.dist_inicial = dist_inicial
         self.usar_linea = usar_linea
+        self.gyro = gyro             # IMU: el rumbo que la odometría no ve (las ruedas arrastran la base al girar)
+        self.imu_signo = 0
+        self.rumbo_ref = None        # (yaw de la IMU, rumbo de la odometría) con el robot cuadrado con el árbol
+        self.n_cangrejos = 0
         self.log = log
         self.medio = cfg.geometria.largo / 2
         self.sx = 0.5 * (cfg.ir.posiciones[0][0] + cfg.ir.posiciones[1][0])       # x de los IR delanteros
@@ -186,23 +195,35 @@ class Ascensor:
         return None
 
     def tocar_linea(self, max_m):
-        """Avanza hasta que DI y DD tocan la línea y se endereza con ella. Distancia centro -> línea, o None."""
-        from cafebot.navegacion.bordes import Bordes
+        """Avanza DESPACIO hasta que un IR delantero toca el borde de la línea y NO sigue (está junto a la rueda: la
+        rueda queda en el borde de la cinta). Se endereza con toques cortos (Bordes.tocar: retrocede 2,5 cm, gira
+        hacia el sensor que faltó y vuelve a tocar, por bisección), anota dónde está el árbol y se despega
+        `despegue_m`. True si la tocó."""
+        from cafebot.navegacion.bordes import Bordes, Detenido
         if max_m < 0.01:
             self.log(f"  (la línea debería estar a {100 * max_m:.1f} cm: no avanzo)")
-            return None
+            return False
         self.revisar()
         self.plegar()
         b = Bordes(self.mega, self.cfg, log=self.log)
         try:
-            med = b.medir_adelante(1000 * max_m, vel=80 if max_m > 0.10 else 50)
+            res = b.tocar("adelante", 1000 * max_m, 50 if max_m < 0.10 else 70, nombre="línea del árbol",
+                          enderezar=True, despegar_mm=25, tol_deg=0.7)
+        except Detenido:
+            res = None
         finally:
             b.cerrar()
-        if med is None:
-            return None
-        self.log(f"  línea: a {100 * med.dist_m:.1f} cm del centro, torcido {math.degrees(med.angulo):+.1f}°")
-        self.girar(-med.angulo, "enderezar con la línea")
-        return med.dist_m
+        if res is None:
+            return False
+        y = self.arbol_rel()[1] if self.arbol_odo is not None else 0.0
+        self.x_linea = self.sx + self.ca.sobrepaso_m + self.ca.linea_a_cara_m
+        self.linea_vista = True
+        self.fijar_arbol(self.x_linea, y, 0.0)
+        self.fijar_rumbo_ref()
+        self.log(f"  línea: tocada" + (f", estaba torcido {res.giro_deg:+.1f}°" if res.giro_deg else ", derecho")
+                 + f"; me despego {100 * self.ca.despegue_m:.1f} cm")
+        self.avanzar(-self.ca.despegue_m, "despegarse de la línea")
+        return True
 
     def retocar_linea(self):
         if not self.usar_linea:
@@ -213,15 +234,61 @@ class Ascensor:
             self.avanzar(-(0.045 - d), "atrás antes de la línea")
             d = 0.045
         rel = self.arbol_rel()
-        dist = self.tocar_linea(min(d + 0.06, rel[0] - self.medio - FRENTE_MIN_M))
-        if dist is None:
+        if not self.tocar_linea(min(d + 0.05, rel[0] - self.medio - FRENTE_MIN_M)):
             self.log("  no vi la línea con los IR delanteros (¿calibrados?): sigo con la odometría")
             return False
-        y = self.arbol_rel()[1]
-        self.x_linea = dist + self.ca.linea_a_cara_m
-        self.linea_vista = True
-        self.fijar_arbol(self.x_linea, y, 0.0)
         return True
+
+    # ------------------------------------------------------------------ rumbo con la IMU
+    def _yaw(self):
+        if self.gyro is None:
+            return None
+        leer = getattr(self.gyro, "leer_yaw", None)
+        return leer() if leer is not None else self.gyro.yaw
+
+    def aprender_signo_imu(self):
+        """El signo de la IMU respecto del rumbo del Mega: un giro de prueba de 6° y vuelta."""
+        if self.gyro is None or self.imu_signo:
+            return
+        y0, th0 = self._yaw(), self.pose_odo()[2]
+        self.girar(math.radians(6), "prueba de la IMU")
+        y1, th1 = self._yaw(), self.pose_odo()[2]
+        self.girar(math.radians(-6), "prueba de la IMU")
+        if y0 is None or y1 is None:
+            self.log("  IMU: sin lectura (¿calibrando?): sigo sin ella")
+            return
+        d_imu, d_odo = envolver(y1 - y0), envolver(th1 - th0)
+        if abs(d_imu) > 0.5 * abs(d_odo) > 0:
+            self.imu_signo = 1 if d_imu * d_odo > 0 else -1
+            self.log(f"  IMU: giro de prueba {math.degrees(d_odo):+.1f}° -> la IMU vio {math.degrees(d_imu):+.1f}° "
+                     f"(signo {self.imu_signo:+d})")
+        else:
+            self.log(f"  IMU: casi no vio el giro de prueba ({math.degrees(d_imu):+.1f}°): sigo sin ella")
+
+    def fijar_rumbo_ref(self):
+        y = self._yaw()
+        self.rumbo_ref = (y, self.pose_odo()[2]) if (y is not None and self.imu_signo) else None
+
+    def corregir_rumbo(self, tol_deg=0.6):
+        """Lo que la base giró sin que la odometría lo viera (arrastre de las ruedas al cambiar de postura): con la
+        IMU se corrige dónde está el árbol y el robot vuelve a quedar cuadrado con él."""
+        if self.rumbo_ref is None or self.arbol_odo is None:
+            return
+        y = self._yaw()
+        if y is None:
+            return
+        real = self.imu_signo * envolver(y - self.rumbo_ref[0])
+        odo = envolver(self.pose_odo()[2] - self.rumbo_ref[1])
+        no_visto = envolver(real - odo)
+        rel = self.arbol_rel()
+        if abs(no_visto) > math.radians(0.3):
+            c, s_ = math.cos(-no_visto), math.sin(-no_visto)
+            rel = np.array([c * rel[0] - s_ * rel[1], s_ * rel[0] + c * rel[1], envolver(rel[2] - no_visto)])
+            self.arbol_odo = componer(self.pose_odo(), rel)
+            self.rumbo_ref = (self.rumbo_ref[0], envolver(self.rumbo_ref[1] - no_visto))
+            self.log(f"  IMU: la base giró {math.degrees(no_visto):+.1f}° sin que la odometría lo viera")
+        if abs(rel[2]) > math.radians(tol_deg):
+            self.girar(rel[2], "cuadrarse con el árbol (IMU)")
 
     def lidar_lado(self, max_dif=0.06):
         """Corrige el lado del árbol con el LiDAR (más fino que la odometría después de un cangrejo)."""
@@ -277,6 +344,7 @@ class Ascensor:
     def acercarse(self):
         """Cuadrarse y centrarse frente al pie (LiDAR), foto a la distancia de la foto y avanzar hasta la línea."""
         cam_y = self.cc.y
+        self.aprender_signo_imu()
         m = self.medir_lidar(self.arbol_rel()[:2] if self.arbol_odo is not None else None)
         if m is not None:
             x_cara, yc, ang, ancho = m
@@ -307,6 +375,7 @@ class Ascensor:
         # línea
         if not self.usar_linea:
             self.x_linea = self.x_linea_nominal
+            self.fijar_rumbo_ref()                     # se supone cuadrado con el árbol (o lo cuadró el LiDAR)
             self.log("sin línea (--sin-linea): la distancia al árbol queda por " + ("LiDAR y " if self.lidar else "")
                      + "odometría")
             self.lidar_lado()
@@ -317,38 +386,47 @@ class Ascensor:
             self.avanzar(-(0.045 - d), "atrás antes de la línea")
             d = 0.045
         rel = self.arbol_rel()
-        dist = self.tocar_linea(min(d + 0.06, rel[0] - self.medio - FRENTE_MIN_M))
-        if dist is None:
+        if not self.tocar_linea(min(d + 0.06, rel[0] - self.medio - FRENTE_MIN_M)):
             self.log("NO vi la línea del árbol con los IR delanteros (revisar con  python3 -m tools.ir  que DI y DD la "
                      "vean en este piso; sin cinta: --sin-linea). La distancia queda por "
                      + ("LiDAR y " if self.lidar else "") + "odometría")
             self.x_linea = self.x_linea_nominal
+            self.fijar_rumbo_ref()
             return False
-        y = self.arbol_rel()[1]
-        self.x_linea = dist + self.ca.linea_a_cara_m
-        self.linea_vista = True
-        self.fijar_arbol(self.x_linea, y, 0.0)
-        self.log(f"en la línea: la cara del árbol a {100 * (self.x_linea - self.medio):.1f} cm del frente")
+        self.log(f"en la línea: la cara del árbol a {100 * (self.x_linea - self.medio):.1f} cm del frente (con los IR "
+                 f"sobre la línea); quedé {100 * self.ca.despegue_m:.1f} cm atrás")
         self.lidar_lado()
         return True
 
     # ------------------------------------------------------------------ el ascensor
     def alinear(self, fila, col):
-        """El robot a la distancia de ese piso y con la pelota DELANTE del brazo (cangrejo). Devuelve el punto."""
+        """El robot con la pelota DELANTE del brazo (cangrejo) y a la distancia de ese piso. Los cangrejos se hacen
+        con los IR delanteros a `margen_cangrejo_m` (o más) de la línea: al girar a ±90° las ruedas se corren y,
+        pegadas a la línea, la pisaban. Después avanza derecho (ruedas rectas) hasta la distancia del piso."""
         if self.arbol_odo is None:
             raise RuntimeError("no sé dónde está el árbol: primero a (acercarse)")
-        if self.x_linea is not None:
-            self.avanzar(self.arbol_rel()[0] - (self.x_linea + self.aj(fila, "retroceso")), f"distancia del piso {fila}")
         p = self.punto(fila, col)
         dy = p[1] - self.cfg.mision.brazo_y
         if abs(dy) > self.ca.cangrejo_min_m:
+            if self.x_linea is not None:
+                x_cangrejo = self.x_linea + max(self.aj(fila, "retroceso"), self.ca.margen_cangrejo_m)
+                rel = self.arbol_rel()
+                if rel[0] < x_cangrejo:
+                    self.avanzar(rel[0] - x_cangrejo, "atrás antes del cangrejo")
             self.log(f"  cangrejo {100 * dy:+.1f} cm hasta {fila}-{col}")
             self.cangrejo(dy, f"cangrejo hasta {fila}-{col}")
-            if self.ca.linea_tras_cangrejo and self.x_linea is not None and abs(dy) > 0.03:
-                if self.retocar_linea():
-                    self.avanzar(self.arbol_rel()[0] - (self.x_linea + self.aj(fila, "retroceso")),
-                                 f"distancia del piso {fila}")
+            self.n_cangrejos += 1
+            self.corregir_rumbo()
+            if (self.ca.retocar_cada and self.n_cangrejos % self.ca.retocar_cada == 0 and self.x_linea is not None):
+                self.retocar_linea()
             self.lidar_lado()
+            p = self.punto(fila, col)
+            dy = p[1] - self.cfg.mision.brazo_y
+            if abs(dy) > max(0.01, self.ca.cangrejo_min_m):          # quedó corrido (la IMU o el LiDAR lo vieron)
+                self.cangrejo(dy, f"corrección de lado hasta {fila}-{col}")
+        if self.x_linea is not None:
+            self.avanzar(self.arbol_rel()[0] - (self.x_linea + self.aj(fila, "retroceso")), f"distancia del piso {fila}")
+        self.corregir_rumbo()
         return self.punto(fila, col)
 
     def _plan(self, p):
@@ -644,6 +722,7 @@ def main():
                     help="frente del robot -> pie del árbol al partir (m), si no hay LiDAR (robot centrado y derecho)")
     ap.add_argument("--sin-linea", action="store_true",
                     help="no buscar la línea negra con los IR (en casa, sin cinta): la distancia por LiDAR / odometría")
+    ap.add_argument("--imu", action="store_true", help="usar la IMU para el rumbo (lo que el cangrejo gira la base)")
     ap.add_argument("--auto", action="store_true", help="la ronda completa sola al apretar el botón")
     ap.add_argument("--boton", choices=("enter", "gpio"), default="enter")
     ap.add_argument("--max-granos", type=int, default=0)
@@ -705,8 +784,19 @@ def main():
         except Exception as e:
             print(f"(sin ventana: {e}) — las fotos quedan en pi/capturas/")
 
-    asc = Ascensor(cfg, mega, lidar, brazo, cam, pantalla, a.dist, usar_linea=not a.sin_linea)
+    gyro = None
+    if a.imu:
+        try:
+            from cafebot.drivers.imu import Giroscopio
+            gyro = Giroscopio(cfg.puertos.imu_bus, cfg.puertos.imu_dir)
+            print(f"IMU: {gyro.modelo} (calibrando: NO mover el robot 2 s)")
+            time.sleep(2.5)
+        except Exception as e:
+            print(f"[IMU] {e}: sigo sin IMU")
+            gyro = None
+    asc = Ascensor(cfg, mega, lidar, brazo, cam, pantalla, a.dist, usar_linea=not a.sin_linea, gyro=gyro)
     print(f"LiDAR {'sí' if lidar else 'NO'} | brazo {'sí' if brazo else 'NO'} | cámara {'sí' if cam else 'NO'} | "
+          f"IMU {'sí' if gyro else 'NO'} | línea {'NO' if a.sin_linea else 'sí'} | "
           f"pisos {cfg.ascensor.pisos} | aproximación {100 * cfg.brazo.aproximacion_m:.0f} cm")
     try:
         if a.auto:
