@@ -23,14 +23,20 @@ PID_HIJO="/tmp/cafebot-bucle.hijo"    # el programa que está corriendo ahora
 if [ "${1:-}" = "--parar" ]; then
     touch "$PARAR"
     if [ -f "$PID_HIJO" ] && kill -0 "$(cat "$PID_HIJO")" 2>/dev/null; then
-        kill -INT "$(cat "$PID_HIJO")" && echo "El programa en curso se detiene (como con Ctrl+C)."
+        HIJO="$(cat "$PID_HIJO")"
+        kill -INT "$HIJO" && echo "El programa en curso se detiene (como con Ctrl+C)..."
+        # si en 10 s no terminó (colgado, o ignora Ctrl+C), TERM; y a los 5 s más, KILL
+        for i in $(seq 1 15); do
+            sleep 1
+            kill -0 "$HIJO" 2>/dev/null || break
+            [ "$i" = 10 ] && echo "No se detuvo con Ctrl+C: TERM" && kill -TERM "$HIJO" 2>/dev/null
+        done
+        kill -0 "$HIJO" 2>/dev/null && echo "Tampoco con TERM: KILL" && kill -KILL "$HIJO" 2>/dev/null
     fi
     if [ -f "$PID_BUCLE" ] && kill -0 "$(cat "$PID_BUCLE")" 2>/dev/null; then
         kill -TERM "$(cat "$PID_BUCLE")"
-        echo "El bucle termina: no vuelve a lanzar el programa."
-    else
-        echo "No hay un bucle corriendo."
     fi
+    echo "El bucle termina: no vuelve a lanzar el programa."
     exit 0
 fi
 
@@ -78,7 +84,10 @@ while :; do
     t0=$(date +%s)
     # el programa en primer plano (lee el teclado si lo necesita); tee -i: no se corta con Ctrl+C, así guarda
     # también lo que el programa imprime al detenerse
-    ( echo "$BASHPID" > "$PID_HIJO"; exec "${CMD[@]}" ) 2>&1 | tee -i "$LOG"
+    # (el envoltorio de python deja Ctrl+C con su efecto normal: si el bucle se lanzó con & desde un script, el
+    # programa heredaría Ctrl+C ignorado y no se podría detener ordenado)
+    ( echo "$BASHPID" > "$PID_HIJO"
+      exec python3 -c 'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' "${CMD[@]}" ) 2>&1 | tee -i "$LOG"
     codigo=${PIPESTATUS[0]}
     rm -f "$PID_HIJO"
     dur=$(( $(date +%s) - t0 ))
