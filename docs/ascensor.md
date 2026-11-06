@@ -79,6 +79,23 @@ Las demás teclas:
 - **+ / -** cambia la aproximación;
 - **q** sale.
 
+## Calibrar alturas y canastas sin mover la base (`tools.calibrar_cosecha`)
+```
+python3 -m tools.calibrar_cosecha pisos      # alturas de cada piso (y profundidad / lado), sección ascensor
+python3 -m tools.calibrar_cosecha canastas   # posturas del brazo sobre cada canasta interna (perfil del brazo)
+```
+**Pisos:**
+1. Poner el robot derecho frente al árbol, con el frente a la distancia que indica cada piso (la misma de
+   `tools.ascensor`) y la base del brazo frente a una pelota.
+2. **1 2 3** lleva el brazo al piso. Se corrige con **↑↓** (altura) y **← →** (lado). **e** entra y **i k** corrige
+   la profundidad. **c** cierra y **t** guarda.
+
+**Canastas:**
+1. **m / n** llevan el brazo a la canasta de maduros o de sobremaduros.
+2. **1..5** elige la articulación y **↑↓** la mueve ±2° (**[ ]** ±10°). También se puede llevar a mano: **x** quita
+   el torque y otra **x** lo sostiene donde quedó.
+3. **p** prueba el camino completo (descanso, canasta, abrir, descanso) y **t** guarda.
+
 ## Qué medir con huincha
 - Del borde de la línea negra (el que está más cerca del robot) a la cara del árbol: `ascensor.linea_a_cara_m`.
 - Cuánto sobresale el centro de la pelota de la cara del árbol: `ascensor.grano_delante_m` (3,5 cm).
