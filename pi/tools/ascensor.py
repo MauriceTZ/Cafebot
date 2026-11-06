@@ -972,18 +972,37 @@ def main():
                         return
 
             def reiniciar():
-                """Todo de nuevo, como recién lanzado (lo del árbol, la foto, lo hecho)."""
-                asc.arbol_odo, asc.x_linea, asc.linea_vista, asc.en_linea, asc.pisos = None, None, False, False, None
-                asc.hechos = set()
-                asc.recogidos = {cancha.MADURO: 0, cancha.SOBREMADURO: 0}
+                """DESDE CERO, como recién lanzado: brazo recogido, ruedas derechas, odometría del Mega en (0, 0, 0°)
+                y nada guardado de la ronda anterior (árbol, línea, foto, rumbo, lo hecho y lo recogido)."""
+                asc.cancelar.clear()
                 if asc.brazo is not None:
                     asc.brazo.parar.clear()
+                    try:
+                        asc.brazo.garra(abrir=True, esperar=False)
+                        asc.brazo.ir_plegado(asc.cfg.brazo.postura_espera)
+                    except Exception as e:
+                        print(f"(brazo al reiniciar: {e})")
+                try:
+                    mega.parar()
+                    mega.comando("S")
+                    mega.fijar_pose(0, 0, 0)
+                except Exception as e:
+                    print(f"(Mega al reiniciar: {e})")
+                asc.arbol_odo, asc.x_linea, asc.linea_vista, asc.en_linea, asc.pisos = None, None, False, False, None
+                asc.fila, asc.col = "media", 2
+                asc.plan, asc.p, asc.paso = None, None, None
+                asc.hechos = set()
+                asc.recogidos = {cancha.MADURO: 0, cancha.SOBREMADURO: 0}
+                asc.n_cangrejos, asc.categorias = 0, None
+                asc.imu_signo, asc.rumbo_ref = 0, None
+                print(f">>> REINICIADO desde cero: odometría {mega.pose()}")
 
             # 1er toque = parte; 2º toque (durante la ronda) = para y vuelve a esperar el botón, sin cerrar el programa
             try:
                 while True:
-                    esperar_boton()
                     reiniciar()
+                    esperar_boton()
+                    mega.fijar_pose(0, 0, 0)          # la partida es (0, 0, 0°) justo al apretar
                     print(">>> ¡PARTE!")
                     asc.lanzar("ronda", ronda_auto)
                     t_ini = time.monotonic()
